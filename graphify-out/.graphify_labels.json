@@ -1,0 +1,16 @@
+{
+  "0": "devDependencies",
+  "1": "compilerOptions",
+  "2": "Design System Master File",
+  "3": "dependencies",
+  "4": "package.json",
+  "5": "20260712230000_initial_finance_schema.sql",
+  "6": "include",
+  "7": "BS Financeiro",
+  "8": "layout.tsx",
+  "9": "page.tsx",
+  "10": "eslint.config.mjs",
+  "11": "next.config.ts",
+  "12": "next-env.d.ts",
+  "13": "client.ts"
+}

@@ -1,0 +1,57 @@
+{
+  "eslint.config.mjs": {
+    "mtime": 1783908200.5690973,
+    "ast_hash": "be49123f18ea23c9b69f43dc27314b2e",
+    "semantic_hash": ""
+  },
+  "next-env.d.ts": {
+    "mtime": 1783908044.4501128,
+    "ast_hash": "ba64ff7d54714a8f64db89b1003207d8",
+    "semantic_hash": ""
+  },
+  "next.config.ts": {
+    "mtime": 1783907854.2618253,
+    "ast_hash": "43d7bef50acab35a98a80a7781bde096",
+    "semantic_hash": ""
+  },
+  "package.json": {
+    "mtime": 1783908122.58927,
+    "ast_hash": "377dc128ba24c7e9aec5727e1ec8104c",
+    "semantic_hash": ""
+  },
+  "src/app/layout.tsx": {
+    "mtime": 1783907854.2824328,
+    "ast_hash": "f2a493672ed72a97b19b6fc8df939e74",
+    "semantic_hash": ""
+  },
+  "src/app/page.tsx": {
+    "mtime": 1783907854.2839396,
+    "ast_hash": "50e113023ccfdb6a83e699eb66ce3930",
+    "semantic_hash": ""
+  },
+  "src/lib/supabase/client.ts": {
+    "mtime": 1783907854.288117,
+    "ast_hash": "4c07f731d76b547dd689b0b46b4829e4",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260712230000_initial_finance_schema.sql": {
+    "mtime": 1783908122.5929854,
+    "ast_hash": "ef986ce3067b973a71232e9e4188264a",
+    "semantic_hash": ""
+  },
+  "tsconfig.json": {
+    "mtime": 1783907854.2638578,
+    "ast_hash": "c44289bde7766a9cdce0fb25d3af4f22",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1783908122.5950212,
+    "ast_hash": "4fde5d1aae5d287f46032689b7a4d159",
+    "semantic_hash": ""
+  },
+  "design-system/bs-financeiro/MASTER.md": {
+    "mtime": 1783907728.3806076,
+    "ast_hash": "024c69b6b885cb0001d6c02127f139db",
+    "semantic_hash": ""
+  }
+}
