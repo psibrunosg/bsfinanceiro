@@ -1,5 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./auth.css";
+import "./onboarding.css";
+import "./management.css";
+import "./category.css";
+import "./transaction.css";
+import "./card.css";
+import "./invoice.css";
+import "./projection.css";
+import "./planning.css";
+import "./dashboard-extra.css";
 
 export const metadata: Metadata = {
   title: "BS Financeiro",

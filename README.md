@@ -18,6 +18,8 @@ A migration inicial está em `supabase/migrations`. Ela ainda não foi aplicada 
 ## Estado atual
 - Dashboard responsivo com temas claro/escuro e dados demonstrativos.
 - PWA básica.
-- Cliente Supabase preparado.
+- Cliente Supabase browser e server configurados com sessão SSR.
+- Rotas de login, cadastro, callback de confirmação e logout.
+- Middleware protege o dashboard e valida tokens com `getClaims()`.
 - Migration inicial com contas, categorias, transações, compromissos fixos e RLS por proprietário.
-- O schema remoto ainda não foi aplicado.
+- Migration inicial aplicada e validada remotamente; advisors sem problemas.

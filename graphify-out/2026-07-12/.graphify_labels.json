@@ -16,9 +16,5 @@
   "14": "actions.ts",
   "15": "middleware.ts",
   "16": "createClient",
-  "17": "20260712232500_user_onboarding.sql",
-  "18": "actions.ts",
-  "19": "20260712235500_core_hardening.sql",
-  "21": "20260713030238_credit_cards_invoices_installments.sql",
-  "22": "20260713030928_card_purchase_and_invoice_rpcs.sql"
+  "17": "20260712232500_user_onboarding.sql"
 }

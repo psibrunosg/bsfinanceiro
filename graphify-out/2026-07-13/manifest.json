@@ -20,13 +20,13 @@
     "semantic_hash": ""
   },
   "src/app/layout.tsx": {
-    "mtime": 1783912869.2219586,
-    "ast_hash": "d9a8f272124d131b75dc988b9ddfad97",
+    "mtime": 1783912377.5546796,
+    "ast_hash": "db14002a6a148755c3fefd656c55c9c5",
     "semantic_hash": ""
   },
   "src/app/page.tsx": {
-    "mtime": 1783912869.2199254,
-    "ast_hash": "ce8d50c5d5352c30073307d68618f506",
+    "mtime": 1783911604.1660366,
+    "ast_hash": "2d97b7a0ec0d04bcf06c8206616c2dad",
     "semantic_hash": ""
   },
   "src/lib/supabase/client.ts": {
@@ -232,31 +232,6 @@
   "supabase/migrations/20260713030928_card_purchase_and_invoice_rpcs.sql": {
     "mtime": 1783912555.408542,
     "ast_hash": "65103e0f98c81bac30b06c74885bd835",
-    "semantic_hash": ""
-  },
-  "src/app/compromissos/actions.ts": {
-    "mtime": 1783912816.2208476,
-    "ast_hash": "26c925bd8a82e9302d4153f9dd227f4d",
-    "semantic_hash": ""
-  },
-  "src/app/compromissos/commitment-form.tsx": {
-    "mtime": 1783912816.2208476,
-    "ast_hash": "050a2341da028985b4500dda28cff900",
-    "semantic_hash": ""
-  },
-  "src/app/compromissos/page.tsx": {
-    "mtime": 1783912816.2228906,
-    "ast_hash": "5a3e3a02dc21e6d498511745be8c029b",
-    "semantic_hash": ""
-  },
-  "src/lib/finance/projection.test.ts": {
-    "mtime": 1783912782.9650407,
-    "ast_hash": "49ddf9d4dcfc659568b1e4f076a35dcb",
-    "semantic_hash": ""
-  },
-  "src/lib/finance/projection.ts": {
-    "mtime": 1783912782.9650407,
-    "ast_hash": "7f202d09d5355f9fd34a1bdb984935f4",
     "semantic_hash": ""
   }
 }

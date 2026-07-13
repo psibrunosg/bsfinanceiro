@@ -1,0 +1,127 @@
+{
+  "eslint.config.mjs": {
+    "mtime": 1783908200.5690973,
+    "ast_hash": "be49123f18ea23c9b69f43dc27314b2e",
+    "semantic_hash": ""
+  },
+  "next-env.d.ts": {
+    "mtime": 1783908044.4501128,
+    "ast_hash": "ba64ff7d54714a8f64db89b1003207d8",
+    "semantic_hash": ""
+  },
+  "next.config.ts": {
+    "mtime": 1783907854.2618253,
+    "ast_hash": "43d7bef50acab35a98a80a7781bde096",
+    "semantic_hash": ""
+  },
+  "package.json": {
+    "mtime": 1783908122.58927,
+    "ast_hash": "377dc128ba24c7e9aec5727e1ec8104c",
+    "semantic_hash": ""
+  },
+  "src/app/layout.tsx": {
+    "mtime": 1783910975.77798,
+    "ast_hash": "979c6e07b0e8a84d26ca19d67da2311e",
+    "semantic_hash": ""
+  },
+  "src/app/page.tsx": {
+    "mtime": 1783907854.2839396,
+    "ast_hash": "50e113023ccfdb6a83e699eb66ce3930",
+    "semantic_hash": ""
+  },
+  "src/lib/supabase/client.ts": {
+    "mtime": 1783907854.288117,
+    "ast_hash": "4c07f731d76b547dd689b0b46b4829e4",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260712230000_initial_finance_schema.sql": {
+    "mtime": 1783908122.5929854,
+    "ast_hash": "ef986ce3067b973a71232e9e4188264a",
+    "semantic_hash": ""
+  },
+  "tsconfig.json": {
+    "mtime": 1783907854.2638578,
+    "ast_hash": "c44289bde7766a9cdce0fb25d3af4f22",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1783909451.3903015,
+    "ast_hash": "d4cbb085187459c0a9b3a24015413b63",
+    "semantic_hash": ""
+  },
+  "design-system/bs-financeiro/MASTER.md": {
+    "mtime": 1783907728.3806076,
+    "ast_hash": "024c69b6b885cb0001d6c02127f139db",
+    "semantic_hash": ""
+  },
+  "middleware.ts": {
+    "mtime": 1783909318.4216192,
+    "ast_hash": "872e19d8a24c3e4a7830c768f4ccf584",
+    "semantic_hash": ""
+  },
+  "src/app/(auth)/actions.ts": {
+    "mtime": 1783910991.799108,
+    "ast_hash": "f3b24fb5d9f06cd56cf919308e4d0bc8",
+    "semantic_hash": ""
+  },
+  "src/app/(auth)/auth-form.tsx": {
+    "mtime": 1783909318.4265957,
+    "ast_hash": "574b9b8df00c115029a5f9792eca76c9",
+    "semantic_hash": ""
+  },
+  "src/app/(auth)/cadastro/page.tsx": {
+    "mtime": 1783909318.4310694,
+    "ast_hash": "3348b38d5d6fbccc5c526ef74727ee37",
+    "semantic_hash": ""
+  },
+  "src/app/(auth)/entrar/page.tsx": {
+    "mtime": 1783909318.4283402,
+    "ast_hash": "26a458f52d62fdf65b2293fbe5fcb1fc",
+    "semantic_hash": ""
+  },
+  "src/app/auth/callback/route.ts": {
+    "mtime": 1783909318.4331336,
+    "ast_hash": "641978ac69008e695bfb03eed4bd2694",
+    "semantic_hash": ""
+  },
+  "src/app/auth/signout/route.ts": {
+    "mtime": 1783909318.4331336,
+    "ast_hash": "a9f1b7f3c5ec8077fdd2f44e95ec060d",
+    "semantic_hash": ""
+  },
+  "src/lib/supabase/middleware.ts": {
+    "mtime": 1783909318.4216192,
+    "ast_hash": "1f62da930576c0fde21e8435cf1c2d58",
+    "semantic_hash": ""
+  },
+  "src/lib/supabase/server.ts": {
+    "mtime": 1783909318.4194627,
+    "ast_hash": "a02a26eb9f41e049bae7429346e680b6",
+    "semantic_hash": ""
+  },
+  "src/lib/validation/auth.ts": {
+    "mtime": 1783909318.4236271,
+    "ast_hash": "1e630be57dc2032d3974fb30c8a77add",
+    "semantic_hash": ""
+  },
+  "src/app/onboarding/actions.ts": {
+    "mtime": 1783910975.7725964,
+    "ast_hash": "5887c5a77b4740c7d7479fe7b12cd864",
+    "semantic_hash": ""
+  },
+  "src/app/onboarding/onboarding-form.tsx": {
+    "mtime": 1783910975.7725964,
+    "ast_hash": "9c23ae72baa976b82be0a78a7f724b28",
+    "semantic_hash": ""
+  },
+  "src/app/onboarding/page.tsx": {
+    "mtime": 1783910975.7759404,
+    "ast_hash": "caaf63aba27579c6f6f9e8ac07f03730",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260712232500_user_onboarding.sql": {
+    "mtime": 1783910975.7725964,
+    "ast_hash": "40d46dad9579fa8779f8ee5c2057f945",
+    "semantic_hash": ""
+  }
+}

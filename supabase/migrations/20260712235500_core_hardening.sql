@@ -1,0 +1,13 @@
+alter table public.accounts add column updated_at timestamptz not null default now();
+alter table public.categories add column active boolean not null default true;
+alter table public.categories add column updated_at timestamptz not null default now();
+alter table public.transactions add column idempotency_key uuid not null default gen_random_uuid();
+alter table public.transactions add constraint transactions_owner_idempotency_key unique(owner_id,idempotency_key);
+alter table public.workspaces add constraint workspaces_name_length check(char_length(name) between 2 and 60);
+alter table public.accounts add constraint accounts_name_length check(char_length(name) between 2 and 60);
+alter table public.categories add constraint categories_name_length check(char_length(name) between 2 and 60);
+alter table public.transactions add constraint transactions_description_length check(char_length(description) between 1 and 160);
+create trigger accounts_set_updated_at before update on public.accounts for each row execute function public.set_updated_at();
+create trigger categories_set_updated_at before update on public.categories for each row execute function public.set_updated_at();
+revoke all on function public.set_updated_at() from public,anon,authenticated;
+create index categories_active_idx on public.categories(workspace_id,owner_id,active);

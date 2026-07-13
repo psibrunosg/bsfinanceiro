@@ -1,11 +1,11 @@
 # Graph Report - bsfinanceiro  (2026-07-13)
 
 ## Corpus Check
-- 52 files · ~6,936 words
+- 47 files · ~5,527 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 279 nodes · 402 edges · 22 communities (17 shown, 5 thin omitted)
+- 249 nodes · 343 edges · 23 communities (18 shown, 5 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 7 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -34,20 +34,21 @@
 - 20260712232500_user_onboarding.sql
 - actions.ts
 - 20260712235500_core_hardening.sql
+- actions.ts
 - 20260713030238_credit_cards_invoices_installments.sql
 - 20260713030928_card_purchase_and_invoice_rpcs.sql
 
 ## God Nodes (most connected - your core abstractions)
-1. `requireFinanceContext()` - 32 edges
+1. `requireFinanceContext()` - 27 edges
 2. `compilerOptions` - 16 edges
 3. `createClient()` - 14 edges
-4. `projectWeekly()` - 8 edges
-5. `Design System Master File` - 7 edges
-6. `scripts` - 6 edges
-7. `setActive()` - 5 edges
-8. `calculateInstallments()` - 5 edges
-9. `public.workspaces` - 5 edges
-10. `include` - 5 edges
+4. `Design System Master File` - 7 edges
+5. `scripts` - 6 edges
+6. `calculateInstallments()` - 5 edges
+7. `public.workspaces` - 5 edges
+8. `include` - 5 edges
+9. `BS Financeiro` - 5 edges
+10. `Global Rules` - 5 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `middleware()` --calls--> `updateSession()`  [EXTRACTED]
@@ -56,15 +57,15 @@
   src/app/cartoes/[id]/page.tsx → src/lib/finance/context.ts
 - `Page()` --calls--> `requireFinanceContext()`  [EXTRACTED]
   src/app/cartoes/page.tsx → src/lib/finance/context.ts
-- `CommitmentsPage()` --calls--> `requireFinanceContext()`  [EXTRACTED]
-  src/app/compromissos/page.tsx → src/lib/finance/context.ts
-- `GET()` --calls--> `createClient()`  [EXTRACTED]
-  src/app/auth/callback/route.ts → src/lib/supabase/server.ts
+- `Page()` --calls--> `requireFinanceContext()`  [EXTRACTED]
+  src/app/contas/page.tsx → src/lib/finance/context.ts
+- `login()` --calls--> `createClient()`  [EXTRACTED]
+  src/app/(auth)/actions.ts → src/lib/supabase/server.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (22 total, 5 thin omitted)
+## Communities (23 total, 5 thin omitted)
 
 ### Community 0 - "devDependencies"
 Cohesion: 0.10
@@ -79,12 +80,12 @@ Cohesion: 0.11
 Nodes (17): Additional Forbidden Patterns, Anti-Patterns (Do NOT Use), Buttons, Cards, Color Palette, Component Specs, Design System Master File, Global Rules (+9 more)
 
 ### Community 3 - "dependencies"
-Cohesion: 0.07
-Nodes (27): lucide-react, next, dependencies, lucide-react, next, react, react-dom, @supabase/ssr (+19 more)
+Cohesion: 0.13
+Nodes (15): lucide-react, next, dependencies, lucide-react, next, react, react-dom, @supabase/ssr (+7 more)
 
 ### Community 4 - "package.json"
-Cohesion: 0.19
-Nodes (16): archiveCommitment(), commitmentSchema, CommitmentState, createCommitment(), money, nullableUuid, referencesBelongToWorkspace(), refreshCommitments() (+8 more)
+Cohesion: 0.15
+Nodes (12): engines, node, name, packageManager, private, scripts, build, dev (+4 more)
 
 ### Community 5 - "20260712230000_initial_finance_schema.sql"
 Cohesion: 0.47
@@ -103,24 +104,28 @@ Cohesion: 0.39
 Nodes (7): addMonthsClamped(), assertNonNegativeInteger(), calculateInstallments(), CardInstallment, CardLimitSummary, parseDateOnly(), summarizeCardLimit()
 
 ### Community 14 - "actions.ts"
-Cohesion: 0.24
-Nodes (11): money, monthOccurrence(), Page(), shortDate, assertCents(), formatIsoDate(), getWeekStart(), parseIsoDate() (+3 more)
+Cohesion: 0.27
+Nodes (5): AuthState, login(), signup(), AuthForm(), authSchema
 
 ### Community 15 - "middleware.ts"
 Cohesion: 0.60
 Nodes (3): config, middleware(), updateSession()
 
 ### Community 16 - "createClient"
-Cohesion: 0.14
-Nodes (14): AuthState, login(), signup(), AuthForm(), GET(), POST(), completeOnboarding(), OnboardingState (+6 more)
+Cohesion: 0.26
+Nodes (9): GET(), POST(), completeOnboarding(), OnboardingState, schema, goals, OnboardingForm(), Page() (+1 more)
 
 ### Community 18 - "actions.ts"
-Cohesion: 0.11
-Nodes (25): archiveCategory(), CategoryState, createCategory(), schema, CategoryForm(), Page(), AccountForm(), types (+17 more)
+Cohesion: 0.16
+Nodes (17): archiveCategory(), CategoryState, createCategory(), schema, CategoryForm(), Page(), createTransaction(), money (+9 more)
 
 ### Community 19 - "20260712235500_core_hardening.sql"
 Cohesion: 0.50
 Nodes (3): public.accounts, public.categories, public.transactions
+
+### Community 20 - "actions.ts"
+Cohesion: 0.23
+Nodes (10): AccountForm(), types, AccountState, archiveAccount(), createAccount(), money, schema, icons (+2 more)
 
 ### Community 21 - "20260713030238_credit_cards_invoices_installments.sql"
 Cohesion: 0.33
@@ -131,21 +136,21 @@ Cohesion: 0.83
 Nodes (3): public.create_installment_purchase(), public.credit_card_invoices, public.transactions
 
 ## Knowledge Gaps
-- **113 isolated node(s):** `compat`, `config`, `config`, `nextConfig`, `name` (+108 more)
+- **105 isolated node(s):** `compat`, `config`, `config`, `nextConfig`, `name` (+100 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **5 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `requireFinanceContext()` connect `actions.ts` to `createClient`, `package.json`, `include`, `actions.ts`?**
-  _High betweenness centrality (0.104) - this node is a cross-community bridge._
-- **Why does `createClient()` connect `createClient` to `actions.ts`?**
-  _High betweenness centrality (0.058) - this node is a cross-community bridge._
-- **Why does `devDependencies` connect `devDependencies` to `dependencies`?**
-  _High betweenness centrality (0.019) - this node is a cross-community bridge._
+- **Why does `requireFinanceContext()` connect `actions.ts` to `createClient`, `actions.ts`, `include`?**
+  _High betweenness centrality (0.069) - this node is a cross-community bridge._
+- **Why does `createClient()` connect `createClient` to `actions.ts`, `actions.ts`?**
+  _High betweenness centrality (0.052) - this node is a cross-community bridge._
+- **Why does `devDependencies` connect `devDependencies` to `package.json`?**
+  _High betweenness centrality (0.024) - this node is a cross-community bridge._
 - **What connects `compat`, `config`, `config` to the rest of the system?**
-  _113 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _105 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `devDependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.09523809523809523 - nodes in this community are weakly interconnected._
 - **Should `compilerOptions` be split into smaller, more focused modules?**
