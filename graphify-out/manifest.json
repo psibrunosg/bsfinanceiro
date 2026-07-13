@@ -20,13 +20,13 @@
     "semantic_hash": ""
   },
   "src/app/layout.tsx": {
-    "mtime": 1783912869.2219586,
-    "ast_hash": "d9a8f272124d131b75dc988b9ddfad97",
+    "mtime": 1783913255.2652197,
+    "ast_hash": "67c6a1668e939fd18bbd5bab1fa87551",
     "semantic_hash": ""
   },
   "src/app/page.tsx": {
-    "mtime": 1783912869.2199254,
-    "ast_hash": "ce8d50c5d5352c30073307d68618f506",
+    "mtime": 1783913392.4871106,
+    "ast_hash": "b6905b06287959ff26a8983f23324829",
     "semantic_hash": ""
   },
   "src/lib/supabase/client.ts": {
@@ -255,8 +255,43 @@
     "semantic_hash": ""
   },
   "src/lib/finance/projection.ts": {
-    "mtime": 1783912782.9650407,
-    "ast_hash": "7f202d09d5355f9fd34a1bdb984935f4",
+    "mtime": 1783912963.5531263,
+    "ast_hash": "68bb6570eee7c5d81c3c73e8ce93d007",
+    "semantic_hash": ""
+  },
+  "src/app/planejamento/actions.ts": {
+    "mtime": 1783913209.3117454,
+    "ast_hash": "087b956ce73791054c1c5ea038843420",
+    "semantic_hash": ""
+  },
+  "src/app/planejamento/page.tsx": {
+    "mtime": 1783913255.262156,
+    "ast_hash": "632bd480469c20750ff88850a779f98f",
+    "semantic_hash": ""
+  },
+  "src/app/planejamento/planning-forms.tsx": {
+    "mtime": 1783913209.3117454,
+    "ast_hash": "04cab211f9f470358f5f6cb562db9a7a",
+    "semantic_hash": ""
+  },
+  "src/lib/finance/budget.test.ts": {
+    "mtime": 1783913097.2107687,
+    "ast_hash": "b39c52ca8c3559f7a9779d51c0ab611d",
+    "semantic_hash": ""
+  },
+  "src/lib/finance/budget.ts": {
+    "mtime": 1783913097.2107687,
+    "ast_hash": "4d0ab0b4a7a10c96f4d7d3897ef1b315",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260713032430_budgets_and_goals.sql": {
+    "mtime": 1783913209.3117454,
+    "ast_hash": "60eee2e5e15cfb882872bd4b74d18a9f",
+    "semantic_hash": ""
+  },
+  ".github/workflows/nextjs.yml": {
+    "mtime": 1783913269.3779383,
+    "ast_hash": "04d60770918c8271ab8b8026a338ac28",
     "semantic_hash": ""
   }
 }
