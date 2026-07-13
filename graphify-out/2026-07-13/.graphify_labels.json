@@ -19,7 +19,8 @@
   "17": "20260712232500_user_onboarding.sql",
   "18": "actions.ts",
   "19": "20260712235500_core_hardening.sql",
-  "20": "actions.ts",
+  "20": "page.tsx",
   "21": "20260713030238_credit_cards_invoices_installments.sql",
-  "22": "20260713030928_card_purchase_and_invoice_rpcs.sql"
+  "22": "20260713030928_card_purchase_and_invoice_rpcs.sql",
+  "23": "20260713032430_budgets_and_goals.sql"
 }

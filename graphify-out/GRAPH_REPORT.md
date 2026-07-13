@@ -1,16 +1,16 @@
 # Graph Report - bsfinanceiro  (2026-07-13)
 
 ## Corpus Check
-- 52 files · ~6,936 words
+- 58 files · ~9,023 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 279 nodes · 402 edges · 22 communities (17 shown, 5 thin omitted)
-- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 7 edges (avg confidence: 0.8)
+- 312 nodes · 462 edges · 24 communities (19 shown, 5 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 10 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `242ec1ab`
+- Built from commit: `50a87535`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -34,20 +34,22 @@
 - 20260712232500_user_onboarding.sql
 - actions.ts
 - 20260712235500_core_hardening.sql
+- page.tsx
 - 20260713030238_credit_cards_invoices_installments.sql
 - 20260713030928_card_purchase_and_invoice_rpcs.sql
+- 20260713032430_budgets_and_goals.sql
 
 ## God Nodes (most connected - your core abstractions)
-1. `requireFinanceContext()` - 32 edges
+1. `requireFinanceContext()` - 38 edges
 2. `compilerOptions` - 16 edges
 3. `createClient()` - 14 edges
 4. `projectWeekly()` - 8 edges
 5. `Design System Master File` - 7 edges
 6. `scripts` - 6 edges
-7. `setActive()` - 5 edges
-8. `calculateInstallments()` - 5 edges
-9. `public.workspaces` - 5 edges
-10. `include` - 5 edges
+7. `calculateBudgetConsumption()` - 6 edges
+8. `calculateGoalProgress()` - 6 edges
+9. `setActive()` - 5 edges
+10. `calculateInstallments()` - 5 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `middleware()` --calls--> `updateSession()`  [EXTRACTED]
@@ -64,7 +66,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (22 total, 5 thin omitted)
+## Communities (24 total, 5 thin omitted)
 
 ### Community 0 - "devDependencies"
 Cohesion: 0.10
@@ -122,6 +124,10 @@ Nodes (25): archiveCategory(), CategoryState, createCategory(), schema, Category
 Cohesion: 0.50
 Nodes (3): public.accounts, public.categories, public.transactions
 
+### Community 20 - "page.tsx"
+Cohesion: 0.13
+Nodes (22): addToGoal(), budgetSchema, contributionSchema, createGoal(), goalSchema, money, PlanningState, saveBudget() (+14 more)
+
 ### Community 21 - "20260713030238_credit_cards_invoices_installments.sql"
 Cohesion: 0.33
 Nodes (8): credit_card_installments_set_updated_at, credit_card_invoices_set_updated_at, credit_card_purchases_set_updated_at, credit_cards_set_updated_at, public.credit_card_installments, public.credit_card_invoices, public.credit_card_purchases, public.credit_cards
@@ -130,22 +136,26 @@ Nodes (8): credit_card_installments_set_updated_at, credit_card_invoices_set_upd
 Cohesion: 0.83
 Nodes (3): public.create_installment_purchase(), public.credit_card_invoices, public.transactions
 
+### Community 23 - "20260713032430_budgets_and_goals.sql"
+Cohesion: 0.40
+Nodes (5): financial_goals_set_updated_at, monthly_budgets_set_updated_at, public.categories, public.financial_goals, public.monthly_budgets
+
 ## Knowledge Gaps
-- **113 isolated node(s):** `compat`, `config`, `config`, `nextConfig`, `name` (+108 more)
+- **126 isolated node(s):** `compat`, `config`, `config`, `nextConfig`, `name` (+121 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **5 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `requireFinanceContext()` connect `actions.ts` to `createClient`, `package.json`, `include`, `actions.ts`?**
-  _High betweenness centrality (0.104) - this node is a cross-community bridge._
+- **Why does `requireFinanceContext()` connect `actions.ts` to `package.json`, `include`, `actions.ts`, `createClient`, `page.tsx`?**
+  _High betweenness centrality (0.130) - this node is a cross-community bridge._
 - **Why does `createClient()` connect `createClient` to `actions.ts`?**
   _High betweenness centrality (0.058) - this node is a cross-community bridge._
 - **Why does `devDependencies` connect `devDependencies` to `dependencies`?**
-  _High betweenness centrality (0.019) - this node is a cross-community bridge._
+  _High betweenness centrality (0.015) - this node is a cross-community bridge._
 - **What connects `compat`, `config`, `config` to the rest of the system?**
-  _113 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _126 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `devDependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.09523809523809523 - nodes in this community are weakly interconnected._
 - **Should `compilerOptions` be split into smaller, more focused modules?**

@@ -1,9 +1,426 @@
-import Link from"next/link";import{ArrowDownRight,ArrowUpRight,Bell,CalendarDays,CircleDollarSign,CreditCard,Landmark,LogOut,PiggyBank,Plus,Tags,WalletCards}from"lucide-react";import{requireFinanceContext}from"@/lib/finance/context";import{projectWeekly,type ProjectionEvent}from"@/lib/finance/projection";
-const money=new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"});const shortDate=new Intl.DateTimeFormat("pt-BR",{day:"2-digit",month:"2-digit"});
-function monthOccurrence(year:number,month:number,day:number){const last=new Date(Date.UTC(year,month+1,0)).getUTCDate();return new Date(Date.UTC(year,month,Math.min(day,last))).toISOString().slice(0,10)}
-export default async function Page(){const{supabase,workspace,userId}=await requireFinanceContext();const now=new Date(),monthStart=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1)).toISOString().slice(0,10),today=now.toISOString().slice(0,10),horizon=new Date(now.getTime()+56*86400000).toISOString().slice(0,10);
-const[{data:profile},{data:accounts},{data:paid},{data:monthTx},{data:futureTx},{data:recent},{data:commitments},{data:cards},{data:invoices}]=await Promise.all([supabase.from("profiles").select("display_name").eq("id",userId).single(),supabase.from("accounts").select("id,name,initial_balance,type").eq("workspace_id",workspace.id).eq("active",true),supabase.from("transactions").select("type,amount").eq("workspace_id",workspace.id).eq("status","paid"),supabase.from("transactions").select("type,amount").eq("workspace_id",workspace.id).eq("status","paid").gte("competence_date",monthStart),supabase.from("transactions").select("type,amount,competence_date").eq("workspace_id",workspace.id).in("status",["planned","pending"]).gte("competence_date",today).lte("competence_date",horizon),supabase.from("transactions").select("id,description,type,amount,competence_date").eq("workspace_id",workspace.id).order("competence_date",{ascending:false}).limit(5),supabase.from("fixed_commitments").select("id,description,amount,due_day").eq("workspace_id",workspace.id).eq("active",true).order("due_day"),supabase.from("credit_cards").select("id,credit_limit").eq("workspace_id",workspace.id).eq("active",true),supabase.from("credit_card_invoices").select("id,due_date,status,credit_card_installments(amount)").eq("workspace_id",workspace.id).in("status",["open","closed","overdue"]).order("due_date")]);
-let balance=(accounts??[]).filter(a=>a.type!=="credit_card").reduce((s,a)=>s+Number(a.initial_balance),0);for(const t of paid??[]){if(t.type==="income")balance+=Number(t.amount);else if(t.type==="expense")balance-=Number(t.amount)}let income=0,expense=0;for(const t of monthTx??[]){if(t.type==="income")income+=Number(t.amount);else if(t.type==="expense")expense+=Number(t.amount)}
-const invoiceTotals=(invoices??[]).map(i=>({...i,total:(i.credit_card_installments??[]).reduce((s,x)=>s+Number(x.amount),0)}));const openTotal=invoiceTotals.reduce((s,i)=>s+i.total,0),limitTotal=(cards??[]).reduce((s,c)=>s+Number(c.credit_limit),0),availableLimit=Math.max(0,limitTotal-openTotal),nextInvoice=invoiceTotals[0];
-const events:ProjectionEvent[]=(futureTx??[]).filter(t=>t.type!=="transfer").map(t=>({date:t.competence_date,type:t.type as"income"|"expense",amountCents:Math.round(Number(t.amount)*100)}));for(const invoice of invoiceTotals)if(invoice.due_date>=today&&invoice.due_date<=horizon)events.push({date:invoice.due_date,type:"expense",amountCents:Math.round(invoice.total*100)});for(let offset=0;offset<3;offset++){const base=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+offset,1));for(const c of commitments??[]){const date=monthOccurrence(base.getUTCFullYear(),base.getUTCMonth(),c.due_day);if(date>=today&&date<=horizon)events.push({date,type:"expense",amountCents:Math.round(Number(c.amount)*100)})}}const weeks=projectWeekly(events,Math.max(0,Math.round(balance*100))),negative=weeks.find(w=>w.balanceCents<0);const name=profile?.display_name??"você";
-return <div className="app"><aside className="sidebar"><div className="brand"><span>BS</span><strong>Financeiro</strong></div><nav><Link className="active" href="/"><CircleDollarSign/>Visão geral</Link><Link href="/movimentacoes"><WalletCards/>Movimentações</Link><Link href="/contas"><Landmark/>Contas</Link><Link href="/categorias"><Tags/>Categorias</Link><Link href="/cartoes"><CreditCard/>Cartões</Link><Link href="/compromissos"><CalendarDays/>Contas fixas</Link><Link href="/investimentos"><PiggyBank/>Investimentos</Link></nav><form action="/auth/signout" method="post"><button className="signout"><LogOut/>Sair</button></form></aside><main><header><div><p className="eyebrow">{workspace.name.toUpperCase()}</p><h1>Olá, {name}</h1><p className="muted">Seu dinheiro de hoje e das próximas semanas.</p></div><button className="icon" aria-label="Notificações"><Bell/></button></header><section className="balance"><div><span>Dinheiro disponível hoje</span><strong>{money.format(balance)}</strong><p>Resultado do mês: <b>{money.format(income-expense)}</b></p></div><div className="balance-side"><span>Entrou</span><strong>{money.format(income)}</strong><span>Saiu</span><strong>{money.format(expense)}</strong></div></section><section className="quick"><Link className="primary quick-link" href="/movimentacoes"><Plus/>Nova movimentação</Link><Link className="quick-link" href="/cartoes"><CreditCard/>Cartões</Link><Link className="quick-link" href="/compromissos"><CalendarDays/>Contas fixas</Link></section><section className="dashboard-metrics"><Link href="/cartoes" className="metric-card"><span>Faturas em aberto</span><strong>{money.format(openTotal)}</strong><small>{nextInvoice?`Próxima em ${shortDate.format(new Date(`${nextInvoice.due_date}T12:00:00`))}`:"Nenhuma fatura"}</small></Link><Link href="/cartoes" className="metric-card"><span>Limite disponível</span><strong>{money.format(availableLimit)}</strong><small>de {money.format(limitTotal)}</small></Link><div className={`metric-card ${negative?"risk":""}`}><span>Projeção</span><strong>{negative?`Falta ${money.format(Math.abs(negative.balanceCents)/100)}`:"Saldo positivo"}</strong><small>{negative?`na semana de ${shortDate.format(new Date(`${negative.weekStart}T12:00:00`))}`:"nas semanas calculadas"}</small></div></section><section className="grid"><article className="card"><div className="card-title"><div><span>Próximas semanas</span><strong>Projeção de caixa</strong></div></div>{weeks.length?<div className="projection-list">{weeks.slice(0,8).map(w=><div key={w.weekStart}><span>{shortDate.format(new Date(`${w.weekStart}T12:00:00`))}–{shortDate.format(new Date(`${w.weekEnd}T12:00:00`))}</span><small className="positive">+ {money.format(w.incomeCents/100)}</small><small>− {money.format(w.expenseCents/100)}</small><b className={w.balanceCents<0?"negative":""}>{money.format(w.balanceCents/100)}</b></div>)}</div>:<div className="empty-state"><CalendarDays/><h3>Sem eventos futuros</h3><p>Adicione contas fixas ou lançamentos planejados.</p><Link href="/compromissos">Adicionar conta fixa</Link></div>}</article><article className="card"><div className="card-title"><div><span>Contas fixas</span><strong>Próximos compromissos</strong></div><Link href="/compromissos">Gerenciar</Link></div>{commitments?.length?<div className="bills">{commitments.slice(0,5).map(c=><div key={c.id}><span><b>{c.due_day}</b>DIA</span><p><strong>{c.description}</strong><small>Estimativa mensal</small></p><b>{money.format(Number(c.amount))}</b></div>)}</div>:<div className="empty-state"><CalendarDays/><h3>Nenhum compromisso</h3><p>Cadastre suas despesas recorrentes.</p></div>}</article></section><section className="grid lower"><article className="card"><div className="card-title"><div><span>Últimas movimentações</span><strong>Atividade recente</strong></div><Link href="/movimentacoes">Ver todas</Link></div>{recent?.length?<div className="transactions">{recent.map(t=><div className="transaction" key={t.id}><div className={t.type==="income"?"transaction-icon in":"transaction-icon"}>{t.type==="income"?<ArrowUpRight/>:<ArrowDownRight/>}</div><div><strong>{t.description}</strong><span>{new Date(`${t.competence_date}T12:00:00`).toLocaleDateString("pt-BR")}</span></div><b className={t.type==="income"?"positive":""}>{t.type==="expense"?"− ":""}{money.format(Number(t.amount))}</b></div>)}</div>:<div className="empty-state"><WalletCards/><h3>Comece pela primeira movimentação</h3><Link href="/movimentacoes">Adicionar movimentação</Link></div>}</article></section></main><nav className="mobile-nav"><Link className="active" href="/"><CircleDollarSign/><span>Início</span></Link><Link href="/movimentacoes"><WalletCards/><span>Movimentos</span></Link><Link href="/movimentacoes"><Plus/><span>Novo</span></Link><Link href="/cartoes"><CreditCard/><span>Cartões</span></Link><Link href="/compromissos"><CalendarDays/><span>Fixas</span></Link></nav></div>}
+import Link from "next/link";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Bell,
+  CalendarDays,
+  CircleDollarSign,
+  CreditCard,
+  Landmark,
+  LogOut,
+  PiggyBank,
+  Plus,
+  Tags,
+  Target,
+  WalletCards,
+} from "lucide-react";
+import { requireFinanceContext } from "@/lib/finance/context";
+import { projectWeekly, type ProjectionEvent } from "@/lib/finance/projection";
+const money = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+const shortDate = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+});
+function monthOccurrence(year: number, month: number, day: number) {
+  const last = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month, Math.min(day, last)))
+    .toISOString()
+    .slice(0, 10);
+}
+export default async function Page() {
+  const { supabase, workspace, userId } = await requireFinanceContext();
+  const now = new Date(),
+    monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+      .toISOString()
+      .slice(0, 10),
+    today = now.toISOString().slice(0, 10),
+    horizon = new Date(now.getTime() + 56 * 86400000)
+      .toISOString()
+      .slice(0, 10);
+  const [
+    { data: profile },
+    { data: accounts },
+    { data: paid },
+    { data: monthTx },
+    { data: futureTx },
+    { data: recent },
+    { data: commitments },
+    { data: cards },
+    { data: invoices },
+  ] = await Promise.all([
+    supabase.from("profiles").select("display_name").eq("id", userId).single(),
+    supabase
+      .from("accounts")
+      .select("id,name,initial_balance,type")
+      .eq("workspace_id", workspace.id)
+      .eq("active", true),
+    supabase
+      .from("transactions")
+      .select("type,amount")
+      .eq("workspace_id", workspace.id)
+      .eq("status", "paid"),
+    supabase
+      .from("transactions")
+      .select("type,amount")
+      .eq("workspace_id", workspace.id)
+      .eq("status", "paid")
+      .gte("competence_date", monthStart),
+    supabase
+      .from("transactions")
+      .select("type,amount,competence_date")
+      .eq("workspace_id", workspace.id)
+      .in("status", ["planned", "pending"])
+      .gte("competence_date", today)
+      .lte("competence_date", horizon),
+    supabase
+      .from("transactions")
+      .select("id,description,type,amount,competence_date")
+      .eq("workspace_id", workspace.id)
+      .order("competence_date", { ascending: false })
+      .limit(5),
+    supabase
+      .from("fixed_commitments")
+      .select("id,description,amount,due_day")
+      .eq("workspace_id", workspace.id)
+      .eq("active", true)
+      .order("due_day"),
+    supabase
+      .from("credit_cards")
+      .select("id,credit_limit")
+      .eq("workspace_id", workspace.id)
+      .eq("active", true),
+    supabase
+      .from("credit_card_invoices")
+      .select("id,due_date,status,credit_card_installments(amount)")
+      .eq("workspace_id", workspace.id)
+      .in("status", ["open", "closed", "overdue"])
+      .order("due_date"),
+  ]);
+  let balance = (accounts ?? [])
+    .filter((a) => a.type !== "credit_card")
+    .reduce((s, a) => s + Number(a.initial_balance), 0);
+  for (const t of paid ?? []) {
+    if (t.type === "income") balance += Number(t.amount);
+    else if (t.type === "expense") balance -= Number(t.amount);
+  }
+  let income = 0,
+    expense = 0;
+  for (const t of monthTx ?? []) {
+    if (t.type === "income") income += Number(t.amount);
+    else if (t.type === "expense") expense += Number(t.amount);
+  }
+  const invoiceTotals = (invoices ?? []).map((i) => ({
+    ...i,
+    total: (i.credit_card_installments ?? []).reduce(
+      (s, x) => s + Number(x.amount),
+      0,
+    ),
+  }));
+  const openTotal = invoiceTotals.reduce((s, i) => s + i.total, 0),
+    limitTotal = (cards ?? []).reduce((s, c) => s + Number(c.credit_limit), 0),
+    availableLimit = Math.max(0, limitTotal - openTotal),
+    nextInvoice = invoiceTotals[0];
+  const events: ProjectionEvent[] = (futureTx ?? [])
+    .filter((t) => t.type !== "transfer")
+    .map((t) => ({
+      date: t.competence_date,
+      type: t.type as "income" | "expense",
+      amountCents: Math.round(Number(t.amount) * 100),
+    }));
+  for (const invoice of invoiceTotals)
+    if (invoice.due_date >= today && invoice.due_date <= horizon)
+      events.push({
+        date: invoice.due_date,
+        type: "expense",
+        amountCents: Math.round(invoice.total * 100),
+      });
+  for (let offset = 0; offset < 3; offset++) {
+    const base = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1),
+    );
+    for (const c of commitments ?? []) {
+      const date = monthOccurrence(
+        base.getUTCFullYear(),
+        base.getUTCMonth(),
+        c.due_day,
+      );
+      if (date >= today && date <= horizon)
+        events.push({
+          date,
+          type: "expense",
+          amountCents: Math.round(Number(c.amount) * 100),
+        });
+    }
+  }
+  const weeks = projectWeekly(events, Math.max(0, Math.round(balance * 100))),
+    negative = weeks.find((w) => w.balanceCents < 0);
+  const name = profile?.display_name ?? "você";
+  return (
+    <div className="app">
+      <aside className="sidebar">
+        <div className="brand">
+          <span>BS</span>
+          <strong>Financeiro</strong>
+        </div>
+        <nav>
+          <Link className="active" href="/">
+            <CircleDollarSign />
+            Visão geral
+          </Link>
+          <Link href="/movimentacoes">
+            <WalletCards />
+            Movimentações
+          </Link>
+          <Link href="/contas">
+            <Landmark />
+            Contas
+          </Link>
+          <Link href="/categorias">
+            <Tags />
+            Categorias
+          </Link>
+          <Link href="/cartoes">
+            <CreditCard />
+            Cartões
+          </Link>
+          <Link href="/compromissos">
+            <CalendarDays />
+            Contas fixas
+          </Link>
+          <Link href="/planejamento">
+            <Target />
+            Planejamento
+          </Link>
+          <Link href="/investimentos">
+            <PiggyBank />
+            Investimentos
+          </Link>
+        </nav>
+        <form action="/auth/signout" method="post">
+          <button className="signout">
+            <LogOut />
+            Sair
+          </button>
+        </form>
+      </aside>
+      <main>
+        <header>
+          <div>
+            <p className="eyebrow">{workspace.name.toUpperCase()}</p>
+            <h1>Olá, {name}</h1>
+            <p className="muted">
+              Seu dinheiro de hoje e das próximas semanas.
+            </p>
+          </div>
+          <button className="icon" aria-label="Notificações">
+            <Bell />
+          </button>
+        </header>
+        <section className="balance">
+          <div>
+            <span>Dinheiro disponível hoje</span>
+            <strong>{money.format(balance)}</strong>
+            <p>
+              Resultado do mês: <b>{money.format(income - expense)}</b>
+            </p>
+          </div>
+          <div className="balance-side">
+            <span>Entrou</span>
+            <strong>{money.format(income)}</strong>
+            <span>Saiu</span>
+            <strong>{money.format(expense)}</strong>
+          </div>
+        </section>
+        <section className="quick">
+          <Link className="primary quick-link" href="/movimentacoes">
+            <Plus />
+            Nova movimentação
+          </Link>
+          <Link className="quick-link" href="/cartoes">
+            <CreditCard />
+            Cartões
+          </Link>
+          <Link className="quick-link" href="/compromissos">
+            <CalendarDays />
+            Contas fixas
+          </Link>
+          <Link className="quick-link" href="/planejamento">
+            <Target />
+            Planejamento
+          </Link>
+        </section>
+        <section className="dashboard-metrics">
+          <Link href="/cartoes" className="metric-card">
+            <span>Faturas em aberto</span>
+            <strong>{money.format(openTotal)}</strong>
+            <small>
+              {nextInvoice
+                ? `Próxima em ${shortDate.format(new Date(`${nextInvoice.due_date}T12:00:00`))}`
+                : "Nenhuma fatura"}
+            </small>
+          </Link>
+          <Link href="/cartoes" className="metric-card">
+            <span>Limite disponível</span>
+            <strong>{money.format(availableLimit)}</strong>
+            <small>de {money.format(limitTotal)}</small>
+          </Link>
+          <div className={`metric-card ${negative ? "risk" : ""}`}>
+            <span>Projeção</span>
+            <strong>
+              {negative
+                ? `Falta ${money.format(Math.abs(negative.balanceCents) / 100)}`
+                : "Saldo positivo"}
+            </strong>
+            <small>
+              {negative
+                ? `na semana de ${shortDate.format(new Date(`${negative.weekStart}T12:00:00`))}`
+                : "nas semanas calculadas"}
+            </small>
+          </div>
+        </section>
+        <section className="grid">
+          <article className="card">
+            <div className="card-title">
+              <div>
+                <span>Próximas semanas</span>
+                <strong>Projeção de caixa</strong>
+              </div>
+            </div>
+            {weeks.length ? (
+              <div className="projection-list">
+                {weeks.slice(0, 8).map((w) => (
+                  <div key={w.weekStart}>
+                    <span>
+                      {shortDate.format(new Date(`${w.weekStart}T12:00:00`))}–
+                      {shortDate.format(new Date(`${w.weekEnd}T12:00:00`))}
+                    </span>
+                    <small className="positive">
+                      + {money.format(w.incomeCents / 100)}
+                    </small>
+                    <small>− {money.format(w.expenseCents / 100)}</small>
+                    <b className={w.balanceCents < 0 ? "negative" : ""}>
+                      {money.format(w.balanceCents / 100)}
+                    </b>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <CalendarDays />
+                <h3>Sem eventos futuros</h3>
+                <p>Adicione contas fixas ou lançamentos planejados.</p>
+                <Link href="/compromissos">Adicionar conta fixa</Link>
+              </div>
+            )}
+          </article>
+          <article className="card">
+            <div className="card-title">
+              <div>
+                <span>Contas fixas</span>
+                <strong>Próximos compromissos</strong>
+              </div>
+              <Link href="/compromissos">Gerenciar</Link>
+            </div>
+            {commitments?.length ? (
+              <div className="bills">
+                {commitments.slice(0, 5).map((c) => (
+                  <div key={c.id}>
+                    <span>
+                      <b>{c.due_day}</b>DIA
+                    </span>
+                    <p>
+                      <strong>{c.description}</strong>
+                      <small>Estimativa mensal</small>
+                    </p>
+                    <b>{money.format(Number(c.amount))}</b>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <CalendarDays />
+                <h3>Nenhum compromisso</h3>
+                <p>Cadastre suas despesas recorrentes.</p>
+              </div>
+            )}
+          </article>
+        </section>
+        <section className="grid lower">
+          <article className="card">
+            <div className="card-title">
+              <div>
+                <span>Últimas movimentações</span>
+                <strong>Atividade recente</strong>
+              </div>
+              <Link href="/movimentacoes">Ver todas</Link>
+            </div>
+            {recent?.length ? (
+              <div className="transactions">
+                {recent.map((t) => (
+                  <div className="transaction" key={t.id}>
+                    <div
+                      className={
+                        t.type === "income"
+                          ? "transaction-icon in"
+                          : "transaction-icon"
+                      }
+                    >
+                      {t.type === "income" ? (
+                        <ArrowUpRight />
+                      ) : (
+                        <ArrowDownRight />
+                      )}
+                    </div>
+                    <div>
+                      <strong>{t.description}</strong>
+                      <span>
+                        {new Date(
+                          `${t.competence_date}T12:00:00`,
+                        ).toLocaleDateString("pt-BR")}
+                      </span>
+                    </div>
+                    <b className={t.type === "income" ? "positive" : ""}>
+                      {t.type === "expense" ? "− " : ""}
+                      {money.format(Number(t.amount))}
+                    </b>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <WalletCards />
+                <h3>Comece pela primeira movimentação</h3>
+                <Link href="/movimentacoes">Adicionar movimentação</Link>
+              </div>
+            )}
+          </article>
+        </section>
+      </main>
+      <nav className="mobile-nav">
+        <Link className="active" href="/">
+          <CircleDollarSign />
+          <span>Início</span>
+        </Link>
+        <Link href="/movimentacoes">
+          <WalletCards />
+          <span>Movimentos</span>
+        </Link>
+        <Link href="/movimentacoes">
+          <Plus />
+          <span>Novo</span>
+        </Link>
+        <Link href="/cartoes">
+          <CreditCard />
+          <span>Cartões</span>
+        </Link>
+        <Link href="/compromissos">
+          <CalendarDays />
+          <span>Fixas</span>
+        </Link>
+      </nav>
+    </div>
+  );
+}
