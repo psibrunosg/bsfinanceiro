@@ -1,1 +1,2 @@
-import{redirect}from"next/navigation";import{createClient}from"@/lib/supabase/server";import{OnboardingForm}from"./onboarding-form";export default async function Page(){const s=await createClient();const{data}=await s.auth.getClaims();if(!data?.claims?.sub)redirect("/entrar");const{data:p}=await s.from("profiles").select("onboarding_completed_at").eq("id",data.claims.sub).maybeSingle();if(p?.onboarding_completed_at)redirect("/");const email=typeof data.claims.email==="string"?data.claims.email:"";return <OnboardingForm suggestedName={email.split("@")[0]??""}/>}
+import { OnboardingForm } from "./onboarding-form";
+export default function Page(){return <OnboardingForm suggestedName=""/>}
