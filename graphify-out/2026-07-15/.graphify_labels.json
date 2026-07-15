@@ -4,6 +4,7 @@
   "2": "Design System Master File",
   "3": "dependencies",
   "4": "package.json",
+  "5": "actions.ts",
   "6": "include",
   "7": "BS Financeiro",
   "8": "layout.tsx",
@@ -17,6 +18,5 @@
   "16": "createClient",
   "18": "actions.ts",
   "20": "page.tsx",
-  "25": "preferences-form.tsx",
   "26": "alerts.ts"
 }
