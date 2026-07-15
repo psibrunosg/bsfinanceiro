@@ -22,11 +22,11 @@ describe("calculateInvestmentPosition", () => {
         ],
         15_01,
       ),
-    ).toEqual({
-      quantity: 3,
-      averageCostCents: 13_34 + 1 / 3,
-      totalCostCents: 40_04,
-      currentValueCents: 45_03,
+      ).toEqual({
+        quantity: 3,
+        averageCostCents: 13_34 + 2 / 3,
+        totalCostCents: 40_04,
+        currentValueCents: 45_03,
       absoluteGainCents: 4_99,
       percentageGain: (4_99 / 40_04) * 100,
     });

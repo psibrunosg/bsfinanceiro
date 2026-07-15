@@ -1,11 +1,11 @@
 # Graph Report - bsfinanceiro  (2026-07-15)
 
 ## Corpus Check
-- 69 files · ~64,938 words
+- 69 files · ~64,744 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 291 nodes · 448 edges · 20 communities (16 shown, 4 thin omitted)
+- 290 nodes · 444 edges · 20 communities (16 shown, 4 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 11 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -20,7 +20,6 @@
 - Design System Master File
 - dependencies
 - package.json
-- actions.ts
 - include
 - BS Financeiro
 - layout.tsx
@@ -33,6 +32,7 @@
 - createClient
 - actions.ts
 - page.tsx
+- preferences-form.tsx
 - alerts.ts
 
 ## God Nodes (most connected - your core abstractions)
@@ -57,7 +57,7 @@
 - `CommitmentsPage()` --calls--> `requireFinanceContext()`  [EXTRACTED]
   src/app/compromissos/page.tsx → src/lib/finance/context.ts
 - `Page()` --calls--> `requireFinanceContext()`  [EXTRACTED]
-  src/app/contas/page.tsx → src/lib/finance/context.ts
+  src/app/configuracoes/page.tsx → src/lib/finance/context.ts
 
 ## Import Cycles
 - None detected.
@@ -84,10 +84,6 @@ Nodes (31): dependencies, lucide-react, next, react, react-dom, @supabase/ssr, @
 Cohesion: 0.19
 Nodes (16): archiveCommitment(), commitmentSchema, CommitmentState, createCommitment(), money, nullableUuid, referencesBelongToWorkspace(), refreshCommitments() (+8 more)
 
-### Community 5 - "actions.ts"
-Cohesion: 0.23
-Nodes (10): AccountForm(), types, AccountState, archiveAccount(), createAccount(), money, schema, icons (+2 more)
-
 ### Community 6 - "include"
 Cohesion: 0.12
 Nodes (20): archiveCard(), CardState, createCard(), createPurchase(), money, payInvoice(), paymentSchema, purchaseSchema (+12 more)
@@ -110,15 +106,19 @@ Nodes (3): config, middleware(), updateSession()
 
 ### Community 16 - "createClient"
 Cohesion: 0.14
-Nodes (15): AuthState, login(), signup(), AuthForm(), GET(), POST(), completeOnboarding(), OnboardingState (+7 more)
+Nodes (14): AuthState, login(), signup(), AuthForm(), GET(), POST(), completeOnboarding(), OnboardingState (+6 more)
 
 ### Community 18 - "actions.ts"
-Cohesion: 0.12
-Nodes (23): archiveCategory(), CategoryState, createCategory(), schema, CategoryForm(), Page(), saveAlertPreferences(), schema (+15 more)
+Cohesion: 0.11
+Nodes (25): archiveCategory(), CategoryState, createCategory(), schema, CategoryForm(), Page(), AccountForm(), types (+17 more)
 
 ### Community 20 - "page.tsx"
 Cohesion: 0.13
 Nodes (22): addToGoal(), budgetSchema, contributionSchema, createGoal(), goalSchema, money, PlanningState, saveBudget() (+14 more)
+
+### Community 25 - "preferences-form.tsx"
+Cohesion: 0.25
+Nodes (8): saveAlertPreferences(), schema, SettingsState, defaults, Page(), items, Preferences, PreferencesForm()
 
 ### Community 26 - "alerts.ts"
 Cohesion: 0.27
@@ -132,10 +132,10 @@ Nodes (8): AlertPreference, AlertPreferences, AlertSeverity, FinancialAlert, sel
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `requireFinanceContext()` connect `actions.ts` to `package.json`, `actions.ts`, `include`, `actions.ts`, `createClient`, `page.tsx`?**
-  _High betweenness centrality (0.179) - this node is a cross-community bridge._
+- **Why does `requireFinanceContext()` connect `actions.ts` to `package.json`, `include`, `actions.ts`, `createClient`, `page.tsx`, `preferences-form.tsx`?**
+  _High betweenness centrality (0.178) - this node is a cross-community bridge._
 - **Why does `createClient()` connect `createClient` to `actions.ts`?**
-  _High betweenness centrality (0.076) - this node is a cross-community bridge._
+  _High betweenness centrality (0.073) - this node is a cross-community bridge._
 - **What connects `compat`, `config`, `config` to the rest of the system?**
   _128 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `compilerOptions` be split into smaller, more focused modules?**

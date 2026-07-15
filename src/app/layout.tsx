@@ -16,6 +16,10 @@ export const metadata: Metadata = {
   title: "BS Financeiro",
   description: "Seu dinheiro explicado de forma simples.",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/icon-192.png",
+  },
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#173b35" };
 

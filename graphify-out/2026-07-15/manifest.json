@@ -45,8 +45,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1784144814.158095,
-    "ast_hash": "dca742e8244d435e8b2e04a6613bec5a",
+    "mtime": 1784143984.5980048,
+    "ast_hash": "4ac3fde5da63339484921e09767625d0",
     "semantic_hash": ""
   },
   "design-system/bs-financeiro/MASTER.md": {
@@ -60,8 +60,8 @@
     "semantic_hash": ""
   },
   "src/app/(auth)/actions.ts": {
-    "mtime": 1784145113.0042875,
-    "ast_hash": "e58aafb9010b8dc75f264d94416bd5ac",
+    "mtime": 1783966821.770619,
+    "ast_hash": "c25e58f37a1cb2bfc01f0616fbb86695",
     "semantic_hash": ""
   },
   "src/app/(auth)/auth-form.tsx": {
@@ -100,8 +100,8 @@
     "semantic_hash": ""
   },
   "src/lib/validation/auth.ts": {
-    "mtime": 1784145113.0027604,
-    "ast_hash": "c0192eec5e5746d14c7bf590747908e1",
+    "mtime": 1783966821.815549,
+    "ast_hash": "4fda74c3226b52fece1241720bc58043",
     "semantic_hash": ""
   },
   "src/app/onboarding/actions.ts": {
@@ -195,8 +195,8 @@
     "semantic_hash": ""
   },
   "src/lib/validation/auth.test.ts": {
-    "mtime": 1784145129.6961815,
-    "ast_hash": "2ef0c17466a8f8698c8f8b7ce7da9906",
+    "mtime": 1783966821.8145475,
+    "ast_hash": "e584b7ead850faf43c3e151203377bd0",
     "semantic_hash": ""
   },
   "supabase/migrations/20260713030238_credit_cards_invoices_installments.sql": {
@@ -340,8 +340,8 @@
     "semantic_hash": ""
   },
   "ROADMAP.md": {
-    "mtime": 1784144814.157096,
-    "ast_hash": "56f38cf02b7af967ca25845f2429a176",
+    "mtime": 1784143984.6000044,
+    "ast_hash": "0b3065e73821ab266620d716682037c9",
     "semantic_hash": ""
   },
   "public/icon-192.png": {
