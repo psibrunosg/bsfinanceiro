@@ -1110,7 +1110,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_configuracoes_actions",
-      "community": 18,
+      "community": 25,
       "norm_label": "actions.ts"
     },
     {
@@ -1120,7 +1120,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "src_app_configuracoes_actions_settingsstate",
-      "community": 18,
+      "community": 25,
       "norm_label": "settingsstate"
     },
     {
@@ -1130,7 +1130,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "src_app_configuracoes_actions_schema",
-      "community": 18,
+      "community": 25,
       "norm_label": "schema"
     },
     {
@@ -1140,7 +1140,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "src_app_configuracoes_actions_savealertpreferences",
-      "community": 18,
+      "community": 25,
       "norm_label": "savealertpreferences()"
     },
     {
@@ -1150,7 +1150,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_configuracoes_page",
-      "community": 18,
+      "community": 25,
       "norm_label": "page.tsx"
     },
     {
@@ -1160,7 +1160,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_configuracoes_page_defaults",
-      "community": 18,
+      "community": 25,
       "norm_label": "defaults"
     },
     {
@@ -1170,7 +1170,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "src_app_configuracoes_page_page",
-      "community": 18,
+      "community": 25,
       "norm_label": "page()"
     },
     {
@@ -1180,7 +1180,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_configuracoes_preferences_form",
-      "community": 18,
+      "community": 25,
       "norm_label": "preferences-form.tsx"
     },
     {
@@ -1190,7 +1190,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "src_app_configuracoes_preferences_form_preferences",
-      "community": 18,
+      "community": 25,
       "norm_label": "preferences"
     },
     {
@@ -1200,7 +1200,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "src_app_configuracoes_preferences_form_items",
-      "community": 18,
+      "community": 25,
       "norm_label": "items"
     },
     {
@@ -1210,7 +1210,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "src_app_configuracoes_preferences_form_preferencesform",
-      "community": 18,
+      "community": 25,
       "norm_label": "preferencesform()"
     },
     {
@@ -1220,7 +1220,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_account_form",
-      "community": 5,
+      "community": 18,
       "norm_label": "account-form.tsx"
     },
     {
@@ -1230,7 +1230,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_account_form_types",
-      "community": 5,
+      "community": 18,
       "norm_label": "types"
     },
     {
@@ -1240,7 +1240,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_account_form_accountform",
-      "community": 5,
+      "community": 18,
       "norm_label": "accountform()"
     },
     {
@@ -1250,7 +1250,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_actions",
-      "community": 5,
+      "community": 18,
       "norm_label": "actions.ts"
     },
     {
@@ -1260,7 +1260,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_actions_accountstate",
-      "community": 5,
+      "community": 18,
       "norm_label": "accountstate"
     },
     {
@@ -1270,7 +1270,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_actions_money",
-      "community": 5,
+      "community": 18,
       "norm_label": "money"
     },
     {
@@ -1280,7 +1280,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_actions_schema",
-      "community": 5,
+      "community": 18,
       "norm_label": "schema"
     },
     {
@@ -1290,7 +1290,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "src_app_contas_actions_createaccount",
-      "community": 5,
+      "community": 18,
       "norm_label": "createaccount()"
     },
     {
@@ -1300,7 +1300,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "src_app_contas_actions_archiveaccount",
-      "community": 5,
+      "community": 18,
       "norm_label": "archiveaccount()"
     },
     {
@@ -1310,7 +1310,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_page",
-      "community": 5,
+      "community": 18,
       "norm_label": "page.tsx"
     },
     {
@@ -1320,7 +1320,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_page_icons",
-      "community": 5,
+      "community": 18,
       "norm_label": "icons"
     },
     {
@@ -1330,7 +1330,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_page_money",
-      "community": 5,
+      "community": 18,
       "norm_label": "money"
     },
     {
@@ -1340,7 +1340,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_page_page",
-      "community": 5,
+      "community": 18,
       "norm_label": "page()"
     },
     {
@@ -2367,21 +2367,11 @@
       "label": "authSchema",
       "file_type": "code",
       "source_file": "src/lib/validation/auth.ts",
-      "source_location": "L3",
+      "source_location": "L1",
       "_origin": "ast",
       "id": "src_lib_validation_auth_authschema",
       "community": 16,
       "norm_label": "authschema"
-    },
-    {
-      "label": "authErrorMessage()",
-      "file_type": "code",
-      "source_file": "src/lib/validation/auth.ts",
-      "source_location": "L8",
-      "_origin": "ast",
-      "id": "src_lib_validation_auth_autherrormessage",
-      "community": 16,
-      "norm_label": "autherrormessage()"
     },
     {
       "label": "tsconfig.json",
@@ -2617,7 +2607,7 @@
       "label": "Verifica\u00e7\u00e3o",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L13",
+      "source_location": "L12",
       "_origin": "ast",
       "id": "readme_verifica\u00e7\u00e3o",
       "community": 7,
@@ -2627,7 +2617,7 @@
       "label": "Banco",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L17",
+      "source_location": "L16",
       "_origin": "ast",
       "id": "readme_banco",
       "community": 7,
@@ -2637,7 +2627,7 @@
       "label": "Estado atual",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L20",
+      "source_location": "L19",
       "_origin": "ast",
       "id": "readme_estado_atual",
       "community": 7,
@@ -2647,7 +2637,7 @@
       "label": "Plano de desenvolvimento",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L32",
+      "source_location": "L31",
       "_origin": "ast",
       "id": "readme_plano_de_desenvolvimento",
       "community": 7,
@@ -2707,7 +2697,7 @@
       "label": "P2. Fechar os ciclos financeiros j\u00e1 modelados",
       "file_type": "document",
       "source_file": "ROADMAP.md",
-      "source_location": "L30",
+      "source_location": "L28",
       "_origin": "ast",
       "id": "roadmap_p2_fechar_os_ciclos_financeiros_j\u00e1_modelados",
       "community": 7,
@@ -2717,7 +2707,7 @@
       "label": "P3. Preparar uma primeira libera\u00e7\u00e3o",
       "file_type": "document",
       "source_file": "ROADMAP.md",
-      "source_location": "L38",
+      "source_location": "L36",
       "_origin": "ast",
       "id": "roadmap_p3_preparar_uma_primeira_libera\u00e7\u00e3o",
       "community": 7,
@@ -2727,7 +2717,7 @@
       "label": "Depois da primeira libera\u00e7\u00e3o",
       "file_type": "document",
       "source_file": "ROADMAP.md",
-      "source_location": "L44",
+      "source_location": "L42",
       "_origin": "ast",
       "id": "roadmap_depois_da_primeira_libera\u00e7\u00e3o",
       "community": 7,
@@ -3389,17 +3379,6 @@
       "source_location": "L1",
       "weight": 1.0,
       "source": "src_app_auth_actions",
-      "target": "src_lib_validation_auth_autherrormessage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/app/(auth)/actions.ts",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "src_app_auth_actions",
       "target": "src_lib_validation_auth_authschema",
       "confidence_score": 1.0
     },
@@ -3479,17 +3458,6 @@
       "weight": 1.0,
       "source": "src_app_auth_actions_signup",
       "target": "src_lib_supabase_server_createclient"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/app/(auth)/actions.ts",
-      "source_location": "L3",
-      "weight": 1.0,
-      "source": "src_app_auth_actions_signup",
-      "target": "src_lib_validation_auth_autherrormessage"
     },
     {
       "relation": "imports",
@@ -7077,17 +7045,6 @@
       "source_location": "L2",
       "weight": 1.0,
       "source": "src_lib_validation_auth_test",
-      "target": "src_lib_validation_auth_autherrormessage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lib/validation/auth.test.ts",
-      "source_location": "L2",
-      "weight": 1.0,
-      "source": "src_lib_validation_auth_test",
       "target": "src_lib_validation_auth_authschema",
       "confidence_score": 1.0
     },
@@ -7095,17 +7052,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/validation/auth.ts",
-      "source_location": "L8",
-      "weight": 1.0,
-      "source": "src_lib_validation_auth",
-      "target": "src_lib_validation_auth_autherrormessage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/lib/validation/auth.ts",
-      "source_location": "L3",
+      "source_location": "L1",
       "weight": 1.0,
       "source": "src_lib_validation_auth",
       "target": "src_lib_validation_auth_authschema",
@@ -7315,7 +7262,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L33",
+      "source_location": "L32",
       "weight": 1.0,
       "source": "readme",
       "target": "roadmap",
@@ -7325,7 +7272,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L17",
+      "source_location": "L16",
       "weight": 1.0,
       "source": "readme_bs_financeiro",
       "target": "readme_banco",
@@ -7345,7 +7292,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L20",
+      "source_location": "L19",
       "weight": 1.0,
       "source": "readme_bs_financeiro",
       "target": "readme_estado_atual",
@@ -7355,7 +7302,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L32",
+      "source_location": "L31",
       "weight": 1.0,
       "source": "readme_bs_financeiro",
       "target": "readme_plano_de_desenvolvimento",
@@ -7365,7 +7312,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L13",
+      "source_location": "L12",
       "weight": 1.0,
       "source": "readme_bs_financeiro",
       "target": "readme_verifica\u00e7\u00e3o",
@@ -7385,7 +7332,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ROADMAP.md",
-      "source_location": "L44",
+      "source_location": "L42",
       "weight": 1.0,
       "source": "roadmap_roadmap",
       "target": "roadmap_depois_da_primeira_libera\u00e7\u00e3o",
@@ -7415,7 +7362,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ROADMAP.md",
-      "source_location": "L30",
+      "source_location": "L28",
       "weight": 1.0,
       "source": "roadmap_roadmap",
       "target": "roadmap_p2_fechar_os_ciclos_financeiros_j\u00e1_modelados",
@@ -7425,7 +7372,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ROADMAP.md",
-      "source_location": "L38",
+      "source_location": "L36",
       "weight": 1.0,
       "source": "roadmap_roadmap",
       "target": "roadmap_p3_preparar_uma_primeira_libera\u00e7\u00e3o",

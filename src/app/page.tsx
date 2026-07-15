@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -8,7 +9,6 @@ import {
   CreditCard,
   Landmark,
   LogOut,
-  PiggyBank,
   Plus,
   Settings,
   Tags,
@@ -163,7 +163,7 @@ export default async function Page() {
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <span>BS</span>
+          <Image src="/logo-bsfinanceiro.png" alt="" aria-hidden="true" width={42} height={42} priority />
           <strong>Financeiro</strong>
         </div>
         <nav>
@@ -198,10 +198,6 @@ export default async function Page() {
           <Link href="/configuracoes">
             <Settings />
             Configurações
-          </Link>
-          <Link href="/investimentos">
-            <PiggyBank />
-            Investimentos
           </Link>
         </nav>
         <form action="/auth/signout" method="post">
