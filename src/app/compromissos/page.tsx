@@ -9,6 +9,13 @@ const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 
 export default async function CommitmentsPage() {
   const { supabase, workspace } = await requireFinanceContext();
+  const now = new Date();
+  const currentMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
+  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString().slice(0, 10);
+  await Promise.all([
+    supabase.rpc("materialize_fixed_commitment_occurrences", { p_workspace_id: workspace.id, p_month: currentMonth }),
+    supabase.rpc("materialize_fixed_commitment_occurrences", { p_workspace_id: workspace.id, p_month: nextMonth }),
+  ]);
   const [{ data: commitments }, { data: accounts }, { data: categories }] = await Promise.all([
     supabase
       .from("fixed_commitments")

@@ -1,16 +1,16 @@
 # Graph Report - bsfinanceiro  (2026-07-13)
 
 ## Corpus Check
-- 58 files · ~9,023 words
+- 64 files · ~10,676 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 312 nodes · 462 edges · 24 communities (19 shown, 5 thin omitted)
-- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 10 edges (avg confidence: 0.8)
+- 346 nodes · 511 edges · 28 communities (23 shown, 5 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 11 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `50a87535`
+- Built from commit: `216f934a`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -38,9 +38,13 @@
 - 20260713030238_credit_cards_invoices_installments.sql
 - 20260713030928_card_purchase_and_invoice_rpcs.sql
 - 20260713032430_budgets_and_goals.sql
+- 20260713234753_add_reliability_controls.sql
+- preferences-form.tsx
+- alerts.ts
+- actions.ts
 
 ## God Nodes (most connected - your core abstractions)
-1. `requireFinanceContext()` - 38 edges
+1. `requireFinanceContext()` - 42 edges
 2. `compilerOptions` - 16 edges
 3. `createClient()` - 14 edges
 4. `projectWeekly()` - 8 edges
@@ -55,18 +59,18 @@
 - `middleware()` --calls--> `updateSession()`  [EXTRACTED]
   middleware.ts → src/lib/supabase/middleware.ts
 - `Page()` --calls--> `requireFinanceContext()`  [EXTRACTED]
-  src/app/cartoes/[id]/page.tsx → src/lib/finance/context.ts
-- `Page()` --calls--> `requireFinanceContext()`  [EXTRACTED]
-  src/app/cartoes/page.tsx → src/lib/finance/context.ts
+  src/app/categorias/page.tsx → src/lib/finance/context.ts
 - `CommitmentsPage()` --calls--> `requireFinanceContext()`  [EXTRACTED]
   src/app/compromissos/page.tsx → src/lib/finance/context.ts
+- `Page()` --calls--> `requireFinanceContext()`  [EXTRACTED]
+  src/app/configuracoes/page.tsx → src/lib/finance/context.ts
 - `GET()` --calls--> `createClient()`  [EXTRACTED]
   src/app/auth/callback/route.ts → src/lib/supabase/server.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (24 total, 5 thin omitted)
+## Communities (28 total, 5 thin omitted)
 
 ### Community 0 - "devDependencies"
 Cohesion: 0.10
@@ -93,8 +97,8 @@ Cohesion: 0.47
 Nodes (8): public.accounts, public.categories, public.fixed_commitments, public.profiles, public.set_updated_at(), public.transactions, public.workspaces, transactions_set_updated_at
 
 ### Community 6 - "include"
-Cohesion: 0.12
-Nodes (20): archiveCard(), CardState, createCard(), createPurchase(), money, payInvoice(), paymentSchema, purchaseSchema (+12 more)
+Cohesion: 0.09
+Nodes (33): archiveCard(), CardState, createCard(), createPurchase(), money, payInvoice(), paymentSchema, purchaseSchema (+25 more)
 
 ### Community 7 - "BS Financeiro"
 Cohesion: 0.33
@@ -117,8 +121,8 @@ Cohesion: 0.14
 Nodes (14): AuthState, login(), signup(), AuthForm(), GET(), POST(), completeOnboarding(), OnboardingState (+6 more)
 
 ### Community 18 - "actions.ts"
-Cohesion: 0.11
-Nodes (25): archiveCategory(), CategoryState, createCategory(), schema, CategoryForm(), Page(), AccountForm(), types (+17 more)
+Cohesion: 0.39
+Nodes (6): archiveCategory(), CategoryState, createCategory(), schema, CategoryForm(), Page()
 
 ### Community 19 - "20260712235500_core_hardening.sql"
 Cohesion: 0.50
@@ -140,22 +144,38 @@ Nodes (3): public.create_installment_purchase(), public.credit_card_invoices, pu
 Cohesion: 0.40
 Nodes (5): financial_goals_set_updated_at, monthly_budgets_set_updated_at, public.categories, public.financial_goals, public.monthly_budgets
 
+### Community 24 - "20260713234753_add_reliability_controls.sql"
+Cohesion: 0.22
+Nodes (12): alert_preferences_set_updated_at, financial_goals_enforce_progress, fixed_commitment_occurrences_set_updated_at, goal_contributions_set_updated_at, goal_contributions_sync_goal, public.alert_preferences, public.enforce_financial_goal_progress(), public.fixed_commitment_occurrences (+4 more)
+
+### Community 25 - "preferences-form.tsx"
+Cohesion: 0.25
+Nodes (8): saveAlertPreferences(), schema, SettingsState, defaults, Page(), items, Preferences, PreferencesForm()
+
+### Community 26 - "alerts.ts"
+Cohesion: 0.27
+Nodes (8): AlertPreference, AlertPreferences, AlertSeverity, FinancialAlert, selectAlerts(), severityPriority, alerts, allEnabled
+
+### Community 27 - "actions.ts"
+Cohesion: 0.36
+Nodes (6): createTransaction(), money, schema, TransactionState, Item, TransactionForm()
+
 ## Knowledge Gaps
-- **126 isolated node(s):** `compat`, `config`, `config`, `nextConfig`, `name` (+121 more)
+- **139 isolated node(s):** `compat`, `config`, `config`, `nextConfig`, `name` (+134 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **5 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `requireFinanceContext()` connect `actions.ts` to `package.json`, `include`, `actions.ts`, `createClient`, `page.tsx`?**
-  _High betweenness centrality (0.130) - this node is a cross-community bridge._
-- **Why does `createClient()` connect `createClient` to `actions.ts`?**
-  _High betweenness centrality (0.058) - this node is a cross-community bridge._
+- **Why does `requireFinanceContext()` connect `include` to `package.json`, `actions.ts`, `createClient`, `actions.ts`, `page.tsx`, `preferences-form.tsx`, `actions.ts`?**
+  _High betweenness centrality (0.125) - this node is a cross-community bridge._
+- **Why does `createClient()` connect `createClient` to `include`?**
+  _High betweenness centrality (0.051) - this node is a cross-community bridge._
 - **Why does `devDependencies` connect `devDependencies` to `dependencies`?**
-  _High betweenness centrality (0.015) - this node is a cross-community bridge._
+  _High betweenness centrality (0.012) - this node is a cross-community bridge._
 - **What connects `compat`, `config`, `config` to the rest of the system?**
-  _126 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _139 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `devDependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.09523809523809523 - nodes in this community are weakly interconnected._
 - **Should `compilerOptions` be split into smaller, more focused modules?**

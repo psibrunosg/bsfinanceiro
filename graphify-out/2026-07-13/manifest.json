@@ -25,8 +25,8 @@
     "semantic_hash": ""
   },
   "src/app/page.tsx": {
-    "mtime": 1783912869.2199254,
-    "ast_hash": "ce8d50c5d5352c30073307d68618f506",
+    "mtime": 1783913392.4871106,
+    "ast_hash": "b6905b06287959ff26a8983f23324829",
     "semantic_hash": ""
   },
   "src/lib/supabase/client.ts": {

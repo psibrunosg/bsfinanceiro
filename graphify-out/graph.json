@@ -1274,13 +1274,123 @@
       "norm_label": "commitmentspage()"
     },
     {
+      "label": "actions.ts",
+      "file_type": "code",
+      "source_file": "src/app/configuracoes/actions.ts",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "src_app_configuracoes_actions",
+      "community": 25,
+      "norm_label": "actions.ts"
+    },
+    {
+      "label": "SettingsState",
+      "file_type": "code",
+      "source_file": "src/app/configuracoes/actions.ts",
+      "source_location": "L2",
+      "_origin": "ast",
+      "id": "src_app_configuracoes_actions_settingsstate",
+      "community": 25,
+      "norm_label": "settingsstate"
+    },
+    {
+      "label": "schema",
+      "file_type": "code",
+      "source_file": "src/app/configuracoes/actions.ts",
+      "source_location": "L2",
+      "_origin": "ast",
+      "id": "src_app_configuracoes_actions_schema",
+      "community": 25,
+      "norm_label": "schema"
+    },
+    {
+      "label": "saveAlertPreferences()",
+      "file_type": "code",
+      "source_file": "src/app/configuracoes/actions.ts",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "src_app_configuracoes_actions_savealertpreferences",
+      "community": 25,
+      "norm_label": "savealertpreferences()"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "src/app/configuracoes/page.tsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "src_app_configuracoes_page",
+      "community": 25,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "defaults",
+      "file_type": "code",
+      "source_file": "src/app/configuracoes/page.tsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "src_app_configuracoes_page_defaults",
+      "community": 25,
+      "norm_label": "defaults"
+    },
+    {
+      "label": "Page()",
+      "file_type": "code",
+      "source_file": "src/app/configuracoes/page.tsx",
+      "source_location": "L2",
+      "_origin": "ast",
+      "id": "src_app_configuracoes_page_page",
+      "community": 25,
+      "norm_label": "page()"
+    },
+    {
+      "label": "preferences-form.tsx",
+      "file_type": "code",
+      "source_file": "src/app/configuracoes/preferences-form.tsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "src_app_configuracoes_preferences_form",
+      "community": 25,
+      "norm_label": "preferences-form.tsx"
+    },
+    {
+      "label": "Preferences",
+      "file_type": "code",
+      "source_file": "src/app/configuracoes/preferences-form.tsx",
+      "source_location": "L2",
+      "_origin": "ast",
+      "id": "src_app_configuracoes_preferences_form_preferences",
+      "community": 25,
+      "norm_label": "preferences"
+    },
+    {
+      "label": "items",
+      "file_type": "code",
+      "source_file": "src/app/configuracoes/preferences-form.tsx",
+      "source_location": "L2",
+      "_origin": "ast",
+      "id": "src_app_configuracoes_preferences_form_items",
+      "community": 25,
+      "norm_label": "items"
+    },
+    {
+      "label": "PreferencesForm()",
+      "file_type": "code",
+      "source_file": "src/app/configuracoes/preferences-form.tsx",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "src_app_configuracoes_preferences_form_preferencesform",
+      "community": 25,
+      "norm_label": "preferencesform()"
+    },
+    {
       "label": "account-form.tsx",
       "file_type": "code",
       "source_file": "src/app/contas/account-form.tsx",
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_account_form",
-      "community": 18,
+      "community": 6,
       "norm_label": "account-form.tsx"
     },
     {
@@ -1290,7 +1400,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_account_form_types",
-      "community": 18,
+      "community": 6,
       "norm_label": "types"
     },
     {
@@ -1300,7 +1410,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_account_form_accountform",
-      "community": 18,
+      "community": 6,
       "norm_label": "accountform()"
     },
     {
@@ -1310,7 +1420,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_actions",
-      "community": 18,
+      "community": 6,
       "norm_label": "actions.ts"
     },
     {
@@ -1320,7 +1430,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_actions_accountstate",
-      "community": 18,
+      "community": 6,
       "norm_label": "accountstate"
     },
     {
@@ -1330,7 +1440,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_actions_money",
-      "community": 18,
+      "community": 6,
       "norm_label": "money"
     },
     {
@@ -1340,7 +1450,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_actions_schema",
-      "community": 18,
+      "community": 6,
       "norm_label": "schema"
     },
     {
@@ -1350,7 +1460,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "src_app_contas_actions_createaccount",
-      "community": 18,
+      "community": 6,
       "norm_label": "createaccount()"
     },
     {
@@ -1360,7 +1470,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "src_app_contas_actions_archiveaccount",
-      "community": 18,
+      "community": 6,
       "norm_label": "archiveaccount()"
     },
     {
@@ -1370,7 +1480,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_page",
-      "community": 18,
+      "community": 6,
       "norm_label": "page.tsx"
     },
     {
@@ -1380,7 +1490,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_page_icons",
-      "community": 18,
+      "community": 6,
       "norm_label": "icons"
     },
     {
@@ -1390,7 +1500,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_page_money",
-      "community": 18,
+      "community": 6,
       "norm_label": "money"
     },
     {
@@ -1400,7 +1510,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_contas_page_page",
-      "community": 18,
+      "community": 6,
       "norm_label": "page()"
     },
     {
@@ -1417,7 +1527,7 @@
       "label": "metadata",
       "file_type": "code",
       "source_file": "src/app/layout.tsx",
-      "source_location": "L14",
+      "source_location": "L15",
       "_origin": "ast",
       "id": "src_app_layout_metadata",
       "community": 8,
@@ -1427,7 +1537,7 @@
       "label": "viewport",
       "file_type": "code",
       "source_file": "src/app/layout.tsx",
-      "source_location": "L19",
+      "source_location": "L20",
       "_origin": "ast",
       "id": "src_app_layout_viewport",
       "community": 8,
@@ -1437,7 +1547,7 @@
       "label": "RootLayout()",
       "file_type": "code",
       "source_file": "src/app/layout.tsx",
-      "source_location": "L21",
+      "source_location": "L22",
       "_origin": "ast",
       "id": "src_app_layout_rootlayout",
       "community": 8,
@@ -1450,7 +1560,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_movimentacoes_actions",
-      "community": 18,
+      "community": 27,
       "norm_label": "actions.ts"
     },
     {
@@ -1460,7 +1570,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_movimentacoes_actions_transactionstate",
-      "community": 18,
+      "community": 27,
       "norm_label": "transactionstate"
     },
     {
@@ -1470,7 +1580,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_movimentacoes_actions_money",
-      "community": 18,
+      "community": 27,
       "norm_label": "money"
     },
     {
@@ -1480,7 +1590,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_movimentacoes_actions_schema",
-      "community": 18,
+      "community": 27,
       "norm_label": "schema"
     },
     {
@@ -1490,7 +1600,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_movimentacoes_actions_createtransaction",
-      "community": 18,
+      "community": 27,
       "norm_label": "createtransaction()"
     },
     {
@@ -1500,7 +1610,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_movimentacoes_page",
-      "community": 18,
+      "community": 6,
       "norm_label": "page.tsx"
     },
     {
@@ -1510,7 +1620,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_movimentacoes_page_money",
-      "community": 18,
+      "community": 6,
       "norm_label": "money"
     },
     {
@@ -1520,7 +1630,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_movimentacoes_page_page",
-      "community": 18,
+      "community": 6,
       "norm_label": "page()"
     },
     {
@@ -1530,7 +1640,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_movimentacoes_transaction_form",
-      "community": 18,
+      "community": 27,
       "norm_label": "transaction-form.tsx"
     },
     {
@@ -1540,7 +1650,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_movimentacoes_transaction_form_item",
-      "community": 18,
+      "community": 27,
       "norm_label": "item"
     },
     {
@@ -1550,7 +1660,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_movimentacoes_transaction_form_transactionform",
-      "community": 18,
+      "community": 27,
       "norm_label": "transactionform()"
     },
     {
@@ -1657,7 +1767,7 @@
       "label": "money",
       "file_type": "code",
       "source_file": "src/app/page.tsx",
-      "source_location": "L19",
+      "source_location": "L20",
       "_origin": "ast",
       "id": "src_app_page_money",
       "community": 14,
@@ -1667,7 +1777,7 @@
       "label": "shortDate",
       "file_type": "code",
       "source_file": "src/app/page.tsx",
-      "source_location": "L23",
+      "source_location": "L24",
       "_origin": "ast",
       "id": "src_app_page_shortdate",
       "community": 14,
@@ -1677,7 +1787,7 @@
       "label": "monthOccurrence()",
       "file_type": "code",
       "source_file": "src/app/page.tsx",
-      "source_location": "L27",
+      "source_location": "L28",
       "_origin": "ast",
       "id": "src_app_page_monthoccurrence",
       "community": 14,
@@ -1687,7 +1797,7 @@
       "label": "Page()",
       "file_type": "code",
       "source_file": "src/app/page.tsx",
-      "source_location": "L33",
+      "source_location": "L34",
       "_origin": "ast",
       "id": "src_app_page_page",
       "community": 14,
@@ -1837,7 +1947,7 @@
       "label": "Category",
       "file_type": "code",
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L2",
+      "source_location": "L10",
       "_origin": "ast",
       "id": "src_app_planejamento_planning_forms_category",
       "community": 20,
@@ -1847,7 +1957,7 @@
       "label": "BudgetForm()",
       "file_type": "code",
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L3",
+      "source_location": "L11",
       "_origin": "ast",
       "id": "src_app_planejamento_planning_forms_budgetform",
       "community": 20,
@@ -1857,7 +1967,7 @@
       "label": "GoalForm()",
       "file_type": "code",
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L4",
+      "source_location": "L48",
       "_origin": "ast",
       "id": "src_app_planejamento_planning_forms_goalform",
       "community": 20,
@@ -1867,11 +1977,111 @@
       "label": "ContributionForm()",
       "file_type": "code",
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L5",
+      "source_location": "L78",
       "_origin": "ast",
       "id": "src_app_planejamento_planning_forms_contributionform",
       "community": 20,
       "norm_label": "contributionform()"
+    },
+    {
+      "label": "alerts.test.ts",
+      "file_type": "code",
+      "source_file": "src/lib/finance/alerts.test.ts",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "src_lib_finance_alerts_test",
+      "community": 26,
+      "norm_label": "alerts.test.ts"
+    },
+    {
+      "label": "allEnabled",
+      "file_type": "code",
+      "source_file": "src/lib/finance/alerts.test.ts",
+      "source_location": "L8",
+      "_origin": "ast",
+      "id": "src_lib_finance_alerts_test_allenabled",
+      "community": 26,
+      "norm_label": "allenabled"
+    },
+    {
+      "label": "alerts",
+      "file_type": "code",
+      "source_file": "src/lib/finance/alerts.test.ts",
+      "source_location": "L16",
+      "_origin": "ast",
+      "id": "src_lib_finance_alerts_test_alerts",
+      "community": 26,
+      "norm_label": "alerts"
+    },
+    {
+      "label": "alerts.ts",
+      "file_type": "code",
+      "source_file": "src/lib/finance/alerts.ts",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "src_lib_finance_alerts",
+      "community": 26,
+      "norm_label": "alerts.ts"
+    },
+    {
+      "label": "AlertPreference",
+      "file_type": "code",
+      "source_file": "src/lib/finance/alerts.ts",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "src_lib_finance_alerts_alertpreference",
+      "community": 26,
+      "norm_label": "alertpreference"
+    },
+    {
+      "label": "AlertSeverity",
+      "file_type": "code",
+      "source_file": "src/lib/finance/alerts.ts",
+      "source_location": "L8",
+      "_origin": "ast",
+      "id": "src_lib_finance_alerts_alertseverity",
+      "community": 26,
+      "norm_label": "alertseverity"
+    },
+    {
+      "label": "FinancialAlert",
+      "file_type": "code",
+      "source_file": "src/lib/finance/alerts.ts",
+      "source_location": "L10",
+      "_origin": "ast",
+      "id": "src_lib_finance_alerts_financialalert",
+      "community": 26,
+      "norm_label": "financialalert"
+    },
+    {
+      "label": "AlertPreferences",
+      "file_type": "code",
+      "source_file": "src/lib/finance/alerts.ts",
+      "source_location": "L18",
+      "_origin": "ast",
+      "id": "src_lib_finance_alerts_alertpreferences",
+      "community": 26,
+      "norm_label": "alertpreferences"
+    },
+    {
+      "label": "severityPriority",
+      "file_type": "code",
+      "source_file": "src/lib/finance/alerts.ts",
+      "source_location": "L20",
+      "_origin": "ast",
+      "id": "src_lib_finance_alerts_severitypriority",
+      "community": 26,
+      "norm_label": "severitypriority"
+    },
+    {
+      "label": "selectAlerts()",
+      "file_type": "code",
+      "source_file": "src/lib/finance/alerts.ts",
+      "source_location": "L32",
+      "_origin": "ast",
+      "id": "src_lib_finance_alerts_selectalerts",
+      "community": 26,
+      "norm_label": "selectalerts()"
     },
     {
       "label": "budget.test.ts",
@@ -2060,7 +2270,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_lib_finance_context",
-      "community": 18,
+      "community": 6,
       "norm_label": "context.ts"
     },
     {
@@ -2070,7 +2280,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "src_lib_finance_context_requirefinancecontext",
-      "community": 18,
+      "community": 6,
       "norm_label": "requirefinancecontext()"
     },
     {
@@ -2592,6 +2802,136 @@
       "id": "supabase_migrations_20260713032430_budgets_and_goals_financial_goals_set_updated_at",
       "community": 23,
       "norm_label": "financial_goals_set_updated_at"
+    },
+    {
+      "label": "20260713234753_add_reliability_controls.sql",
+      "file_type": "code",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": null,
+      "_origin": "ast",
+      "id": "supabase_migrations_20260713234753_add_reliability_controls",
+      "community": 24,
+      "norm_label": "20260713234753_add_reliability_controls.sql"
+    },
+    {
+      "label": "public.fixed_commitments",
+      "file_type": "code",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "supabase_migrations_20260713234753_add_reliability_controls_public_fixed_commitments",
+      "community": 24,
+      "norm_label": "public.fixed_commitments"
+    },
+    {
+      "label": "public.goal_contributions",
+      "file_type": "code",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L4",
+      "_origin": "ast",
+      "id": "supabase_migrations_20260713234753_add_reliability_controls_public_goal_contributions",
+      "community": 24,
+      "norm_label": "public.goal_contributions"
+    },
+    {
+      "label": "public.alert_preferences",
+      "file_type": "code",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L23",
+      "_origin": "ast",
+      "id": "supabase_migrations_20260713234753_add_reliability_controls_public_alert_preferences",
+      "community": 24,
+      "norm_label": "public.alert_preferences"
+    },
+    {
+      "label": "public.fixed_commitment_occurrences",
+      "file_type": "code",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L47",
+      "_origin": "ast",
+      "id": "supabase_migrations_20260713234753_add_reliability_controls_public_fixed_commitment_occurrences",
+      "community": 24,
+      "norm_label": "public.fixed_commitment_occurrences"
+    },
+    {
+      "label": "goal_contributions_set_updated_at",
+      "file_type": "code",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L89",
+      "_origin": "ast",
+      "id": "supabase_migrations_20260713234753_add_reliability_controls_goal_contributions_set_updated_at",
+      "community": 24,
+      "norm_label": "goal_contributions_set_updated_at"
+    },
+    {
+      "label": "alert_preferences_set_updated_at",
+      "file_type": "code",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L93",
+      "_origin": "ast",
+      "id": "supabase_migrations_20260713234753_add_reliability_controls_alert_preferences_set_updated_at",
+      "community": 24,
+      "norm_label": "alert_preferences_set_updated_at"
+    },
+    {
+      "label": "fixed_commitment_occurrences_set_updated_at",
+      "file_type": "code",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L97",
+      "_origin": "ast",
+      "id": "supabase_migrations_20260713234753_add_reliability_controls_fixed_commitment_occurrences_set_updated_at",
+      "community": 24,
+      "norm_label": "fixed_commitment_occurrences_set_updated_at"
+    },
+    {
+      "label": "public.enforce_financial_goal_progress()",
+      "file_type": "code",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L109",
+      "_origin": "ast",
+      "id": "supabase_migrations_20260713234753_add_reliability_controls_public_enforce_financial_goal_progress",
+      "community": 24,
+      "norm_label": "public.enforce_financial_goal_progress()"
+    },
+    {
+      "label": "public.sync_financial_goal_from_contributions()",
+      "file_type": "code",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L136",
+      "_origin": "ast",
+      "id": "supabase_migrations_20260713234753_add_reliability_controls_public_sync_financial_goal_from_contributions",
+      "community": 24,
+      "norm_label": "public.sync_financial_goal_from_contributions()"
+    },
+    {
+      "label": "financial_goals_enforce_progress",
+      "file_type": "code",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L167",
+      "_origin": "ast",
+      "id": "supabase_migrations_20260713234753_add_reliability_controls_financial_goals_enforce_progress",
+      "community": 24,
+      "norm_label": "financial_goals_enforce_progress"
+    },
+    {
+      "label": "goal_contributions_sync_goal",
+      "file_type": "code",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L172",
+      "_origin": "ast",
+      "id": "supabase_migrations_20260713234753_add_reliability_controls_goal_contributions_sync_goal",
+      "community": 24,
+      "norm_label": "goal_contributions_sync_goal"
+    },
+    {
+      "label": "public.materialize_fixed_commitment_occurrences()",
+      "file_type": "code",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L176",
+      "_origin": "ast",
+      "id": "supabase_migrations_20260713234753_add_reliability_controls_public_materialize_fixed_commitment_occurrences",
+      "community": 24,
+      "norm_label": "public.materialize_fixed_commitment_occurrences()"
     },
     {
       "label": "tsconfig.json",
@@ -5230,6 +5570,218 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/actions.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_actions",
+      "target": "src_app_configuracoes_actions_savealertpreferences",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/actions.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_actions",
+      "target": "src_app_configuracoes_actions_schema",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/actions.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_actions",
+      "target": "src_app_configuracoes_actions_settingsstate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/actions.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_actions",
+      "target": "src_lib_finance_context",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/actions.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_actions",
+      "target": "src_lib_finance_context_requirefinancecontext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/preferences-form.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_preferences_form",
+      "target": "src_app_configuracoes_actions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/preferences-form.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_preferences_form",
+      "target": "src_app_configuracoes_actions_settingsstate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/configuracoes/actions.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_actions_savealertpreferences",
+      "target": "src_lib_finance_context_requirefinancecontext"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/preferences-form.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_preferences_form",
+      "target": "src_app_configuracoes_actions_savealertpreferences",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "indirect_call",
+      "context": "argument",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src/app/configuracoes/preferences-form.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_preferences_form_preferencesform",
+      "target": "src_app_configuracoes_actions_savealertpreferences"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/page.tsx",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_page",
+      "target": "src_app_configuracoes_page_defaults",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/page.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_page",
+      "target": "src_app_configuracoes_page_page",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/page.tsx",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_page",
+      "target": "src_app_configuracoes_preferences_form",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/page.tsx",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_page",
+      "target": "src_app_configuracoes_preferences_form_preferencesform",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/page.tsx",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_page",
+      "target": "src_lib_finance_context",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/page.tsx",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_page",
+      "target": "src_lib_finance_context_requirefinancecontext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/configuracoes/page.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_page_page",
+      "target": "src_lib_finance_context_requirefinancecontext"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/preferences-form.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_preferences_form",
+      "target": "src_app_configuracoes_preferences_form_items",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/preferences-form.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_preferences_form",
+      "target": "src_app_configuracoes_preferences_form_preferences",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/configuracoes/preferences-form.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_app_configuracoes_preferences_form",
+      "target": "src_app_configuracoes_preferences_form_preferencesform",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "src/app/contas/account-form.tsx",
       "source_location": "L1",
       "weight": 1.0,
@@ -5496,7 +6048,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/app/layout.tsx",
-      "source_location": "L14",
+      "source_location": "L15",
       "weight": 1.0,
       "source": "src_app_layout",
       "target": "src_app_layout_metadata",
@@ -5506,7 +6058,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/app/layout.tsx",
-      "source_location": "L21",
+      "source_location": "L22",
       "weight": 1.0,
       "source": "src_app_layout",
       "target": "src_app_layout_rootlayout",
@@ -5516,7 +6068,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/app/layout.tsx",
-      "source_location": "L19",
+      "source_location": "L20",
       "weight": 1.0,
       "source": "src_app_layout",
       "target": "src_app_layout_viewport",
@@ -5930,7 +6482,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/app/page.tsx",
-      "source_location": "L19",
+      "source_location": "L20",
       "weight": 1.0,
       "source": "src_app_page",
       "target": "src_app_page_money",
@@ -5940,7 +6492,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/app/page.tsx",
-      "source_location": "L27",
+      "source_location": "L28",
       "weight": 1.0,
       "source": "src_app_page",
       "target": "src_app_page_monthoccurrence",
@@ -5950,7 +6502,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/app/page.tsx",
-      "source_location": "L33",
+      "source_location": "L34",
       "weight": 1.0,
       "source": "src_app_page",
       "target": "src_app_page_page",
@@ -5960,7 +6512,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/app/page.tsx",
-      "source_location": "L23",
+      "source_location": "L24",
       "weight": 1.0,
       "source": "src_app_page",
       "target": "src_app_page_shortdate",
@@ -5971,7 +6523,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/app/page.tsx",
-      "source_location": "L17",
+      "source_location": "L18",
       "weight": 1.0,
       "source": "src_app_page",
       "target": "src_lib_finance_context",
@@ -5982,7 +6534,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/app/page.tsx",
-      "source_location": "L17",
+      "source_location": "L18",
       "weight": 1.0,
       "source": "src_app_page",
       "target": "src_lib_finance_context_requirefinancecontext",
@@ -5993,7 +6545,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/app/page.tsx",
-      "source_location": "L18",
+      "source_location": "L19",
       "weight": 1.0,
       "source": "src_app_page",
       "target": "src_lib_finance_projection",
@@ -6004,7 +6556,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/app/page.tsx",
-      "source_location": "L18",
+      "source_location": "L19",
       "weight": 1.0,
       "source": "src_app_page",
       "target": "src_lib_finance_projection_projectionevent",
@@ -6015,7 +6567,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/app/page.tsx",
-      "source_location": "L18",
+      "source_location": "L19",
       "weight": 1.0,
       "source": "src_app_page",
       "target": "src_lib_finance_projection_projectweekly",
@@ -6026,7 +6578,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/app/page.tsx",
-      "source_location": "L145",
+      "source_location": "L146",
       "weight": 1.0,
       "source": "src_app_page_page",
       "target": "src_app_page_monthoccurrence",
@@ -6038,7 +6590,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/app/page.tsx",
-      "source_location": "L34",
+      "source_location": "L35",
       "weight": 1.0,
       "source": "src_app_page_page",
       "target": "src_lib_finance_context_requirefinancecontext"
@@ -6049,7 +6601,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/app/page.tsx",
-      "source_location": "L158",
+      "source_location": "L159",
       "weight": 1.0,
       "source": "src_app_page_page",
       "target": "src_lib_finance_projection_projectweekly"
@@ -6161,7 +6713,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L2",
+      "source_location": "L4",
       "weight": 1.0,
       "source": "src_app_planejamento_planning_forms",
       "target": "src_app_planejamento_actions",
@@ -6172,7 +6724,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L2",
+      "source_location": "L4",
       "weight": 1.0,
       "source": "src_app_planejamento_planning_forms",
       "target": "src_app_planejamento_actions_planningstate",
@@ -6194,7 +6746,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L2",
+      "source_location": "L4",
       "weight": 1.0,
       "source": "src_app_planejamento_planning_forms",
       "target": "src_app_planejamento_actions_savebudget",
@@ -6206,7 +6758,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L3",
+      "source_location": "L19",
       "weight": 1.0,
       "source": "src_app_planejamento_planning_forms_budgetform",
       "target": "src_app_planejamento_actions_savebudget"
@@ -6227,7 +6779,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L2",
+      "source_location": "L4",
       "weight": 1.0,
       "source": "src_app_planejamento_planning_forms",
       "target": "src_app_planejamento_actions_creategoal",
@@ -6239,7 +6791,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L4",
+      "source_location": "L50",
       "weight": 1.0,
       "source": "src_app_planejamento_planning_forms_goalform",
       "target": "src_app_planejamento_actions_creategoal"
@@ -6260,7 +6812,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L2",
+      "source_location": "L4",
       "weight": 1.0,
       "source": "src_app_planejamento_planning_forms",
       "target": "src_app_planejamento_actions_addtogoal",
@@ -6272,7 +6824,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L5",
+      "source_location": "L80",
       "weight": 1.0,
       "source": "src_app_planejamento_planning_forms_contributionform",
       "target": "src_app_planejamento_actions_addtogoal"
@@ -6443,7 +6995,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L3",
+      "source_location": "L11",
       "weight": 1.0,
       "source": "src_app_planejamento_planning_forms",
       "target": "src_app_planejamento_planning_forms_budgetform",
@@ -6453,7 +7005,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L2",
+      "source_location": "L10",
       "weight": 1.0,
       "source": "src_app_planejamento_planning_forms",
       "target": "src_app_planejamento_planning_forms_category",
@@ -6463,7 +7015,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L5",
+      "source_location": "L78",
       "weight": 1.0,
       "source": "src_app_planejamento_planning_forms",
       "target": "src_app_planejamento_planning_forms_contributionform",
@@ -6473,10 +7025,134 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/app/planejamento/planning-forms.tsx",
-      "source_location": "L4",
+      "source_location": "L48",
       "weight": 1.0,
       "source": "src_app_planejamento_planning_forms",
       "target": "src_app_planejamento_planning_forms_goalform",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/finance/alerts.test.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_lib_finance_alerts_test",
+      "target": "src_lib_finance_alerts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/finance/alerts.test.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_lib_finance_alerts_test",
+      "target": "src_lib_finance_alerts_alertpreferences",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/finance/alerts.test.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_lib_finance_alerts_test",
+      "target": "src_lib_finance_alerts_financialalert",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/finance/alerts.test.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_lib_finance_alerts_test",
+      "target": "src_lib_finance_alerts_selectalerts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/finance/alerts.test.ts",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "src_lib_finance_alerts_test",
+      "target": "src_lib_finance_alerts_test_alerts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/finance/alerts.test.ts",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "src_lib_finance_alerts_test",
+      "target": "src_lib_finance_alerts_test_allenabled",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/finance/alerts.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "src_lib_finance_alerts",
+      "target": "src_lib_finance_alerts_alertpreference",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/finance/alerts.ts",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "src_lib_finance_alerts",
+      "target": "src_lib_finance_alerts_alertpreferences",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/finance/alerts.ts",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "src_lib_finance_alerts",
+      "target": "src_lib_finance_alerts_alertseverity",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/finance/alerts.ts",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "src_lib_finance_alerts",
+      "target": "src_lib_finance_alerts_financialalert",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/finance/alerts.ts",
+      "source_location": "L32",
+      "weight": 1.0,
+      "source": "src_lib_finance_alerts",
+      "target": "src_lib_finance_alerts_selectalerts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/finance/alerts.ts",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "src_lib_finance_alerts",
+      "target": "src_lib_finance_alerts_severitypriority",
       "confidence_score": 1.0
     },
     {
@@ -7457,6 +8133,176 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L93",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_alert_preferences_set_updated_at",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L167",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_financial_goals_enforce_progress",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L97",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_fixed_commitment_occurrences_set_updated_at",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L89",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_goal_contributions_set_updated_at",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L172",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_goal_contributions_sync_goal",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_public_alert_preferences",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L109",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_public_enforce_financial_goal_progress",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L47",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_public_fixed_commitment_occurrences",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_public_fixed_commitments",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_public_goal_contributions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L176",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_public_materialize_fixed_commitment_occurrences",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L136",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_public_sync_financial_goal_from_contributions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L47",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls_public_fixed_commitment_occurrences",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_public_fixed_commitments",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "reads_from",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L221",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls_public_materialize_fixed_commitment_occurrences",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_public_fixed_commitments",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "reads_from",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L120",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls_public_enforce_financial_goal_progress",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_public_goal_contributions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L167",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls_financial_goals_enforce_progress",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_public_enforce_financial_goal_progress",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/migrations/20260713234753_add_reliability_controls.sql",
+      "source_location": "L172",
+      "weight": 1.0,
+      "source": "supabase_migrations_20260713234753_add_reliability_controls_goal_contributions_sync_goal",
+      "target": "supabase_migrations_20260713234753_add_reliability_controls_public_sync_financial_goal_from_contributions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "tsconfig.json",
       "source_location": "L1",
       "weight": 1.0,
@@ -7965,5 +8811,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "50a875353708a2020a16443472856f0e2531c054"
+  "built_at_commit": "216f934a161fe5d2305fb8e24d9deb3e43a0fd8f"
 }

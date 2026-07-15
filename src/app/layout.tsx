@@ -9,6 +9,7 @@ import "./card.css";
 import "./invoice.css";
 import "./projection.css";
 import "./planning.css";
+import "./settings.css";
 import "./dashboard-extra.css";
 
 export const metadata: Metadata = {

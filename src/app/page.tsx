@@ -10,6 +10,7 @@ import {
   LogOut,
   PiggyBank,
   Plus,
+  Settings,
   Tags,
   Target,
   WalletCards,
@@ -193,6 +194,10 @@ export default async function Page() {
           <Link href="/planejamento">
             <Target />
             Planejamento
+          </Link>
+          <Link href="/configuracoes">
+            <Settings />
+            Configurações
           </Link>
           <Link href="/investimentos">
             <PiggyBank />

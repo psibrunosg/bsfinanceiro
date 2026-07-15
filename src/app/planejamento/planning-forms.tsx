@@ -1,5 +1,108 @@
 "use client";
-import{useActionState}from"react";import{Flag,Plus,Target}from"lucide-react";import{addToGoal,createGoal,saveBudget,type PlanningState}from"./actions";type Category={id:string;name:string};
-export function BudgetForm({categories,month}:{categories:Category[];month:string}){const[state,action,pending]=useActionState<PlanningState,FormData>(saveBudget,{});return <form action={action} className="finance-form"><input type="hidden" name="month" value={month}/><label>Categoria</label><select name="category_id" required><option value="">Selecione</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><label>Limite do mês</label><div className="money-input"><span>R$</span><input name="amount" inputMode="decimal" placeholder="0,00" required/></div>{state.error&&<p className="form-error">{state.error}</p>}{state.success&&<p className="form-success">{state.success}</p>}<button disabled={pending}><Flag/>Definir orçamento</button></form>}
-export function GoalForm(){const[state,action,pending]=useActionState<PlanningState,FormData>(createGoal,{});return <form action={action} className="finance-form"><label>Nome da meta</label><input name="name" placeholder="Ex.: Reserva de emergência" required/><label>Valor desejado</label><div className="money-input"><span>R$</span><input name="target_amount" inputMode="decimal" required/></div><label>Já tenho</label><div className="money-input"><span>R$</span><input name="current_amount" inputMode="decimal" defaultValue="0,00"/></div><label>Prazo</label><input name="deadline" type="date"/>{state.error&&<p className="form-error">{state.error}</p>}{state.success&&<p className="form-success">{state.success}</p>}<button disabled={pending}><Target/>Criar meta</button></form>}
-export function ContributionForm({id}:{id:string}){const[state,action,pending]=useActionState<PlanningState,FormData>(addToGoal,{});return <form action={action} className="contribution-form"><input type="hidden" name="id" value={id}/><div className="money-input"><span>R$</span><input name="amount" inputMode="decimal" placeholder="100,00" aria-label="Valor do aporte" required/></div><button disabled={pending} aria-label="Adicionar aporte"><Plus/></button>{state.error&&<small className="form-error">{state.error}</small>}{state.success&&<small className="form-success">{state.success}</small>}</form>}
+import { useActionState, useEffect, useState } from "react";
+import { Flag, Plus, Target } from "lucide-react";
+import {
+  addToGoal,
+  createGoal,
+  saveBudget,
+  type PlanningState,
+} from "./actions";
+type Category = { id: string; name: string };
+export function BudgetForm({
+  categories,
+  month,
+}: {
+  categories: Category[];
+  month: string;
+}) {
+  const [state, action, pending] = useActionState<PlanningState, FormData>(
+    saveBudget,
+    {},
+  );
+  return (
+    <form action={action} className="finance-form">
+      <input type="hidden" name="month" value={month} />
+      <label>Categoria</label>
+      <select name="category_id" required>
+        <option value="">Selecione</option>
+        {categories.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+      <label>Limite do mês</label>
+      <div className="money-input">
+        <span>R$</span>
+        <input name="amount" inputMode="decimal" placeholder="0,00" required />
+      </div>
+      {state.error && <p className="form-error">{state.error}</p>}
+      {state.success && <p className="form-success">{state.success}</p>}
+      <button disabled={pending}>
+        <Flag />
+        Definir orçamento
+      </button>
+    </form>
+  );
+}
+export function GoalForm() {
+  const [state, action, pending] = useActionState<PlanningState, FormData>(
+    createGoal,
+    {},
+  );
+  return (
+    <form action={action} className="finance-form">
+      <label>Nome da meta</label>
+      <input name="name" placeholder="Ex.: Reserva de emergência" required />
+      <label>Valor desejado</label>
+      <div className="money-input">
+        <span>R$</span>
+        <input name="target_amount" inputMode="decimal" required />
+      </div>
+      <label>Já tenho</label>
+      <div className="money-input">
+        <span>R$</span>
+        <input name="current_amount" inputMode="decimal" defaultValue="0,00" />
+      </div>
+      <label>Prazo</label>
+      <input name="deadline" type="date" />
+      {state.error && <p className="form-error">{state.error}</p>}
+      {state.success && <p className="form-success">{state.success}</p>}
+      <button disabled={pending}>
+        <Target />
+        Criar meta
+      </button>
+    </form>
+  );
+}
+export function ContributionForm({ id }: { id: string }) {
+  const [state, action, pending] = useActionState<PlanningState, FormData>(
+    addToGoal,
+    {},
+  );
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  useEffect(() => {
+    if (state.success) setIdempotencyKey(crypto.randomUUID());
+  }, [state.success]);
+  return (
+    <form action={action} className="contribution-form">
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="idempotency_key" value={idempotencyKey} />
+      <div className="money-input">
+        <span>R$</span>
+        <input
+          name="amount"
+          inputMode="decimal"
+          placeholder="100,00"
+          aria-label="Valor do aporte"
+          required
+        />
+      </div>
+      <button disabled={pending} aria-label="Adicionar aporte">
+        <Plus />
+      </button>
+      {state.error && <small className="form-error">{state.error}</small>}
+      {state.success && <small className="form-success">{state.success}</small>}
+    </form>
+  );
+}
