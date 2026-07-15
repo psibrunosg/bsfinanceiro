@@ -2247,7 +2247,7 @@
       "label": "createClient()",
       "file_type": "code",
       "source_file": "src/lib/supabase/client.ts",
-      "source_location": "L2",
+      "source_location": "L6",
       "_origin": "ast",
       "id": "src_lib_supabase_client_createclient",
       "community": 13,
@@ -6314,7 +6314,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/supabase/client.ts",
-      "source_location": "L2",
+      "source_location": "L6",
       "weight": 1.0,
       "source": "src_lib_supabase_client",
       "target": "src_lib_supabase_client_createclient",
@@ -6895,5 +6895,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "3a41d271092f09a6b651f0e66b20a2b9ff057481"
+  "built_at_commit": "e40c1c13bd9c4b9de3f31138ed848f60bd397ab3"
 }

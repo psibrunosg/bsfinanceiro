@@ -60,8 +60,8 @@
     "semantic_hash": ""
   },
   "src/app/(auth)/auth-form.tsx": {
-    "mtime": 1784149586.4305172,
-    "ast_hash": "500d6ade3828b6ae762ce2c13ad76fe4",
+    "mtime": 1784150955.4764936,
+    "ast_hash": "8b21e5f159d4193d8185d3c148595d56",
     "semantic_hash": ""
   },
   "src/app/(auth)/cadastro/page.tsx": {
@@ -95,8 +95,8 @@
     "semantic_hash": ""
   },
   "src/app/onboarding/onboarding-form.tsx": {
-    "mtime": 1784149639.4867642,
-    "ast_hash": "4d0d2e0119fc4294fe1044b84d47dcb0",
+    "mtime": 1784150988.4822502,
+    "ast_hash": "5220546388230c73c9c34ad707ca172b",
     "semantic_hash": ""
   },
   "src/app/onboarding/page.tsx": {
@@ -345,13 +345,18 @@
     "semantic_hash": ""
   },
   "src/app/auth/callback/page.tsx": {
-    "mtime": 1784148292.157189,
-    "ast_hash": "458f2387c511e1d774060518e6ce4ccd",
+    "mtime": 1784150965.6925287,
+    "ast_hash": "540e051018aa5b0b5b7411231e3337c8",
     "semantic_hash": ""
   },
   "src/app/finance-client.tsx": {
-    "mtime": 1784149989.4500027,
-    "ast_hash": "3b55a397069c46fbc509c0e7c4816613",
+    "mtime": 1784150914.0399015,
+    "ast_hash": "a66ed61af57aeb0c13548cf8e8016c35",
+    "semantic_hash": ""
+  },
+  "src/lib/app-path.ts": {
+    "mtime": 1784150904.7221649,
+    "ast_hash": "a20173082575753828a1c5f2873cac63",
     "semantic_hash": ""
   }
 }
