@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "src/lib/supabase/client.ts": {
-    "mtime": 1783966821.81255,
-    "ast_hash": "6fe89035f4f472cb55c80bab1c6beb9b",
+    "mtime": 1784150421.1935542,
+    "ast_hash": "bd447e4c4e1f749748a250a996a0cada",
     "semantic_hash": ""
   },
   "supabase/migrations/20260712230000_initial_finance_schema.sql": {

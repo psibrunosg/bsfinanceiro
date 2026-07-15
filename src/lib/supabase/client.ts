@@ -1,2 +1,11 @@
 import { createBrowserClient } from "@supabase/ssr";
-export function createClient(){const url=process.env.NEXT_PUBLIC_SUPABASE_URL;const key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;if(!url||!key)throw new Error("Configure as variáveis públicas do Supabase.");return createBrowserClient(url,key);}
+
+const fallbackUrl = "https://wgntlhzjyriwhncumjsv.supabase.co";
+const fallbackKey = "sb_publishable_vFa47pDTRu189gOyTLORfg_2QGcr6Qx";
+
+export function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || fallbackUrl,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || fallbackKey,
+  );
+}
