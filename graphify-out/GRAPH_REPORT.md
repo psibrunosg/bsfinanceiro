@@ -1,16 +1,16 @@
 # Graph Report - bsfinanceiro  (2026-07-15)
 
 ## Corpus Check
-- 67 files · ~64,733 words
+- 68 files · ~65,228 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 286 nodes · 387 edges · 24 communities (20 shown, 4 thin omitted)
-- Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 10 edges (avg confidence: 0.8)
+- 289 nodes · 400 edges · 24 communities (20 shown, 4 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 10 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e40c1c13`
+- Built from commit: `01001418`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -44,24 +44,24 @@
 2. `compilerOptions` - 16 edges
 3. `FinanceClientPage()` - 11 edges
 4. `createClient()` - 8 edges
-5. `createClient()` - 7 edges
-6. `Roadmap` - 7 edges
-7. `Design System Master File` - 7 edges
-8. `scripts` - 6 edges
-9. `projectWeekly()` - 6 edges
-10. `BS Financeiro` - 6 edges
+5. `appPath()` - 7 edges
+6. `createClient()` - 7 edges
+7. `Roadmap` - 7 edges
+8. `Design System Master File` - 7 edges
+9. `scripts` - 6 edges
+10. `projectWeekly()` - 6 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `archiveAccount()` --calls--> `requireFinanceContext()`  [EXTRACTED]
   src/app/contas/actions.ts → src/lib/finance/context.ts
 - `login()` --calls--> `createClient()`  [EXTRACTED]
   src/app/(auth)/actions.ts → src/lib/supabase/server.ts
-- `AuthCallbackPage()` --calls--> `createClient()`  [EXTRACTED]
-  src/app/auth/callback/page.tsx → src/lib/supabase/client.ts
 - `PaymentForm()` --indirect_call--> `payInvoice()`  [INFERRED]
   src/app/cartoes/[id]/payment-form.tsx → src/app/cartoes/actions.ts
 - `PurchaseForm()` --indirect_call--> `createPurchase()`  [INFERRED]
   src/app/cartoes/[id]/purchase-form.tsx → src/app/cartoes/actions.ts
+- `CardForm()` --indirect_call--> `createCard()`  [INFERRED]
+  src/app/cartoes/card-form.tsx → src/app/cartoes/actions.ts
 
 ## Import Cycles
 - None detected.
@@ -105,16 +105,16 @@ Cohesion: 0.39
 Nodes (7): addMonthsClamped(), assertNonNegativeInteger(), calculateInstallments(), CardInstallment, CardLimitSummary, parseDateOnly(), summarizeCardLimit()
 
 ### Community 13 - "client.ts"
-Cohesion: 0.33
-Nodes (4): AuthCallbackPage(), goals, OnboardingForm(), createClient()
+Cohesion: 0.21
+Nodes (7): AuthForm(), AuthCallbackPage(), goals, OnboardingForm(), appPath(), appUrl(), createClient()
 
 ### Community 14 - "actions.ts"
 Cohesion: 0.36
 Nodes (7): assertCents(), formatIsoDate(), getWeekStart(), parseIsoDate(), ProjectionEvent, projectWeekly(), WeeklyProjection
 
 ### Community 16 - "createClient"
-Cohesion: 0.17
-Nodes (10): AuthState, login(), signup(), AuthForm(), completeOnboarding(), OnboardingState, schema, createClient() (+2 more)
+Cohesion: 0.24
+Nodes (9): AuthState, login(), signup(), completeOnboarding(), OnboardingState, schema, createClient(), authErrorMessage() (+1 more)
 
 ### Community 17 - "finance-client.tsx"
 Cohesion: 0.08
@@ -153,11 +153,11 @@ Nodes (8): AlertPreference, AlertPreferences, AlertSeverity, FinancialAlert, sel
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `requireFinanceContext()` connect `include` to `package.json`, `actions.ts`, `createClient`, `actions.ts`, `page.tsx`, `actions.ts`?**
-  _High betweenness centrality (0.129) - this node is a cross-community bridge._
+  _High betweenness centrality (0.130) - this node is a cross-community bridge._
 - **Why does `createClient()` connect `createClient` to `include`?**
-  _High betweenness centrality (0.103) - this node is a cross-community bridge._
-- **Why does `createClient()` connect `client.ts` to `createClient`, `finance-client.tsx`?**
-  _High betweenness centrality (0.062) - this node is a cross-community bridge._
+  _High betweenness centrality (0.106) - this node is a cross-community bridge._
+- **Why does `authErrorMessage()` connect `createClient` to `client.ts`?**
+  _High betweenness centrality (0.053) - this node is a cross-community bridge._
 - **What connects `compat`, `config`, `NOTE: This file should not be edited` to the rest of the system?**
   _127 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `compilerOptions` be split into smaller, more focused modules?**

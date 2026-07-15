@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { appPath } from "@/lib/app-path";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AuthCallbackPage() {
@@ -8,11 +9,11 @@ export default function AuthCallbackPage() {
     const run = async () => {
       const code = new URLSearchParams(window.location.search).get("code");
       if (!code) {
-        window.location.replace("/entrar?erro=confirmacao");
+        window.location.replace(appPath("/entrar?erro=confirmacao"));
         return;
       }
       const { error } = await createClient().auth.exchangeCodeForSession(code);
-      window.location.replace(error ? "/entrar?erro=confirmacao" : "/");
+      window.location.replace(appPath(error ? "/entrar?erro=confirmacao" : "/"));
     };
     void run();
   }, []);

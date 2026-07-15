@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { appPath } from "@/lib/app-path";
 import { createClient } from "@/lib/supabase/client";
 
 type Route = "dashboard" | "accounts" | "categories" | "transactions" | "cards" | "card" | "commitments" | "planning" | "settings";
@@ -39,12 +40,12 @@ export function FinanceClientPage({ route, cardId }: { route: Route; cardId?: st
     const { data: userData } = await supabase.auth.getUser();
     const user = userData.user;
     if (!user) {
-      window.location.replace("/entrar");
+      window.location.replace(appPath("/entrar"));
       return;
     }
     const { data: ws } = await supabase.from("workspaces").select("id,name").eq("owner_id", user.id).eq("kind", "personal").order("created_at").limit(1).maybeSingle();
     if (!ws) {
-      window.location.replace("/onboarding");
+      window.location.replace(appPath("/onboarding"));
       return;
     }
     setWorkspace(ws);
@@ -74,7 +75,7 @@ export function FinanceClientPage({ route, cardId }: { route: Route; cardId?: st
 
   async function signOut() {
     await supabase.auth.signOut();
-    window.location.replace("/entrar");
+    window.location.replace(appPath("/entrar"));
   }
 
   async function submitAccount(form: FormData) {
