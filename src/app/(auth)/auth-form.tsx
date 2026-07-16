@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
-import { appPath, appUrl } from "@/lib/app-path";
+import { appPath, appUrl, LOGO_URL } from "@/lib/app-path";
 import { createClient } from "@/lib/supabase/client";
 import { authErrorMessage, authSchema } from "@/lib/validation/auth";
 
@@ -46,7 +46,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       <section className="auth-panel">
         <div className="auth-brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={appPath("/logo-bsfinanceiro.png")} alt="" aria-hidden="true" width={44} height={44} />
+          <img src={LOGO_URL} alt="" aria-hidden="true" width={44} height={44} />
           <strong>BS Financeiro</strong>
         </div>
         <div>

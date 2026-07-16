@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ArrowRight, BarChart3, Landmark, LoaderCircle, PiggyBank, ReceiptText } from "lucide-react";
-import { appPath } from "@/lib/app-path";
+import { appPath, LOGO_URL } from "@/lib/app-path";
 import { createClient } from "@/lib/supabase/client";
 
 const goals = [
@@ -43,7 +43,7 @@ export function OnboardingForm({ suggestedName }: { suggestedName: string }) {
       <section className="onboarding-card">
         <div className="auth-brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={appPath("/logo-bsfinanceiro.png")} alt="" aria-hidden="true" width={44} height={44} />
+          <img src={LOGO_URL} alt="" aria-hidden="true" width={44} height={44} />
           <strong>BS Financeiro</strong>
         </div>
         <div>
