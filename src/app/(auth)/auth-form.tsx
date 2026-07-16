@@ -27,7 +27,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     if (enter) {
       const { error } = await supabase.auth.signInWithPassword(parsed.data);
       if (error) setState({ error: "E-mail ou senha incorretos." });
-      else window.location.replace(appPath("/onboarding"));
+      else window.location.replace(appPath("/"));
     } else {
       const { error } = await supabase.auth.signUp({
         ...parsed.data,
