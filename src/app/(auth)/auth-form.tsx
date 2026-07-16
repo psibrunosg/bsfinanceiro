@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
@@ -46,7 +45,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     <main className="auth-page">
       <section className="auth-panel">
         <div className="auth-brand">
-          <Image src="/logo-bsfinanceiro.png" alt="" aria-hidden="true" width={44} height={44} priority />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={appPath("/logo-bsfinanceiro.png")} alt="" aria-hidden="true" width={44} height={44} />
           <strong>BS Financeiro</strong>
         </div>
         <div>

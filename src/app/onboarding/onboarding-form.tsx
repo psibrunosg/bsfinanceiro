@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import { ArrowRight, BarChart3, Landmark, LoaderCircle, PiggyBank, ReceiptText } from "lucide-react";
 import { appPath } from "@/lib/app-path";
@@ -43,7 +42,8 @@ export function OnboardingForm({ suggestedName }: { suggestedName: string }) {
     <main className="onboarding-page">
       <section className="onboarding-card">
         <div className="auth-brand">
-          <Image src="/logo-bsfinanceiro.png" alt="" aria-hidden="true" width={44} height={44} priority />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={appPath("/logo-bsfinanceiro.png")} alt="" aria-hidden="true" width={44} height={44} />
           <strong>BS Financeiro</strong>
         </div>
         <div>
