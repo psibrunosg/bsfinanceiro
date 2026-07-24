@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
@@ -8,19 +9,22 @@ import { SimpleForm } from "./components/SimpleForm";
 import { money, parseMoney, dateFmt } from "./components/Money";
 import { BrandLogo, CARD_BRANDS } from "./brand-logo";
 import { createClient } from "@/lib/supabase/client";
-import { useMemo } from "react";
+import { useMemo, Suspense } from "react";
 
-export function CardsPage() {
+function CardsPageInner() {
+  const searchParams = useSearchParams();
+  const selectedCardId = searchParams.get("cardId");
   const {
     workspace,
     accounts,
+    categories,
     cards,
     invoices,
     loading,
     message,
     setMessage,
     reload,
-  } = useFinance("cards");
+  } = useFinance(selectedCardId ? "card" : "cards", selectedCardId || undefined);
   const supabase = useMemo(() => createClient(), []);
 
   if (loading || !workspace)
@@ -29,6 +33,8 @@ export function CardsPage() {
         <p className="muted">Carregando...</p>
       </main>
     );
+
+  const selectedCard = selectedCardId ? cards.find((c) => c.id === selectedCardId) : null;
 
   async function submitCard(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
@@ -49,121 +55,229 @@ export function CardsPage() {
     await reload();
   }
 
+  async function submitPurchase(form: FormData) {
+    const { error } = await supabase.rpc("create_installment_purchase", {
+      p_credit_card_id: selectedCardId,
+      p_description: form.get("description"),
+      p_total_amount: parseMoney(form.get("total_amount")),
+      p_purchased_on: form.get("purchased_on"),
+      p_installment_count: Number(form.get("installment_count") || 1),
+      p_category_id: form.get("category_id") || null,
+      p_notes: form.get("notes") || null,
+      p_idempotency_key: crypto.randomUUID(),
+    });
+    setMessage(
+      error ? "Não foi possível registrar a compra." : "Compra registrada."
+    );
+    await reload();
+  }
+
   return (
     <main className="management-page">
       <PageHeader
-        title="Cartões"
-        subtitle="Limites e vencimentos em um só lugar."
+        title={selectedCard ? selectedCard.name : "Cartões"}
+        subtitle={selectedCard ? "Faturas e compras." : "Limites e vencimentos em um só lugar."}
         workspaceName={workspace.name}
       />
       <Nav />
       {message && <p className="form-success">{message}</p>}
-      <section className="management-grid">
-        <List title="Cartões ativos">
-          {cards.map((c) => (
-            <article className="account-row" key={c.id}>
-              <span className="brand-badge">
-                <BrandLogo brand={c.brand} />
-              </span>
-              <div>
-                <strong>
-                  {c.name}
-                  {c.last_four ? ` • ${c.last_four}` : ""}
-                </strong>
-                <small>
-                  {c.brand || "Cartão"} · fecha {c.closing_day} · vence{" "}
-                  {c.due_day}
-                </small>
-              </div>
-              <b>{money(c.credit_limit)}</b>
-            </article>
-          ))}
-        </List>
-        <aside className="form-card">
-          <h2>Adicionar cartão</h2>
-          <SimpleForm onSubmit={submitCard}>
-            <select name="account_id" required>
-              <option value="">Conta vinculada</option>
-              {accounts
-                .filter((a) => a.type === "credit_card")
-                .map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
+
+      {!selectedCardId && (
+        <section className="management-grid">
+          <List title="Cartões ativos">
+            {cards.map((c) => (
+              <article className="account-row" key={c.id}>
+                <span className="brand-badge">
+                  <BrandLogo brand={c.brand} />
+                </span>
+                <div>
+                  <strong>
+                    {c.name}
+                    {c.last_four ? ` • ${c.last_four}` : ""}
+                  </strong>
+                  <small>
+                    {c.brand || "Cartão"} · fecha {c.closing_day} · vence{" "}
+                    {c.due_day}
+                  </small>
+                </div>
+                <b>{money(c.credit_limit)}</b>
+              </article>
+            ))}
+          </List>
+          <aside className="form-card">
+            <h2>Adicionar cartão</h2>
+            <SimpleForm onSubmit={submitCard}>
+              <select name="account_id" required>
+                <option value="">Conta vinculada</option>
+                {accounts
+                  .filter((a) => a.type === "credit_card")
+                  .map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+              </select>
+              <input name="name" placeholder="Nome do cartão" required />
+              <select name="brand" defaultValue="">
+                <option value="">Bandeira</option>
+                {CARD_BRANDS.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
                   </option>
                 ))}
-            </select>
-            <input name="name" placeholder="Nome do cartão" required />
-            <select name="brand" defaultValue="">
-              <option value="">Bandeira</option>
-              {CARD_BRANDS.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-            <input name="last_four" placeholder="Final" />
-            <input name="credit_limit" placeholder="0,00" required />
-            <input
-              name="closing_day"
-              type="number"
-              min="1"
-              max="31"
-              placeholder="Fecha dia"
-              required
-            />
-            <input
-              name="due_day"
-              type="number"
-              min="1"
-              max="31"
-              placeholder="Vence dia"
-              required
-            />
-            <button>Adicionar</button>
-          </SimpleForm>
-        </aside>
-      </section>
-      <section className="account-list">
-        <h2>Faturas</h2>
-        {invoices.length === 0 && (
-          <p className="muted">Nenhuma fatura registrada.</p>
-        )}
-        {invoices.map((inv) => {
-          const card = cards.find((c) => c.id === inv.credit_card_id);
-          const items = inv.credit_card_installments || [];
-          const total = items.reduce((s, i) => s + Number(i.amount), 0);
-          return (
-            <article className="invoice-card" key={inv.id}>
-              <header>
-                <strong>
-                  {card?.name || "Cartão"} · vence{" "}
-                  {dateFmt.format(new Date(`${inv.due_date}T12:00:00`))}
-                </strong>
-                <b>{money(total)}</b>
-                <span data-status={inv.status}>
-                  {inv.status === "paid" ? "Paga" : "Em aberto"}
-                </span>
-              </header>
-              <ul>
-                {items.map((i, n) => {
-                  const p = Array.isArray(i.credit_card_purchases)
-                    ? i.credit_card_purchases[0]
-                    : i.credit_card_purchases;
-                  return (
-                    <li key={n}>
-                      <span>
-                        {p?.description || "Compra"} · {i.installment_number}/
-                        {p?.installment_count || 1}
-                      </span>
-                      <b>{money(i.amount)}</b>
-                    </li>
-                  );
-                })}
-              </ul>
-            </article>
-          );
-        })}
-      </section>
+              </select>
+              <input name="last_four" placeholder="Final" />
+              <input name="credit_limit" placeholder="0,00" required />
+              <input
+                name="closing_day"
+                type="number"
+                min="1"
+                max="31"
+                placeholder="Fecha dia"
+                required
+              />
+              <input
+                name="due_day"
+                type="number"
+                min="1"
+                max="31"
+                placeholder="Vence dia"
+                required
+              />
+              <button>Adicionar</button>
+            </SimpleForm>
+          </aside>
+        </section>
+      )}
+
+      {selectedCardId && (
+        <section className="management-grid">
+          <List title="Faturas">
+            {invoices.length === 0 && (
+              <p className="muted">Nenhuma fatura para este cartão.</p>
+            )}
+            {invoices.map((inv) => {
+              const items = inv.credit_card_installments || [];
+              const total = items.reduce((s, i) => s + Number(i.amount), 0);
+              return (
+                <article className="invoice-card" key={inv.id}>
+                  <header>
+                    <strong>
+                      Vence{" "}
+                      {dateFmt.format(new Date(`${inv.due_date}T12:00:00`))}
+                    </strong>
+                    <b>{money(total)}</b>
+                    <span data-status={inv.status}>
+                      {inv.status === "paid" ? "Paga" : "Em aberto"}
+                    </span>
+                  </header>
+                  <ul>
+                    {items.map((i, n) => {
+                      const p = Array.isArray(i.credit_card_purchases)
+                        ? i.credit_card_purchases[0]
+                        : i.credit_card_purchases;
+                      return (
+                        <li key={n}>
+                          <span>
+                            {p?.description || "Compra"} ·{" "}
+                            {i.installment_number}/{p?.installment_count || 1}
+                          </span>
+                          <b>{money(i.amount)}</b>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </article>
+              );
+            })}
+          </List>
+          <aside className="form-card">
+            <h2>Nova compra</h2>
+            <SimpleForm onSubmit={submitPurchase}>
+              <input name="description" placeholder="Descrição" required />
+              <input name="total_amount" placeholder="0,00" required />
+              <input
+                name="purchased_on"
+                type="date"
+                defaultValue={new Date().toISOString().slice(0, 10)}
+                required
+              />
+              <input
+                name="installment_count"
+                type="number"
+                min="1"
+                max="120"
+                defaultValue="1"
+                required
+              />
+              <select name="category_id">
+                <option value="">Sem categoria</option>
+                {categories
+                  .filter((c) => c.kind === "expense")
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+              <input name="notes" placeholder="Observação" />
+              <button>Registrar</button>
+            </SimpleForm>
+          </aside>
+        </section>
+      )}
+
+      {!selectedCardId && (
+        <section className="account-list">
+          <h2>Faturas</h2>
+          {invoices.length === 0 && (
+            <p className="muted">Nenhuma fatura registrada.</p>
+          )}
+          {invoices.map((inv) => {
+            const card = cards.find((c) => c.id === inv.credit_card_id);
+            const items = inv.credit_card_installments || [];
+            const total = items.reduce((s, i) => s + Number(i.amount), 0);
+            return (
+              <article className="invoice-card" key={inv.id}>
+                <header>
+                  <strong>
+                    {card?.name || "Cartão"} · vence{" "}
+                    {dateFmt.format(new Date(`${inv.due_date}T12:00:00`))}
+                  </strong>
+                  <b>{money(total)}</b>
+                  <span data-status={inv.status}>
+                    {inv.status === "paid" ? "Paga" : "Em aberto"}
+                  </span>
+                </header>
+                <ul>
+                  {items.map((i, n) => {
+                    const p = Array.isArray(i.credit_card_purchases)
+                      ? i.credit_card_purchases[0]
+                      : i.credit_card_purchases;
+                    return (
+                      <li key={n}>
+                        <span>
+                          {p?.description || "Compra"} · {i.installment_number}/
+                          {p?.installment_count || 1}
+                        </span>
+                        <b>{money(i.amount)}</b>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </article>
+            );
+          })}
+        </section>
+      )}
     </main>
+  );
+}
+
+export function CardsPage() {
+  return (
+    <Suspense fallback={<main className="management-page"><p className="muted">Carregando...</p></main>}>
+      <CardsPageInner />
+    </Suspense>
   );
 }
