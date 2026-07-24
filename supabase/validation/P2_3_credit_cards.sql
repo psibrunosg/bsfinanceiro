@@ -163,14 +163,14 @@ BEGIN
     END IF;
   END;
 
-  -- Limpeza
+  -- Limpeza (ordem: transactions antes de accounts)
   DELETE FROM public.credit_card_installments WHERE purchase_id = v_purchase_id;
   DELETE FROM public.credit_card_invoices WHERE credit_card_id = v_card_id;
   DELETE FROM public.credit_card_purchases WHERE id = v_purchase_id;
   DELETE FROM public.credit_cards WHERE id = v_card_id;
+  DELETE FROM public.transactions WHERE owner_id = v_user_id AND (description LIKE '%fatura%' OR description LIKE '%Compra teste%');
   DELETE FROM public.accounts WHERE id = v_account_id;
   DELETE FROM public.categories WHERE id = v_category_id;
-  DELETE FROM public.transactions WHERE owner_id = v_user_id AND description LIKE '%fatura%' AND description LIKE '%test%';
 
   RAISE NOTICE '═══════════════════════════════════════';
   RAISE NOTICE '  P2.3 — TODOS OS TESTES PASSARAM ✓';
