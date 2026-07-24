@@ -45,23 +45,23 @@ O projeto Supabase do BS Financeiro é `wgntlhzjyriwhncumjsv`, que também apare
 - [x] Verificar que todas as rotas têm `page.tsx` e renderizam o componente correto.
 
 ### 2.3 Validar cartões com dados reais
-- [ ] Criar conta do tipo `credit_card` → vincular ao cartão.
-- [ ] Registrar compra parcelada → verificar que faturas são geradas corretamente.
-- [ ] Pagar fatura → verificar que transação é criada e fatura muda para `paid`.
+- [x] Criar conta do tipo `credit_card` → vincular ao cartão.
+- [x] Registrar compra parcelada → verificar que faturas são geradas corretamente.
+- [x] Pagar fatura → verificar que transação é criada e fatura muda para `paid`.
 
 > **Script de validação:** `supabase/validation/P2_3_credit_cards.sql` — execute no SQL Editor do Supabase.
 
 ### 2.4 Validar compromissos fixos
-- [ ] Criar compromisso com `due_day` dentro do mês atual → verificar ocorrência materializada.
-- [ ] Pagar ocorrência → verificar que transação é criada e status muda para `paid`.
-- [ ] Criar compromisso com `due_day` 31 em mês com 30 dias → verificar clamping.
+- [x] Criar compromisso com `due_day` dentro do mês atual → verificar ocorrência materializada.
+- [x] Pagar ocorrência → verificar que transação é criada e status muda para `paid`.
+- [x] Criar compromisso com `due_day` 31 em mês com 30 dias → verificar clamping.
 
 > **Script de validação:** `supabase/validation/P2_4_commitments.sql` — execute no SQL Editor do Supabase.
 
 ### 2.5 Validar orçamento e metas
-- [ ] Criar orçamento para uma categoria → registrar despesa nessa categoria → verificar consumo.
-- [ ] Criar meta com valor inicial → registrar aporte → verificar progresso.
-- [ ] Atingir valor da meta → verificar que status muda para `completed`.
+- [x] Criar orçamento para uma categoria → registrar despesa nessa categoria → verificar consumo.
+- [x] Criar meta com valor inicial → registrar aporte → verificar progresso.
+- [x] Atingir valor da meta → verificar que status muda para `completed`.
 
 > **Script de validação:** `supabase/validation/P2_5_budgets_goals.sql` — execute no SQL Editor do Supabase.
 
