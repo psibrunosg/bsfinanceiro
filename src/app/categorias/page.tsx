@@ -1,2 +1,2 @@
-import { FinanceClientPage } from "../finance-client";
-export default function Page(){return <FinanceClientPage route="categories"/>}
+import { CategoriesPage } from "../pages";
+export default function Page() { return <CategoriesPage />; }
