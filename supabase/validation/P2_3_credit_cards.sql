@@ -1,6 +1,5 @@
 -- P2.3 — Validação: Cartão de crédito, compra parcelada, pagamento de fatura
--- Execute no Supabase SQL Editor como service_role.
--- Ajuste v_user_id e v_workspace_id no bloco DECLARE abaixo.
+-- Execute no Supabase SQL Editor como postgres/superuser.
 
 DO $$
 DECLARE
@@ -30,6 +29,9 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'User: %, Workspace: %', v_user_id, v_workspace_id;
+
+  -- Forçar auth.uid() sem SET ROLE (mantém grants do superuser)
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user_id)::text, true);
 
   -- 2. Criar categoria de despesa (se não existir)
   INSERT INTO public.categories (workspace_id, owner_id, name, kind, color)
@@ -140,13 +142,12 @@ BEGIN
 
   RAISE NOTICE '✓ % faturas restantes em aberto', v_open_invoices;
 
-  -- 13. Testar idempotência — pagar mesma fatura com mesma key deve retornar sem erro
+  -- 13. Testar idempotência
   DECLARE
     v_idem_key uuid := gen_random_uuid();
     v_first_payment uuid;
     v_second_payment uuid;
   BEGIN
-    -- Selecionar outra fatura em aberto
     SELECT id INTO v_invoice_id
     FROM public.credit_card_invoices
     WHERE credit_card_id = v_card_id AND owner_id = v_user_id AND status = 'open'
@@ -162,14 +163,13 @@ BEGIN
     END IF;
   END;
 
-  -- Limpeza: remover dados de teste
+  -- Limpeza
   DELETE FROM public.credit_card_installments WHERE purchase_id = v_purchase_id;
   DELETE FROM public.credit_card_invoices WHERE credit_card_id = v_card_id;
   DELETE FROM public.credit_card_purchases WHERE id = v_purchase_id;
   DELETE FROM public.credit_cards WHERE id = v_card_id;
   DELETE FROM public.accounts WHERE id = v_account_id;
   DELETE FROM public.categories WHERE id = v_category_id;
-  DELETE FROM public.transactions WHERE owner_id = v_user_id AND description LIKE '%fatura%' AND description LIKE '%Pagamento%';
   DELETE FROM public.transactions WHERE owner_id = v_user_id AND description LIKE '%fatura%' AND description LIKE '%test%';
 
   RAISE NOTICE '═══════════════════════════════════════';
