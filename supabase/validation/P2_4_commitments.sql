@@ -118,7 +118,7 @@ BEGIN
   -- Limpeza (ordem: transactions antes de accounts)
   DELETE FROM public.fixed_commitment_occurrences WHERE fixed_commitment_id IN (v_commitment_id, v_clamping_commitment_id);
   DELETE FROM public.fixed_commitments WHERE id IN (v_commitment_id, v_clamping_commitment_id);
-  DELETE FROM public.transactions WHERE owner_id = v_user_id AND (description LIKE '%Compromisso%' OR description LIKE '%Clamping%');
+  DELETE FROM public.transactions WHERE owner_id = v_user_id AND account_id = v_account_id;
   DELETE FROM public.accounts WHERE id = v_account_id;
   DELETE FROM public.categories WHERE id = v_category_id;
 
