@@ -14,6 +14,14 @@ Requer Node.js 22 ou superior.
 Use `npm run lint`, `npm test` e `npm run build` antes de integrar mudanças.
 Use `supabase/rls-smoke-test.sql` para conferir isolamento básico de RLS no banco remoto vinculado.
 
+## Deploy no GitHub Pages
+Configure estes Repository secrets em `Settings > Secrets and variables > Actions`:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+
+O workflow usa esses valores somente durante o build estático. Nunca configure `service_role` nesses secrets.
+
 ## Banco
 O projeto Supabase é `wgntlhzjyriwhncumjsv`, o mesmo ref usado em `.env.example`. Em 15/07/2026, o banco remoto foi resetado e recriado a partir das oito migrations locais em `supabase/migrations`. As tabelas de RH que estavam no schema `public` foram removidas no reset. Os advisors de segurança e desempenho não apontaram issues após a recriação.
 
