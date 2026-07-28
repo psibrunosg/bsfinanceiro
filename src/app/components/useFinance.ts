@@ -17,6 +17,7 @@ import type {
   Commitment,
   Occurrence,
   AlertPreference,
+  StatementImport,
 } from "./types";
 
 export type FinanceData = {
@@ -33,6 +34,7 @@ export type FinanceData = {
   commitments: Commitment[];
   occurrences: Occurrence[];
   alertPrefs: AlertPreference | null;
+  statementImports: StatementImport[];
   loading: boolean;
   message: string;
   setMessage: (msg: string) => void;
@@ -55,6 +57,7 @@ export function useFinance(route: string, cardId?: string): FinanceData {
   const [commitments, setCommitments] = useState<Commitment[]>([]);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [alertPrefs, setAlertPrefs] = useState<AlertPreference | null>(null);
+  const [statementImports, setStatementImports] = useState<StatementImport[]>([]);
   const [message, setMessage] = useState("");
 
   const load = useCallback(async () => {
@@ -149,15 +152,24 @@ export function useFinance(route: string, cardId?: string): FinanceData {
     if (route === "dashboard") setGoals(dashboardGoalRows || []);
 
     if (route === "card" && cardId) {
-      const { data } = await supabase
+      const [{ data }, { data: importRows }] = await Promise.all([
+        supabase
         .from("credit_card_invoices")
         .select(
           "id,credit_card_id,due_date,status,credit_card_installments(amount,installment_number,credit_card_purchases(description,installment_count))"
         )
         .eq("credit_card_id", cardId)
         .order("due_date", { ascending: false })
-        .limit(12);
+        .limit(12),
+        supabase
+          .from("credit_card_statement_imports")
+          .select("id,file_name,status,error_code,created_at")
+          .eq("credit_card_id", cardId)
+          .order("created_at", { ascending: false })
+          .limit(5),
+      ]);
       setInvoices(data || []);
+      setStatementImports(importRows || []);
     } else if (route === "cards") {
       const { data } = await supabase
         .from("credit_card_invoices")
@@ -237,6 +249,7 @@ export function useFinance(route: string, cardId?: string): FinanceData {
     commitments,
     occurrences,
     alertPrefs,
+    statementImports,
     loading,
     message,
     setMessage,

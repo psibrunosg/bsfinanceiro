@@ -43,6 +43,13 @@ export type Transaction = {
   amount: number;
   competence_date: string;
 };
+export type StatementImport = {
+  id: string;
+  file_name: string;
+  status: "pending" | "processing" | "imported" | "failed";
+  error_code: string | null;
+  created_at: string;
+};
 export type Budget = {
   id: string;
   category_id: string;

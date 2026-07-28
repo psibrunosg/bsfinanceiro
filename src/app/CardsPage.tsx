@@ -9,12 +9,13 @@ import { SimpleForm } from "./components/SimpleForm";
 import { money, parseMoney, dateFmt } from "./components/Money";
 import { BrandLogo, CARD_BRANDS } from "./brand-logo";
 import { createClient } from "@/lib/supabase/client";
-import { useMemo, Suspense } from "react";
+import { useMemo, Suspense, useState } from "react";
 
 function CardsPageInner() {
   const searchParams = useSearchParams();
   const selectedCardId = searchParams.get("cardId");
   const focusNewCard = searchParams.get("focus") === "new-card";
+  const [importingStatement, setImportingStatement] = useState(false);
   const {
     workspace,
     accounts,
@@ -25,6 +26,7 @@ function CardsPageInner() {
     message,
     setMessage,
     reload,
+    statementImports,
   } = useFinance(selectedCardId ? "card" : "cards", selectedCardId || undefined);
   const supabase = useMemo(() => createClient(), []);
 
@@ -71,6 +73,54 @@ function CardsPageInner() {
       error ? "Não foi possível registrar a compra." : "Compra registrada."
     );
     await reload();
+  }
+
+  async function submitStatementImport(form: FormData) {
+    const file = form.get("statement") as File | null;
+    if (!file || file.size === 0) {
+      setMessage("Selecione um arquivo para importar.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage("O arquivo deve ter no máximo 5 MB.");
+      return;
+    }
+    const contentType = file.type === "application/pdf" ? "application/pdf" : "text/plain";
+    const checksum = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer())))
+      .map((value) => value.toString(16).padStart(2, "0"))
+      .join("");
+
+    setImportingStatement(true);
+    try {
+      const { data: created, error: createError } = await supabase.rpc("create_credit_card_statement_import", {
+        p_credit_card_id: selectedCardId,
+        p_file_name: file.name,
+        p_content_type: contentType,
+        p_size_bytes: file.size,
+        p_sha256: checksum,
+      });
+      const job = Array.isArray(created) ? created[0] : created;
+      if (createError || !job) throw new Error("create_import_failed");
+      if (job.status !== "pending") {
+        setMessage("Este arquivo já possui uma importação em andamento ou concluída.");
+        await reload();
+        return;
+      }
+
+      await supabase.storage.from("credit-card-statements").remove([job.storage_path]);
+      const { error: uploadError } = await supabase.storage.from("credit-card-statements").upload(job.storage_path, file, { contentType });
+      if (uploadError) throw uploadError;
+      const { error: queueError } = await supabase.rpc("queue_credit_card_statement_import", { p_import_id: job.id });
+      if (queueError) throw queueError;
+      const { data: result, error: workerError } = await supabase.functions.invoke("process-credit-card-statement-import", { body: { importId: job.id } });
+      if (workerError) throw workerError;
+      setMessage(result?.status === "imported" ? "Importação concluída." : "Formato não suportado; nenhuma compra foi criada.");
+    } catch {
+      setMessage("Não foi possível enviar a importação.");
+    } finally {
+      setImportingStatement(false);
+      await reload();
+    }
   }
 
   return (
@@ -242,6 +292,25 @@ function CardsPageInner() {
               <button>Registrar</button>
             </SimpleForm>
           </aside>
+        </section>
+      )}
+
+      {selectedCardId && (
+        <section className="card-import" aria-labelledby="statement-import-title">
+          <div>
+            <h2 id="statement-import-title">Importar fatura experimental</h2>
+            <p className="muted">Aceita apenas a fixture sintética documentada. PDFs e layouts reais serão recusados sem criar compras.</p>
+          </div>
+          <form className="finance-form" onSubmit={(event) => { event.preventDefault(); void submitStatementImport(new FormData(event.currentTarget)); }}>
+            <label htmlFor="statement-file">Arquivo de fatura</label>
+            <input id="statement-file" name="statement" type="file" accept="application/pdf,text/plain,.txt,.bsf-fixture" required disabled={importingStatement} />
+            <button disabled={importingStatement}>{importingStatement ? "Enviando..." : "Enviar para importação"}</button>
+          </form>
+          {statementImports.length > 0 && (
+            <ul className="statement-import-list" aria-label="Importações recentes">
+              {statementImports.map((item) => <li key={item.id}><span>{item.file_name}</span><strong data-status={item.status}>{item.status === "failed" ? "Falhou: formato não suportado" : item.status}</strong></li>)}
+            </ul>
+          )}
         </section>
       )}
 
