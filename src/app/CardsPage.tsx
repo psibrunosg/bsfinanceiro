@@ -50,6 +50,9 @@ function CardsPageInner() {
     );
 
   const selectedCard = selectedCardId ? cards.find((c) => c.id === selectedCardId) : null;
+  const statementImportDescribedBy = statementImportFeedback
+    ? "statement-import-help statement-import-feedback"
+    : "statement-import-help";
 
   async function submitCard(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
@@ -321,7 +324,7 @@ function CardsPageInner() {
           </div>
           <form className="finance-form" aria-busy={importingStatement} onSubmit={(event) => { event.preventDefault(); void submitStatementImport(new FormData(event.currentTarget)); }}>
             <label htmlFor="statement-file">Arquivo de fatura</label>
-            <input id="statement-file" name="statement" type="file" accept="application/pdf,text/plain,.txt,.bsf-fixture" required disabled={importingStatement} aria-invalid={statementImportFailed || undefined} aria-describedby="statement-import-help statement-import-feedback" />
+            <input id="statement-file" name="statement" type="file" accept="application/pdf,text/plain,.txt,.bsf-fixture" required disabled={importingStatement} aria-invalid={statementImportFailed || undefined} aria-describedby={statementImportDescribedBy} />
             <small id="statement-import-help">Até 5 MB. Apenas a fixture sintética é processada nesta etapa.</small>
             <button disabled={importingStatement}>{importingStatement ? "Enviando..." : "Enviar para importação"}</button>
             {statementImportFeedback && <p id="statement-import-feedback" className={statementImportFailed ? "form-error" : "form-success"} role={statementImportFailed ? "alert" : "status"}>{statementImportFeedback}</p>}
