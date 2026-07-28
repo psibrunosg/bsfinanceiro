@@ -81,7 +81,7 @@ function CardsPageInner() {
         workspaceName={workspace.name}
       />
       <Nav />
-      {message && <p className="form-success" role="status">{message}</p>}
+      {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
 
       {!selectedCardId && (
         <section className="management-grid">
@@ -108,7 +108,8 @@ function CardsPageInner() {
           <aside className="form-card">
             <h2>Adicionar cartão</h2>
             <SimpleForm onSubmit={submitCard}>
-              <select name="account_id" required>
+              <label htmlFor="card-account">Conta vinculada</label>
+              <select id="card-account" name="account_id" required>
                 <option value="">Conta vinculada</option>
                 {accounts
                   .filter((a) => a.type === "credit_card")
@@ -118,8 +119,10 @@ function CardsPageInner() {
                     </option>
                   ))}
               </select>
-              <input name="name" placeholder="Nome do cartão" required autoFocus={focusNewCard} aria-label="Nome do cartão" />
-              <select name="brand" defaultValue="">
+              <label htmlFor="card-name">Nome do cartão</label>
+              <input id="card-name" name="name" placeholder="Nome do cartão" required autoFocus={focusNewCard} />
+              <label htmlFor="card-brand">Bandeira</label>
+              <select id="card-brand" name="brand" defaultValue="">
                 <option value="">Bandeira</option>
                 {CARD_BRANDS.map((b) => (
                   <option key={b} value={b}>
@@ -127,9 +130,13 @@ function CardsPageInner() {
                   </option>
                 ))}
               </select>
-              <input name="last_four" placeholder="Final" />
-              <input name="credit_limit" placeholder="0,00" required />
+              <label htmlFor="card-last-four">Final do cartão</label>
+              <input id="card-last-four" name="last_four" placeholder="Final" />
+              <label htmlFor="card-credit-limit">Limite de crédito</label>
+              <input id="card-credit-limit" name="credit_limit" placeholder="0,00" required />
+              <label htmlFor="card-closing-day">Dia de fechamento</label>
               <input
+                id="card-closing-day"
                 name="closing_day"
                 type="number"
                 min="1"
@@ -137,7 +144,9 @@ function CardsPageInner() {
                 placeholder="Fecha dia"
                 required
               />
+              <label htmlFor="card-due-day">Dia de vencimento</label>
               <input
+                id="card-due-day"
                 name="due_day"
                 type="number"
                 min="1"
@@ -195,15 +204,21 @@ function CardsPageInner() {
           <aside className="form-card">
             <h2>Nova compra</h2>
             <SimpleForm onSubmit={submitPurchase}>
-              <input name="description" placeholder="Descrição" required />
-              <input name="total_amount" placeholder="0,00" required />
+              <label htmlFor="purchase-description">Descrição</label>
+              <input id="purchase-description" name="description" placeholder="Descrição" required />
+              <label htmlFor="purchase-total">Valor total</label>
+              <input id="purchase-total" name="total_amount" placeholder="0,00" required />
+              <label htmlFor="purchase-date">Data da compra</label>
               <input
+                id="purchase-date"
                 name="purchased_on"
                 type="date"
                 defaultValue={new Date().toISOString().slice(0, 10)}
                 required
               />
+              <label htmlFor="purchase-installments">Quantidade de parcelas</label>
               <input
+                id="purchase-installments"
                 name="installment_count"
                 type="number"
                 min="1"
@@ -211,7 +226,8 @@ function CardsPageInner() {
                 defaultValue="1"
                 required
               />
-              <select name="category_id">
+              <label htmlFor="purchase-category">Categoria</label>
+              <select id="purchase-category" name="category_id">
                 <option value="">Sem categoria</option>
                 {categories
                   .filter((c) => c.kind === "expense")
@@ -221,7 +237,8 @@ function CardsPageInner() {
                     </option>
                   ))}
               </select>
-              <input name="notes" placeholder="Observação" />
+              <label htmlFor="purchase-notes">Observação</label>
+              <input id="purchase-notes" name="notes" placeholder="Observação" />
               <button>Registrar</button>
             </SimpleForm>
           </aside>
