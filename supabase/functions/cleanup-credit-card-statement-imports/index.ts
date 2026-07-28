@@ -10,13 +10,16 @@ Deno.serve(async (request) => {
   const { data: jobs, error } = await supabase
     .from("credit_card_statement_imports")
     .select("id,storage_path")
-    .in("status", ["imported", "failed"])
+    .in("status", ["pending", "processing", "imported", "failed"])
     .lt("expires_at", new Date().toISOString())
     .limit(100);
   if (error) return new Response("Unable to load expired imports", { status: 500 });
+  let cleaned = 0;
   for (const job of jobs || []) {
-    await supabase.storage.from("credit-card-statements").remove([job.storage_path]);
-    await supabase.from("credit_card_statement_imports").delete().eq("id", job.id);
+    const { error: removeError } = await supabase.storage.from("credit-card-statements").remove([job.storage_path]);
+    if (removeError) continue;
+    const { error: deleteError } = await supabase.from("credit_card_statement_imports").delete().eq("id", job.id);
+    if (!deleteError) cleaned += 1;
   }
-  return Response.json({ cleaned: jobs?.length || 0 });
+  return Response.json({ cleaned, attempted: jobs?.length || 0 });
 });

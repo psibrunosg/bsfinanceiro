@@ -12,6 +12,7 @@ create table public.credit_card_statement_imports (
   content_type text not null check (content_type in ('application/pdf', 'text/plain')),
   size_bytes integer not null check (size_bytes between 1 and 5242880),
   sha256 text not null check (sha256 ~ '^[a-f0-9]{64}$'),
+  purchase_idempotency_key uuid not null default gen_random_uuid(),
   status public.credit_card_statement_import_status not null default 'pending',
   error_code text,
   result_purchase_id uuid,
@@ -49,8 +50,7 @@ create index credit_card_statement_imports_card_created_idx
 on public.credit_card_statement_imports(credit_card_id, owner_id, created_at desc);
 
 create index credit_card_statement_imports_cleanup_idx
-on public.credit_card_statement_imports(expires_at)
-where status in ('imported', 'failed');
+on public.credit_card_statement_imports(expires_at, status);
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -185,12 +185,14 @@ declare v_import public.credit_card_statement_imports%rowtype;
 begin
   if (select auth.role()) <> 'service_role' then raise exception 'service role required' using errcode = '28000'; end if;
   select * into v_import from public.credit_card_statement_imports
-  where id = p_import_id and owner_id = p_owner_id
+  where id = p_import_id
+    and owner_id = p_owner_id
+    and expires_at > now()
+    and (status = 'pending' or (status = 'processing' and started_at < now() - interval '10 minutes'))
   for update skip locked;
-  if not found then raise exception 'pending import not found' using errcode = 'P0002'; end if;
-  if v_import.status <> 'pending' then return v_import; end if;
+  if not found then raise exception 'claimable import not found' using errcode = 'P0002'; end if;
   update public.credit_card_statement_imports
-  set status = 'processing', started_at = now()
+  set status = 'processing', started_at = now(), error_code = null, completed_at = null
   where id = v_import.id
   returning * into v_import;
   return v_import;
@@ -210,6 +212,7 @@ as $$
 begin
   if (select auth.role()) <> 'service_role' then raise exception 'service role required' using errcode = '28000'; end if;
   if p_status not in ('imported', 'failed') then raise exception 'invalid terminal import status' using errcode = '22023'; end if;
+  if p_status = 'imported' and p_purchase_id is null then raise exception 'purchase id required for imported status' using errcode = '22023'; end if;
   update public.credit_card_statement_imports
   set status = p_status,
       error_code = case when p_status = 'failed' then coalesce(nullif(btrim(p_error_code), ''), 'processing_failed') else null end,
