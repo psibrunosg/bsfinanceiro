@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ getUser: vi.fn(), rpc: vi.fn() }));
 
@@ -12,18 +12,24 @@ vi.mock("../../lib/supabase/client", () => ({
 
 import { OnboardingForm } from "./onboarding-form";
 
+afterEach(() => cleanup());
+
+function fillValidForm() {
+  fireEvent.change(screen.getByLabelText("Renda mensal"), { target: { value: "4000" } });
+  fireEvent.change(screen.getByLabelText("Saldo atual"), { target: { value: "1200" } });
+  fireEvent.change(screen.getByLabelText("Nome do cartão"), { target: { value: "Nubank" } });
+  fireEvent.change(screen.getByLabelText("Fecha dia"), { target: { value: "5" } });
+  fireEvent.change(screen.getByLabelText("Vence dia"), { target: { value: "12" } });
+}
+
 describe("OnboardingForm", () => {
-  it("bloqueia reenvio e reabilita o formulário após erro da RPC", async () => {
+  it("bloqueia reenvio e associa o erro da RPC ao campo correspondente", async () => {
     let finish!: (value: { error: { message: string } }) => void;
     mocks.getUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
     mocks.rpc.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
 
     render(<OnboardingForm suggestedName="Bruno" />);
-    fireEvent.change(screen.getByLabelText("Renda mensal"), { target: { value: "4000" } });
-    fireEvent.change(screen.getByLabelText("Saldo atual"), { target: { value: "1200" } });
-    fireEvent.change(screen.getByLabelText("Nome do cartão"), { target: { value: "Nubank" } });
-    fireEvent.change(screen.getByLabelText("Fecha dia"), { target: { value: "5" } });
-    fireEvent.change(screen.getByLabelText("Vence dia"), { target: { value: "12" } });
+    fillValidForm();
     fireEvent.submit(screen.getByRole("button", { name: "Concluir e ver meu painel" }).closest("form")!);
 
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith("complete_compact_onboarding", {
@@ -37,12 +43,27 @@ describe("OnboardingForm", () => {
     expect(screen.getByLabelText("Renda mensal").matches(":disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "Salvando..." }).matches(":disabled")).toBe(true);
 
-    finish({ error: { message: "offline" } });
+    finish({ error: { message: "invalid card day" } });
 
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("Não foi possível concluir agora");
+      expect(screen.getByText("Revise o dia de fechamento do cartão.")).toBeTruthy();
+      expect(screen.getByLabelText("Fecha dia").getAttribute("aria-invalid")).toBe("true");
+      expect(screen.getByLabelText("Fecha dia").getAttribute("aria-describedby")).toBe("closing_day-error");
+      expect(document.activeElement).toBe(screen.getByLabelText("Fecha dia"));
       expect(screen.getByLabelText("Renda mensal").matches(":disabled")).toBe(false);
       expect(screen.getByRole("button", { name: "Concluir e ver meu painel" }).matches(":disabled")).toBe(false);
+    });
+  });
+
+  it("mostra a validação junto ao campo e move o foco ao primeiro inválido", async () => {
+    render(<OnboardingForm suggestedName="Bruno" />);
+    fireEvent.submit(screen.getByRole("button", { name: "Concluir e ver meu painel" }).closest("form")!);
+
+    await waitFor(() => {
+      expect(screen.getByText("Informe uma renda mensal maior que zero.")).toBeTruthy();
+      expect(screen.getByLabelText("Renda mensal").getAttribute("aria-invalid")).toBe("true");
+      expect(screen.getByLabelText("Renda mensal").getAttribute("aria-describedby")).toBe("monthly_income-error");
+      expect(document.activeElement).toBe(screen.getByLabelText("Renda mensal"));
     });
   });
 });
