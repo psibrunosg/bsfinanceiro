@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   selectAlerts,
+  selectTopAlert,
   type AlertPreferences,
   type FinancialAlert,
 } from "./alerts";
@@ -61,5 +62,12 @@ describe("selectAlerts", () => {
       "second",
     ]);
     expect(tied.map(({ id }) => id)).toEqual(["first", "second"]);
+  });
+
+  it("uses the earliest due date after severity and impact when selecting one alert", () => {
+    expect(selectTopAlert([
+      { id: "later", preference: "cashflow", severity: "warning", impactCents: 10_00, dueDate: "2026-08-10" },
+      { id: "earlier", preference: "cashflow", severity: "warning", impactCents: 10_00, dueDate: "2026-08-02" },
+    ], allEnabled)?.id).toBe("earlier");
   });
 });
