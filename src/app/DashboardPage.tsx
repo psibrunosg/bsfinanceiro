@@ -5,9 +5,11 @@ import { Nav } from "./components/Nav";
 import { List } from "./components/List";
 import { money } from "./components/Money";
 import { BrandLogo } from "./brand-logo";
+import { TodayPanel } from "./components/TodayPanel";
+import { buildTodayDashboard } from "../lib/finance/today-adapter";
 
 export function DashboardPage() {
-  const { workspace, accounts, cards, transactions, loading } =
+  const { workspace, accounts, cards, transactions, todayTransactions, alertPrefs, loading } =
     useFinance("dashboard");
 
   if (loading || !workspace)
@@ -24,6 +26,12 @@ export function DashboardPage() {
   const balance = accounts.reduce(
     (sum, a) => sum + Number(a.initial_balance),
     0
+  );
+  const today = buildTodayDashboard(
+    accounts,
+    todayTransactions,
+    alertPrefs,
+    new Date().toISOString().slice(0, 10),
   );
 
   return (
@@ -59,6 +67,7 @@ export function DashboardPage() {
           <strong>{money(totalCards)}</strong>
         </article>
       </section>
+      <TodayPanel today={today} />
       <section className="management-grid">
         <List title="Cartões">
           {cards.map((c) => (

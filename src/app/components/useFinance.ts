@@ -25,6 +25,7 @@ export type FinanceData = {
   cards: Card[];
   invoices: Invoice[];
   transactions: Transaction[];
+  todayTransactions: Transaction[];
   budgets: Budget[];
   goals: Goal[];
   monthSpent: Record<string, number>;
@@ -46,6 +47,7 @@ export function useFinance(route: string, cardId?: string): FinanceData {
   const [cards, setCards] = useState<Card[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [todayTransactions, setTodayTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [monthSpent, setMonthSpent] = useState<Record<string, number>>({});
@@ -76,11 +78,14 @@ export function useFinance(route: string, cardId?: string): FinanceData {
     }
     setWorkspace(ws);
 
+    const today = new Date().toISOString().slice(0, 10);
     const [
       { data: accountRows },
       { data: categoryRows },
       { data: cardRows },
       { data: txRows },
+      { data: todayTransactionRows },
+      { data: preferenceRows },
     ] = await Promise.all([
       supabase
         .from("accounts")
@@ -108,12 +113,29 @@ export function useFinance(route: string, cardId?: string): FinanceData {
         .eq("workspace_id", ws.id)
         .order("competence_date", { ascending: false })
         .limit(30),
+      route === "dashboard"
+        ? supabase
+          .from("transactions")
+          .select("id,type,description,amount,competence_date")
+          .eq("workspace_id", ws.id)
+          .gte("competence_date", today)
+          .order("competence_date")
+        : Promise.resolve({ data: [] }),
+      route === "dashboard" || route === "settings"
+        ? supabase
+          .from("alert_preferences")
+          .select("*")
+          .eq("workspace_id", ws.id)
+          .maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
 
     setAccounts(accountRows || []);
     setCategories(categoryRows || []);
     setCards(cardRows || []);
     setTransactions(txRows || []);
+    setTodayTransactions(todayTransactionRows || []);
+    setAlertPrefs(preferenceRows || null);
 
     if (route === "card" && cardId) {
       const { data } = await supabase
@@ -181,13 +203,6 @@ export function useFinance(route: string, cardId?: string): FinanceData {
         { p_workspace_id: ws.id, p_month: monthStart() }
       );
       setOccurrences(occ || []);
-    } else if (route === "settings") {
-      const { data } = await supabase
-        .from("alert_preferences")
-        .select("*")
-        .eq("workspace_id", ws.id)
-        .maybeSingle();
-      setAlertPrefs(data || null);
     }
 
     setLoading(false);
@@ -204,6 +219,7 @@ export function useFinance(route: string, cardId?: string): FinanceData {
     cards,
     invoices,
     transactions,
+    todayTransactions,
     budgets,
     goals,
     monthSpent,
