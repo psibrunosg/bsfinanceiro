@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 
 export function SimpleForm({
   children,
@@ -17,12 +17,17 @@ export function SimpleForm({
       onSubmit={async (e) => {
         e.preventDefault();
         setPending(true);
-        await onSubmit(new FormData(e.currentTarget));
-        setPending(false);
+        try {
+          await onSubmit(new FormData(e.currentTarget));
+        } finally {
+          setPending(false);
+        }
       }}
     >
-      {children}
-      <fieldset disabled={pending} />
+      <fieldset disabled={pending} aria-busy={pending}>
+        {children}
+      </fieldset>
+      {pending ? <p role="status">Salvando...</p> : null}
     </form>
   );
 }
