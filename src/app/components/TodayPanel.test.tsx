@@ -1,17 +1,22 @@
 // @vitest-environment jsdom
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { TodayPanel } from "./TodayPanel";
 import { buildTodayDashboard } from "../../lib/finance/today-adapter";
+import { todayActions } from "../../lib/finance/today-actions";
+
+const actions = todayActions([]);
+
+afterEach(() => cleanup());
 
 describe("TodayPanel", () => {
   it("shows the empty state when there is no next income", () => {
-    render(<TodayPanel today={{ currentBalanceCents: 50_00, nextIncomeDate: null, projectedBalanceCents: 50_00, lowestBalanceCents: 50_00, lowestBalanceDate: "2026-07-28", alert: null }} />);
+    render(<TodayPanel today={{ currentBalanceCents: 50_00, nextIncomeDate: null, projectedBalanceCents: 50_00, lowestBalanceCents: 50_00, lowestBalanceDate: "2026-07-28", alert: null }} actions={actions} />);
     expect(screen.getByText("Nenhuma próxima receita agendada.")).toBeTruthy();
   });
 
-  it("shows the selected alert", () => {
+  it("shows the selected alert and exactly four contextual actions", () => {
     const today = buildTodayDashboard(
       [{ type: "checking", initial_balance: 10 }],
       [{ type: "expense", amount: 20, competence_date: "2026-07-28" }, { type: "income", amount: 30, competence_date: "2026-07-29" }],
@@ -19,8 +24,8 @@ describe("TodayPanel", () => {
       "2026-07-28",
     );
 
-    expect(today.alert).toMatchObject({ severity: "critical", dueDate: "2026-07-28" });
-    render(<TodayPanel today={today} />);
+    render(<TodayPanel today={today} actions={actions} />);
     expect(screen.getByRole("status").textContent).toContain("Atenção:");
+    expect(screen.getByRole("navigation", { name: "Ações financeiras" }).querySelectorAll("a")).toHaveLength(4);
   });
 });

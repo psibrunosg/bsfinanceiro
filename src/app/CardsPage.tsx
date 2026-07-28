@@ -14,6 +14,7 @@ import { useMemo, Suspense } from "react";
 function CardsPageInner() {
   const searchParams = useSearchParams();
   const selectedCardId = searchParams.get("cardId");
+  const focusNewCard = searchParams.get("focus") === "new-card";
   const {
     workspace,
     accounts,
@@ -80,7 +81,7 @@ function CardsPageInner() {
         workspaceName={workspace.name}
       />
       <Nav />
-      {message && <p className="form-success">{message}</p>}
+      {message && <p className="form-success" role="status">{message}</p>}
 
       {!selectedCardId && (
         <section className="management-grid">
@@ -117,7 +118,7 @@ function CardsPageInner() {
                     </option>
                   ))}
               </select>
-              <input name="name" placeholder="Nome do cartão" required />
+              <input name="name" placeholder="Nome do cartão" required autoFocus={focusNewCard} aria-label="Nome do cartão" />
               <select name="brand" defaultValue="">
                 <option value="">Bandeira</option>
                 {CARD_BRANDS.map((b) => (

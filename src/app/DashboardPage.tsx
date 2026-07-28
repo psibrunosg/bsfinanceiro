@@ -8,9 +8,11 @@ import { BrandLogo } from "./brand-logo";
 import { TodayPanel } from "./components/TodayPanel";
 import { buildTodayDashboard } from "../lib/finance/today-adapter";
 import { todayInSaoPaulo } from "../lib/finance/local-date";
+import { todayActions } from "../lib/finance/today-actions";
+import { appPath } from "../lib/app-path";
 
 export function DashboardPage() {
-  const { workspace, accounts, cards, transactions, todayTransactions, alertPrefs, loading } =
+  const { workspace, accounts, cards, transactions, todayTransactions, alertPrefs, goals, loading } =
     useFinance("dashboard");
 
   if (loading || !workspace)
@@ -34,6 +36,7 @@ export function DashboardPage() {
     alertPrefs,
     todayInSaoPaulo(),
   );
+  const actions = todayActions(goals).map((action) => ({ ...action, href: appPath(action.href) }));
 
   return (
     <main className="dashboard-shell">
@@ -68,7 +71,7 @@ export function DashboardPage() {
           <strong>{money(totalCards)}</strong>
         </article>
       </section>
-      <TodayPanel today={today} />
+      <TodayPanel today={today} actions={actions} />
       <section className="management-grid">
         <List title="Cartões">
           {cards.map((c) => (

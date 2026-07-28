@@ -8,11 +8,19 @@ import { SimpleForm } from "./components/SimpleForm";
 import { money, parseMoney, cents, dateFmt, monthStart } from "./components/Money";
 import { calculateBudgetConsumption, calculateGoalProgress } from "@/lib/finance/budget";
 import { createClient } from "@/lib/supabase/client";
-import { useMemo } from "react";
+import { Suspense, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 
-export function PlanningPage() {
+function PlanningPageInner() {
+  const searchParams = useSearchParams();
+  const focus = searchParams.get("focus");
+  const goalId = searchParams.get("goalId");
   const { workspace, categories, budgets, goals, monthSpent, loading, message, setMessage, reload } = useFinance("planning");
   const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    if (!loading && focus === "choose-goal" && goals.length > 1) document.getElementById("goals-list")?.focus();
+  }, [focus, goals.length, loading]);
 
   if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
 
@@ -47,7 +55,8 @@ export function PlanningPage() {
     <main className="management-page">
       <PageHeader title="Planejamento" subtitle="Orçamento do mês e metas financeiras." workspaceName={workspace.name} />
       <Nav />
-      {message && <p className="form-success">{message}</p>}
+      {message && <p className="form-success" role="status">{message}</p>}
+      {focus === "choose-goal" && goals.length > 1 && <p className="form-success" role="status">Escolha uma meta abaixo para registrar o aporte.</p>}
       <section className="management-grid">
         <List title="Orçamento do mês">
           {budgets.length === 0 && <p className="muted">Nenhum orçamento definido para este mês.</p>}
@@ -79,6 +88,7 @@ export function PlanningPage() {
         </aside>
       </section>
       <section className="management-grid">
+        <div id="goals-list" tabIndex={-1}>
         <List title="Metas">
           {goals.length === 0 && <p className="muted">Nenhuma meta financeira criada.</p>}
           {goals.map((g) => {
@@ -89,20 +99,21 @@ export function PlanningPage() {
                 <div>
                   <strong>{g.name}</strong>
                   <small>{p.progressPercentage.toFixed(0)}% · {money(g.current_amount)} de {money(g.target_amount)}{g.deadline ? ` · até ${dateFmt.format(new Date(`${g.deadline}T12:00:00`))}` : ""}</small>
-                  <form className="finance-form" onSubmit={async (e) => { e.preventDefault(); const f = new FormData(e.currentTarget); e.currentTarget.reset(); await submitContribution(g.id, f); }}>
-                    <input name="amount" placeholder="Aporte" required />
+                  <SimpleForm onSubmit={(form) => submitContribution(g.id, form)}>
+                    <input name="amount" placeholder="Aporte" required aria-label={`Aporte para ${g.name}`} autoFocus={focus === "goal-contribution" && goals.length === 1 && (!goalId || goalId === g.id)} />
                     <button>Aportar</button>
-                  </form>
+                  </SimpleForm>
                 </div>
                 <b>{p.progressPercentage.toFixed(0)}%</b>
               </article>
             );
           })}
         </List>
+        </div>
         <aside className="form-card">
           <h2>Nova meta</h2>
           <SimpleForm onSubmit={submitGoal}>
-            <input name="name" placeholder="Nome da meta" required />
+            <input name="name" placeholder="Nome da meta" required autoFocus={focus === "new-goal"} aria-label="Nome da meta" />
             <input name="target_amount" placeholder="Valor alvo" required />
             <input name="current_amount" placeholder="Saldo inicial (opcional)" defaultValue="0,00" />
             <input name="deadline" type="date" />
@@ -112,4 +123,8 @@ export function PlanningPage() {
       </section>
     </main>
   );
+}
+
+export function PlanningPage() {
+  return <Suspense fallback={<main className="management-page"><p className="muted">Carregando...</p></main>}><PlanningPageInner /></Suspense>;
 }
