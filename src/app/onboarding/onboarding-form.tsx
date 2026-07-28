@@ -57,7 +57,7 @@ export function OnboardingForm({ suggestedName }: { suggestedName: string }) {
 
   function focusFirstError(fieldErrors: FieldErrors) {
     const firstField = (Object.keys(fieldErrors) as FieldName[])[0];
-    if (firstField) requestAnimationFrame(() => document.getElementById(fieldIds[firstField])?.focus());
+    if (firstField) setTimeout(() => document.getElementById(fieldIds[firstField])?.focus(), 0);
   }
 
   async function submit(data: FormData) {
