@@ -7,6 +7,7 @@ import { money } from "./components/Money";
 import { BrandLogo } from "./brand-logo";
 import { TodayPanel } from "./components/TodayPanel";
 import { buildTodayDashboard } from "../lib/finance/today-adapter";
+import { todayInSaoPaulo } from "../lib/finance/local-date";
 
 export function DashboardPage() {
   const { workspace, accounts, cards, transactions, todayTransactions, alertPrefs, loading } =
@@ -31,7 +32,7 @@ export function DashboardPage() {
     accounts,
     todayTransactions,
     alertPrefs,
-    new Date().toISOString().slice(0, 10),
+    todayInSaoPaulo(),
   );
 
   return (

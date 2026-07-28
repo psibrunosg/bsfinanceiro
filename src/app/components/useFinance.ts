@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { appPath } from "@/lib/app-path";
 import { createClient } from "@/lib/supabase/client";
 import { monthStart, nextMonthStart } from "./Money";
+import { todayInSaoPaulo } from "../../lib/finance/local-date";
 import type {
   Workspace,
   Account,
@@ -78,7 +79,7 @@ export function useFinance(route: string, cardId?: string): FinanceData {
     }
     setWorkspace(ws);
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayInSaoPaulo();
     const [
       { data: accountRows },
       { data: categoryRows },
