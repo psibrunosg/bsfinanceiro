@@ -39,7 +39,14 @@ function PlanningPageInner() {
     const initial = parseMoney(form.get("current_amount"));
     const { data: goal, error } = await supabase.from("financial_goals").insert({ workspace_id: workspace.id, owner_id: userData.user?.id, name: form.get("name"), target_amount: parseMoney(form.get("target_amount")), current_amount: 0, deadline: form.get("deadline") || null, status: "active" }).select("id").single();
     if (error || !goal) { setMessage("Não foi possível criar a meta."); return; }
-    if (initial > 0) await supabase.from("goal_contributions").insert({ workspace_id: workspace.id, owner_id: userData.user?.id, financial_goal_id: goal.id, amount: initial, note: "Saldo inicial", idempotency_key: crypto.randomUUID() });
+    if (initial > 0) {
+      const { error: contributionError } = await supabase.from("goal_contributions").insert({ workspace_id: workspace.id, owner_id: userData.user?.id, financial_goal_id: goal.id, amount: initial, note: "Saldo inicial", idempotency_key: crypto.randomUUID() });
+      if (contributionError) {
+        setMessage("Não foi possível registrar o saldo inicial da meta.");
+        await reload();
+        return;
+      }
+    }
     setMessage("Meta criada.");
     await reload();
   }
@@ -55,7 +62,7 @@ function PlanningPageInner() {
     <main className="management-page">
       <PageHeader title="Planejamento" subtitle="Orçamento do mês e metas financeiras." workspaceName={workspace.name} />
       <Nav />
-      {message && <p className="form-success" role="status">{message}</p>}
+      {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
       {focus === "choose-goal" && goals.length > 1 && <p className="form-success" role="status">Escolha uma meta abaixo para registrar o aporte.</p>}
       <section className="management-grid">
         <List title="Orçamento do mês">
@@ -78,11 +85,13 @@ function PlanningPageInner() {
         <aside className="form-card">
           <h2>Definir orçamento</h2>
           <SimpleForm onSubmit={submitBudget}>
-            <select name="category_id" required>
+            <label htmlFor="budget-category">Categoria de despesa</label>
+            <select id="budget-category" name="category_id" required>
               <option value="">Categoria de despesa</option>
               {expenseCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <input name="amount" placeholder="0,00" required />
+            <label htmlFor="budget-amount">Valor</label>
+            <input id="budget-amount" name="amount" placeholder="0,00" required />
             <button>Salvar</button>
           </SimpleForm>
         </aside>
@@ -100,7 +109,8 @@ function PlanningPageInner() {
                   <strong>{g.name}</strong>
                   <small>{p.progressPercentage.toFixed(0)}% · {money(g.current_amount)} de {money(g.target_amount)}{g.deadline ? ` · até ${dateFmt.format(new Date(`${g.deadline}T12:00:00`))}` : ""}</small>
                   <SimpleForm onSubmit={(form) => submitContribution(g.id, form)}>
-                    <input name="amount" placeholder="Aporte" required aria-label={`Aporte para ${g.name}`} autoFocus={focus === "goal-contribution" && goals.length === 1 && (!goalId || goalId === g.id)} />
+                    <label htmlFor={`goal-${g.id}-amount`}>Aporte</label>
+                    <input id={`goal-${g.id}-amount`} name="amount" placeholder="Aporte" required autoFocus={focus === "goal-contribution" && goals.length === 1 && (!goalId || goalId === g.id)} />
                     <button>Aportar</button>
                   </SimpleForm>
                 </div>
@@ -113,10 +123,14 @@ function PlanningPageInner() {
         <aside className="form-card">
           <h2>Nova meta</h2>
           <SimpleForm onSubmit={submitGoal}>
-            <input name="name" placeholder="Nome da meta" required autoFocus={focus === "new-goal"} aria-label="Nome da meta" />
-            <input name="target_amount" placeholder="Valor alvo" required />
-            <input name="current_amount" placeholder="Saldo inicial (opcional)" defaultValue="0,00" />
-            <input name="deadline" type="date" />
+            <label htmlFor="goal-name">Nome da meta</label>
+            <input id="goal-name" name="name" placeholder="Nome da meta" required autoFocus={focus === "new-goal"} />
+            <label htmlFor="goal-target">Valor alvo</label>
+            <input id="goal-target" name="target_amount" placeholder="Valor alvo" required />
+            <label htmlFor="goal-current">Saldo inicial</label>
+            <input id="goal-current" name="current_amount" placeholder="Saldo inicial (opcional)" defaultValue="0,00" />
+            <label htmlFor="goal-deadline">Prazo</label>
+            <input id="goal-deadline" name="deadline" type="date" />
             <button>Criar meta</button>
           </SimpleForm>
         </aside>

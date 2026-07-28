@@ -9,6 +9,7 @@ import { List } from "./components/List";
 import { SimpleForm } from "./components/SimpleForm";
 import { money, parseMoney } from "./components/Money";
 import { createClient } from "@/lib/supabase/client";
+import { todayInSaoPaulo } from "@/lib/finance/local-date";
 
 function TransactionsPageInner() {
   const searchParams = useSearchParams();
@@ -30,20 +31,29 @@ function TransactionsPageInner() {
     await reload();
   }
 
+  const messageIsError = message.startsWith("Não");
+
   return <main className="management-page">
     <PageHeader title="Movimentações" subtitle="Registre entradas, saídas e transferências." workspaceName={workspace.name} />
     <Nav />
-    {message && <p className="form-success" role="status">{message}</p>}
+    {message && <p className={messageIsError ? "form-error" : "form-success"} role={messageIsError ? "alert" : "status"}>{message}</p>}
     <section className="management-grid">
       <List title="Últimos lançamentos">{transactions.map((t) => <article className="account-row" key={t.id}><span>{t.type === "income" ? "↑" : "↓"}</span><div><strong>{t.description}</strong><small>{t.competence_date}</small></div><b>{money(t.amount)}</b></article>)}</List>
       <aside className="form-card"><h2>Nova movimentação</h2><SimpleForm onSubmit={submitTransaction}>
-        <select name="type" defaultValue={presetType} aria-label="Tipo de movimentação" autoFocus><option value="expense">Despesa</option><option value="income">Receita</option><option value="transfer">Transferência</option></select>
-        <input name="amount" placeholder="0,00" required aria-label="Valor" />
-        <select name="account_id" required aria-label="Conta"><option value="">Conta</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
-        <select name="category_id" aria-label="Categoria"><option value="">Categoria</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <select name="destination_account_id" aria-label="Conta de destino"><option value="">Destino se transferência</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
-        <input name="description" placeholder="Descrição" aria-label="Descrição" />
-        <input name="competence_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required aria-label="Data" />
+        <label htmlFor="transaction-type">Tipo de movimentação</label>
+        <select id="transaction-type" name="type" defaultValue={presetType} autoFocus><option value="expense">Despesa</option><option value="income">Receita</option><option value="transfer">Transferência</option></select>
+        <label htmlFor="transaction-amount">Valor</label>
+        <input id="transaction-amount" name="amount" placeholder="0,00" required />
+        <label htmlFor="transaction-account">Conta</label>
+        <select id="transaction-account" name="account_id" required><option value="">Conta</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+        <label htmlFor="transaction-category">Categoria</label>
+        <select id="transaction-category" name="category_id"><option value="">Categoria</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+        <label htmlFor="transaction-destination">Conta de destino</label>
+        <select id="transaction-destination" name="destination_account_id"><option value="">Destino se transferência</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+        <label htmlFor="transaction-description">Descrição</label>
+        <input id="transaction-description" name="description" placeholder="Descrição" />
+        <label htmlFor="transaction-date">Data</label>
+        <input id="transaction-date" name="competence_date" type="date" defaultValue={todayInSaoPaulo()} required />
         <button>Salvar</button>
       </SimpleForm></aside>
     </section>

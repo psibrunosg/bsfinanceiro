@@ -33,4 +33,21 @@ describe("SimpleForm", () => {
       expect(screen.getByRole("button", { name: "Salvar" }).matches(":disabled")).toBe(false);
     });
   });
+
+  it("informa erro e reativa os controles quando o submit falha", async () => {
+    render(
+      <SimpleForm onSubmit={async () => { throw new Error("falha"); }}>
+        <label htmlFor="name">Nome</label>
+        <input id="name" name="name" />
+        <button>Falhar</button>
+      </SimpleForm>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Falhar" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Não foi possível salvar. Tente novamente."
+    );
+    expect(screen.getByLabelText("Nome").matches(":disabled")).toBe(false);
+  });
 });
