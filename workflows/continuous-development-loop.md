@@ -33,6 +33,23 @@ Runs correctness review plus `ponytail-review`; runs `ponytail-audit` only when 
 
 ## Cycle
 
+```mermaid
+stateDiagram-v2
+    [*] --> PollGitHub
+    PollGitHub --> Idle: sem ready-for-agent
+    PollGitHub --> SOL: issue elegível
+    SOL --> WaitApproval: brief pronto
+    WaitApproval --> TERRA: usuário aprova
+    TERRA --> LUA: READY_FOR_LUA
+    LUA --> TERRA: CHANGES_REQUESTED
+    LUA --> QuotaGate: ACCEPTED
+    QuotaGate --> StopQuota: semanal <= 75%
+    QuotaGate --> NextBrief: semanal > 75%
+    NextBrief --> WaitApproval
+    Idle --> [*]
+    StopQuota --> [*]
+```
+
 1. Trigger finds one eligible issue.
 2. SOL sends `READY_FOR_EXECUTOR`.
 3. TERRA implements, verifies, commits, sends `READY_FOR_LUA`.
