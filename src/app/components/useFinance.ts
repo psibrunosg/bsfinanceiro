@@ -87,6 +87,7 @@ export function useFinance(route: string, cardId?: string): FinanceData {
       { data: txRows },
       { data: todayTransactionRows },
       { data: preferenceRows },
+      { data: dashboardGoalRows },
     ] = await Promise.all([
       supabase
         .from("accounts")
@@ -129,6 +130,14 @@ export function useFinance(route: string, cardId?: string): FinanceData {
           .eq("workspace_id", ws.id)
           .maybeSingle()
         : Promise.resolve({ data: null }),
+      route === "dashboard"
+        ? supabase
+          .from("financial_goals")
+          .select("id,name,target_amount,current_amount,deadline,status")
+          .eq("workspace_id", ws.id)
+          .eq("status", "active")
+          .order("created_at")
+        : Promise.resolve({ data: [] }),
     ]);
 
     setAccounts(accountRows || []);
@@ -137,6 +146,7 @@ export function useFinance(route: string, cardId?: string): FinanceData {
     setTransactions(txRows || []);
     setTodayTransactions(todayTransactionRows || []);
     setAlertPrefs(preferenceRows || null);
+    if (route === "dashboard") setGoals(dashboardGoalRows || []);
 
     if (route === "card" && cardId) {
       const { data } = await supabase

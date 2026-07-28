@@ -1,8 +1,10 @@
 import React from "react";
+import Link from "next/link";
 import { dateFmt, money } from "./Money";
 import type { TodayDashboardModel } from "../../lib/finance/today-adapter";
+import type { TodayAction } from "../../lib/finance/today-actions";
 
-export function TodayPanel({ today }: { today: TodayDashboardModel }) {
+export function TodayPanel({ today, actions }: { today: TodayDashboardModel; actions: readonly TodayAction[] }) {
   return (
     <section className="today-panel" aria-labelledby="today-title">
       <div>
@@ -21,6 +23,9 @@ export function TodayPanel({ today }: { today: TodayDashboardModel }) {
           o saldo pode ficar abaixo do limite em {dateFmt.format(new Date(`${today.alert.dueDate}T12:00:00`))}.
         </p>
       ) : null}
+      <nav className="today-actions" aria-label="Ações financeiras">
+        {actions.map((action) => <Link key={action.id} href={action.href}>{action.label}</Link>)}
+      </nav>
     </section>
   );
 }
