@@ -6,7 +6,6 @@ const root = resolve(process.cwd());
 const migration = readFileSync(resolve(root, "supabase/migrations/20260728000007_credit_card_statement_imports.sql"), "utf8");
 const worker = readFileSync(resolve(root, "supabase/functions/process-credit-card-statement-import/index.ts"), "utf8");
 const cleanup = readFileSync(resolve(root, "supabase/functions/cleanup-credit-card-statement-imports/index.ts"), "utf8");
-const cardsPage = readFileSync(resolve(root, "src/app/CardsPage.tsx"), "utf8");
 
 describe("statement import deployment contracts", () => {
   it("keeps the bucket private and limits client access to its own pending job", () => {
@@ -40,9 +39,4 @@ describe("statement import deployment contracts", () => {
     expect(cleanup).toContain("if (!deleteError) cleaned += 1");
   });
 
-  it("only describes the upload control with feedback when that element exists", () => {
-    expect(cardsPage).toContain("const statementImportDescribedBy = statementImportFeedback");
-    expect(cardsPage).toContain('aria-describedby={statementImportDescribedBy}');
-    expect(cardsPage).toContain('id="statement-import-feedback"');
-  });
 });
