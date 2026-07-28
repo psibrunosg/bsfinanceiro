@@ -1,7 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parseStatementFixture } from "../_shared/statement-fixture.ts";
 
-const corsHeaders = { "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Max-Age": "86400",
+};
 const maxBytes = 5 * 1024 * 1024;
 
 function response(body: Record<string, unknown>, status = 200) {
@@ -48,9 +53,15 @@ Deno.serve(async (request) => {
   if (downloadError || !file || file.size > maxBytes) return fail("unsupported_format");
   if (job.content_type !== "text/plain") return fail("unsupported_format");
 
+  const bytes = await file.arrayBuffer();
+  const sha256 = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)))
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
+  if (sha256 !== job.sha256) return fail("checksum_mismatch");
+
   let purchase;
   try {
-    purchase = parseStatementFixture(await file.text());
+    purchase = parseStatementFixture(new TextDecoder().decode(bytes));
   } catch {
     return fail("unsupported_format");
   }
@@ -63,7 +74,7 @@ Deno.serve(async (request) => {
     p_installment_count: purchase.installmentCount,
     p_category_id: purchase.categoryId,
     p_notes: purchase.notes,
-    p_idempotency_key: crypto.randomUUID(),
+    p_idempotency_key: job.purchase_idempotency_key,
   });
   if (purchaseError || !purchaseId) return fail("purchase_creation_failed");
 

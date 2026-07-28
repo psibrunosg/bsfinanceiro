@@ -11,11 +11,23 @@ import { BrandLogo, CARD_BRANDS } from "./brand-logo";
 import { createClient } from "@/lib/supabase/client";
 import { useMemo, Suspense, useState } from "react";
 
+function statementImportErrorMessage(errorCode: unknown) {
+  switch (errorCode) {
+    case "unsupported_format": return "Formato não suportado; nenhuma compra foi criada.";
+    case "checksum_mismatch": return "O arquivo enviado não corresponde ao arquivo validado. Envie-o novamente.";
+    case "purchase_creation_failed": return "A compra não pôde ser criada. Tente novamente.";
+    case "processing_failed": return "A importação foi interrompida e poderá ser tentada novamente.";
+    default: return "Não foi possível enviar a importação.";
+  }
+}
+
 function CardsPageInner() {
   const searchParams = useSearchParams();
   const selectedCardId = searchParams.get("cardId");
   const focusNewCard = searchParams.get("focus") === "new-card";
   const [importingStatement, setImportingStatement] = useState(false);
+  const [statementImportFeedback, setStatementImportFeedback] = useState("");
+  const [statementImportFailed, setStatementImportFailed] = useState(false);
   const {
     workspace,
     accounts,
@@ -77,12 +89,16 @@ function CardsPageInner() {
 
   async function submitStatementImport(form: FormData) {
     const file = form.get("statement") as File | null;
+    setStatementImportFeedback("");
+    setStatementImportFailed(false);
     if (!file || file.size === 0) {
-      setMessage("Selecione um arquivo para importar.");
+      setStatementImportFeedback("Selecione um arquivo para importar.");
+      setStatementImportFailed(true);
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setMessage("O arquivo deve ter no máximo 5 MB.");
+      setStatementImportFeedback("O arquivo deve ter no máximo 5 MB.");
+      setStatementImportFailed(true);
       return;
     }
     const contentType = file.type === "application/pdf" ? "application/pdf" : "text/plain";
@@ -102,7 +118,7 @@ function CardsPageInner() {
       const job = Array.isArray(created) ? created[0] : created;
       if (createError || !job) throw new Error("create_import_failed");
       if (job.status !== "pending") {
-        setMessage("Este arquivo já possui uma importação em andamento ou concluída.");
+        setStatementImportFeedback("Este arquivo já possui uma importação em andamento ou concluída.");
         await reload();
         return;
       }
@@ -114,9 +130,11 @@ function CardsPageInner() {
       if (queueError) throw queueError;
       const { data: result, error: workerError } = await supabase.functions.invoke("process-credit-card-statement-import", { body: { importId: job.id } });
       if (workerError) throw workerError;
-      setMessage(result?.status === "imported" ? "Importação concluída." : "Formato não suportado; nenhuma compra foi criada.");
+      setStatementImportFailed(result?.status !== "imported");
+      setStatementImportFeedback(result?.status === "imported" ? "Importação concluída." : statementImportErrorMessage(result?.error));
     } catch {
-      setMessage("Não foi possível enviar a importação.");
+      setStatementImportFeedback(statementImportErrorMessage("request_failed"));
+      setStatementImportFailed(true);
     } finally {
       setImportingStatement(false);
       await reload();
@@ -301,10 +319,12 @@ function CardsPageInner() {
             <h2 id="statement-import-title">Importar fatura experimental</h2>
             <p className="muted">Aceita apenas a fixture sintética documentada. PDFs e layouts reais serão recusados sem criar compras.</p>
           </div>
-          <form className="finance-form" onSubmit={(event) => { event.preventDefault(); void submitStatementImport(new FormData(event.currentTarget)); }}>
+          <form className="finance-form" aria-busy={importingStatement} onSubmit={(event) => { event.preventDefault(); void submitStatementImport(new FormData(event.currentTarget)); }}>
             <label htmlFor="statement-file">Arquivo de fatura</label>
-            <input id="statement-file" name="statement" type="file" accept="application/pdf,text/plain,.txt,.bsf-fixture" required disabled={importingStatement} />
+            <input id="statement-file" name="statement" type="file" accept="application/pdf,text/plain,.txt,.bsf-fixture" required disabled={importingStatement} aria-invalid={statementImportFailed || undefined} aria-describedby="statement-import-help statement-import-feedback" />
+            <small id="statement-import-help">Até 5 MB. Apenas a fixture sintética é processada nesta etapa.</small>
             <button disabled={importingStatement}>{importingStatement ? "Enviando..." : "Enviar para importação"}</button>
+            {statementImportFeedback && <p id="statement-import-feedback" className={statementImportFailed ? "form-error" : "form-success"} role={statementImportFailed ? "alert" : "status"}>{statementImportFeedback}</p>}
           </form>
           {statementImports.length > 0 && (
             <ul className="statement-import-list" aria-label="Importações recentes">
