@@ -22,4 +22,8 @@ describe("projectUntilNextIncome", () => {
       projectedBalanceCents: 50_00,
     });
   });
+
+  it("rejects impossible calendar dates", () => {
+    expect(() => projectUntilNextIncome([], 0, "2026-02-31")).toThrow(RangeError);
+  });
 });

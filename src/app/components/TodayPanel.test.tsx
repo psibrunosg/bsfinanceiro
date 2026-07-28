@@ -9,4 +9,9 @@ describe("TodayPanel", () => {
     render(<TodayPanel today={{ currentBalanceCents: 50_00, nextIncomeDate: null, projectedBalanceCents: 50_00, lowestBalanceCents: 50_00, lowestBalanceDate: "2026-07-28", alert: null }} />);
     expect(screen.getByText("Nenhuma próxima receita agendada.")).toBeTruthy();
   });
+
+  it("shows the selected alert", () => {
+    render(<TodayPanel today={{ currentBalanceCents: 50_00, nextIncomeDate: "2026-07-29", projectedBalanceCents: -10_00, lowestBalanceCents: -10_00, lowestBalanceDate: "2026-07-28", alert: { id: "cashflow", preference: "cashflow", severity: "critical", impactCents: 10_00, dueDate: "2026-07-28" } }} />);
+    expect(screen.getByRole("status").textContent).toContain("Atenção:");
+  });
 });
