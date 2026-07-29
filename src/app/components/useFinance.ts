@@ -168,7 +168,7 @@ export function useFinance(
         .order("name"),
       supabase
         .from("credit_cards")
-        .select("id,name,brand,last_four,credit_limit,closing_day,due_day")
+        .select("id,account_id,name,brand,last_four,credit_limit,closing_day,due_day")
         .eq("workspace_id", ws.id)
         .eq("active", true)
         .order("created_at"),

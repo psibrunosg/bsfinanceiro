@@ -28,6 +28,7 @@ function CardsPageInner() {
   const [importingStatement, setImportingStatement] = useState(false);
   const [statementImportFeedback, setStatementImportFeedback] = useState("");
   const [statementImportFailed, setStatementImportFailed] = useState(false);
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const {
     workspace,
     accounts,
@@ -50,6 +51,7 @@ function CardsPageInner() {
     );
 
   const selectedCard = selectedCardId ? cards.find((c) => c.id === selectedCardId) : null;
+  const editingCard = cards.find((c) => c.id === editingCardId);
   const statementImportDescribedBy = statementImportFeedback
     ? "statement-import-help statement-import-feedback"
     : "statement-import-help";
@@ -70,6 +72,26 @@ function CardsPageInner() {
     setMessage(
       error ? "Não foi possível adicionar o cartão." : "Cartão adicionado."
     );
+    await reload();
+  }
+
+  async function updateCard(form: FormData) {
+    if (!editingCardId) return;
+    const { error } = await supabase
+      .from("credit_cards")
+      .update({
+        account_id: form.get("account_id"),
+        name: form.get("name"),
+        brand: form.get("brand") || null,
+        last_four: form.get("last_four") || null,
+        credit_limit: parseMoney(form.get("credit_limit")),
+        closing_day: Number(form.get("closing_day")),
+        due_day: Number(form.get("due_day")),
+      })
+      .eq("id", editingCardId)
+      .eq("workspace_id", workspace.id);
+    setMessage(error ? "Não foi possível editar o cartão." : "Cartão atualizado.");
+    if (!error) setEditingCardId(null);
     await reload();
   }
 
@@ -173,14 +195,17 @@ function CardsPageInner() {
                   </small>
                 </div>
                 <b>{money(c.credit_limit)}</b>
+                <button type="button" onClick={() => setEditingCardId(c.id)}>
+                  Editar
+                </button>
               </article>
             ))}
           </List>
           <aside className="form-card">
-            <h2>Adicionar cartão</h2>
-            <SimpleForm onSubmit={submitCard}>
+            <h2>{editingCard ? "Editar cartão" : "Adicionar cartão"}</h2>
+            <SimpleForm key={editingCard?.id ?? "new"} onSubmit={editingCard ? updateCard : submitCard}>
               <label htmlFor="card-account">Conta vinculada</label>
-              <select id="card-account" name="account_id" required>
+              <select id="card-account" name="account_id" defaultValue={editingCard?.account_id ?? ""} required>
                 <option value="">Conta vinculada</option>
                 {accounts
                   .filter((a) => a.type === "credit_card")
@@ -191,9 +216,9 @@ function CardsPageInner() {
                   ))}
               </select>
               <label htmlFor="card-name">Nome do cartão</label>
-              <input id="card-name" name="name" placeholder="Nome do cartão" required autoFocus={focusNewCard} />
+              <input id="card-name" name="name" placeholder="Nome do cartão" defaultValue={editingCard?.name} required autoFocus={focusNewCard} />
               <label htmlFor="card-brand">Bandeira</label>
-              <select id="card-brand" name="brand" defaultValue="">
+              <select id="card-brand" name="brand" defaultValue={editingCard?.brand ?? ""}>
                 <option value="">Bandeira</option>
                 {CARD_BRANDS.map((b) => (
                   <option key={b} value={b}>
@@ -202,9 +227,9 @@ function CardsPageInner() {
                 ))}
               </select>
               <label htmlFor="card-last-four">Final do cartão</label>
-              <input id="card-last-four" name="last_four" placeholder="Final" />
+              <input id="card-last-four" name="last_four" placeholder="Final" defaultValue={editingCard?.last_four ?? ""} />
               <label htmlFor="card-credit-limit">Limite de crédito</label>
-              <input id="card-credit-limit" name="credit_limit" placeholder="0,00" required />
+              <input id="card-credit-limit" name="credit_limit" placeholder="0,00" defaultValue={editingCard ? String(editingCard.credit_limit).replace(".", ",") : ""} required />
               <label htmlFor="card-closing-day">Dia de fechamento</label>
               <input
                 id="card-closing-day"
@@ -213,6 +238,7 @@ function CardsPageInner() {
                 min="1"
                 max="31"
                 placeholder="Fecha dia"
+                defaultValue={editingCard?.closing_day}
                 required
               />
               <label htmlFor="card-due-day">Dia de vencimento</label>
@@ -223,9 +249,11 @@ function CardsPageInner() {
                 min="1"
                 max="31"
                 placeholder="Vence dia"
+                defaultValue={editingCard?.due_day}
                 required
               />
-              <button>Adicionar</button>
+              <button>{editingCard ? "Salvar alterações" : "Adicionar"}</button>
+              {editingCard && <button type="button" onClick={() => setEditingCardId(null)}>Cancelar</button>}
             </SimpleForm>
           </aside>
         </section>
