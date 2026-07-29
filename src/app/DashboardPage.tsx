@@ -7,6 +7,7 @@ import { money } from "./components/Money";
 import { BrandLogo } from "./brand-logo";
 import { TodayPanel } from "./components/TodayPanel";
 import { SpendingPowerCard } from "./components/SpendingPowerCard";
+import { QuickTransactionForm } from "./components/QuickTransactionForm";
 import { buildTodayDashboard } from "../lib/finance/today-adapter";
 import { todayInSaoPaulo } from "../lib/finance/local-date";
 import { todayActions } from "../lib/finance/today-actions";
@@ -14,7 +15,10 @@ import { appPath } from "../lib/app-path";
 
 export function DashboardPage() {
   const {
+    ownerId,
     workspace,
+    accounts,
+    categories,
     cards,
     transactions,
     todayTransactions,
@@ -22,10 +26,12 @@ export function DashboardPage() {
     goals,
     cashPosition,
     spendingPower,
+    defaultCashAccountId,
     loading,
+    reload,
   } = useFinance("dashboard");
 
-  if (loading || !workspace)
+  if (loading || !workspace || !ownerId)
     return (
       <main className="management-page">
         <p className="muted">Carregando...</p>
@@ -78,6 +84,14 @@ export function DashboardPage() {
         </article>
       </section>
       <SpendingPowerCard spendingPower={spendingPower} />
+      <QuickTransactionForm
+        workspaceId={workspace.id}
+        ownerId={ownerId}
+        defaultCashAccountId={defaultCashAccountId}
+        accounts={accounts}
+        categories={categories}
+        onSaved={reload}
+      />
       <TodayPanel today={today} actions={actions} />
       <section className="management-grid">
         <List title="Cartões">

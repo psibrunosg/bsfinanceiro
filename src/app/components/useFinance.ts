@@ -27,6 +27,7 @@ import type {
 } from "./types";
 
 export type FinanceData = {
+  ownerId: string | null;
   workspace: Workspace;
   accounts: Account[];
   categories: Category[];
@@ -56,6 +57,7 @@ export type FinanceData = {
 export function useFinance(route: string, cardId?: string): FinanceData {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
+  const [ownerId, setOwnerId] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -81,6 +83,7 @@ export function useFinance(route: string, cardId?: string): FinanceData {
       window.location.replace(appPath("/entrar"));
       return;
     }
+    setOwnerId(user.id);
     const { data: ws } = await supabase
       .from("workspaces")
       .select("id,name")
@@ -300,6 +303,7 @@ export function useFinance(route: string, cardId?: string): FinanceData {
   );
 
   return {
+    ownerId,
     workspace: workspace!,
     accounts,
     categories,
