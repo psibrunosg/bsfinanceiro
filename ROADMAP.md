@@ -24,7 +24,7 @@ O projeto Supabase do BS Financeiro é `wgntlhzjyriwhncumjsv`, que também apare
 6. Estados vazios e erros claros nas telas principais.
 7. Navegação sem links para rotas não implementadas.
 
-## P2. Fechar os ciclos financeiros já modelados — Concluído
+## P2. Fechar os ciclos financeiros já modelados — Implementação concluída; validação manual pendente
 
 ### 2.1 Refatorar componentes
 - [x] Extrair `finance-client.tsx` monolítico em componentes por página.
@@ -74,6 +74,7 @@ O projeto Supabase do BS Financeiro é `wgntlhzjyriwhncumjsv`, que também apare
 - [x] Explicar a disponibilidade projetada, reservando compromissos até a próxima renda planejada.
 - [x] Registrar despesa rápida na conta principal e encontrá-la pelo histórico pesquisável.
 - [x] Verificar lint, testes e build; o cenário manual reproduzível está no README.
+- [ ] Executar o cenário manual autenticado contra um Supabase configurado antes de declarar P2 concluído.
 
 ## Próxima fronteira: Importação OFX/CSV com prévia, deduplicação e inbox de revisão
 
