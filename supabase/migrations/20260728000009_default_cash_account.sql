@@ -18,3 +18,6 @@ using ((select auth.uid()) = owner_id)
 with check ((select auth.uid()) = owner_id);
 
 grant select, insert, update, delete on public.workspace_preferences to authenticated;
+
+create index workspace_preferences_default_cash_account_idx
+on public.workspace_preferences(default_cash_account_id, workspace_id, owner_id);
