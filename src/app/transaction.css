@@ -74,12 +74,17 @@
   gap: 0.5rem 0.75rem;
 }
 
-.statement-import-form label {
+.statement-import-field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.statement-import-field label {
   font-weight: 700;
 }
 
-.statement-import-form input,
-.statement-import-form select {
+.statement-import-field input,
+.statement-import-field select {
   min-height: 3.125rem;
   border: 1px solid var(--border);
   border-radius: 0.625rem;
@@ -162,8 +167,8 @@
   font-size: 0.875rem;
 }
 
-.statement-import-form input:focus-visible,
-.statement-import-form select:focus-visible,
+.statement-import-field input:focus-visible,
+.statement-import-field select:focus-visible,
 .statement-import-actions button:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;

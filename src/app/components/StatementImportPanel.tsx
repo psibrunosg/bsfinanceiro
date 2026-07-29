@@ -40,6 +40,7 @@ export function StatementImportPanel({
   const [preview, setPreview] = useState<PreviewBatch | null>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [reloadFailed, setReloadFailed] = useState(false);
   const cashAccounts = accounts.filter((account) => CASH_ACCOUNT_TYPES.has(account.type));
   const selectedInboxBatch = batches.find((batch) => batch.id === selectedBatchId) ?? null;
   const previewItems = preview?.items ?? selectedInboxBatch?.transaction_import_items ?? [];
@@ -49,6 +50,7 @@ export function StatementImportPanel({
     event.preventDefault();
     if (!file || !accountId || !ownerId || pendingAction) return;
 
+    let batchId: string | null = null;
     setPendingAction("preparing");
     try {
       const parsed = parseStatementCsv(await file.text());
@@ -59,6 +61,7 @@ export function StatementImportPanel({
         .select("id")
         .single();
       if (batchError || !batch) throw batchError ?? new Error("batch_creation_failed");
+      batchId = batch.id;
 
       const { error: itemError } = await supabase.from("transaction_import_items").insert(
         classified.items.map((item) => toImportItem(item, batch.id, workspaceId, ownerId)),
@@ -67,10 +70,12 @@ export function StatementImportPanel({
 
       setPreview({ id: batch.id, fileName: file.name, status: "pending", items: classified.items });
       setSelectedBatchId(null);
-      onMessage("Prévia criada. A confirmação ainda será revalidada pelo banco.");
-      await onReload();
+      await reloadAfterSuccess("Prévia criada. A confirmação ainda será revalidada pelo banco.");
     } catch {
-      onMessage("Não foi possível preparar a prévia do CSV.");
+      const cleaned = batchId ? await discardFailedBatch(batchId) : true;
+      onMessage(cleaned
+        ? "Não foi possível preparar a prévia do CSV."
+        : "Não foi possível preparar a prévia do CSV e limpar o lote pendente.");
     } finally {
       setPendingAction(null);
     }
@@ -85,12 +90,30 @@ export function StatementImportPanel({
       if (error) throw error;
       setPreview(null);
       setSelectedBatchId(null);
-      onMessage(action === "apply" ? `Importação ${batch.fileName} confirmada.` : `Importação ${batch.fileName} descartada.`);
-      await onReload();
+      await reloadAfterSuccess(action === "apply" ? `Importação ${batch.fileName} confirmada.` : `Importação ${batch.fileName} descartada.`);
     } catch {
       onMessage(action === "apply" ? "Não foi possível confirmar a importação." : "Não foi possível descartar a importação.");
     } finally {
       setPendingAction(null);
+    }
+  }
+
+  async function discardFailedBatch(batchId: string) {
+    try {
+      const { error } = await supabase.rpc("discard_transaction_import_batch", { p_batch_id: batchId });
+      return !error;
+    } catch {
+      return false;
+    }
+  }
+
+  async function reloadAfterSuccess(successMessage: string) {
+    onMessage(successMessage);
+    try {
+      await onReload();
+      setReloadFailed(false);
+    } catch {
+      setReloadFailed(true);
     }
   }
 
@@ -100,17 +123,22 @@ export function StatementImportPanel({
       <p className="muted">Escolha uma conta de caixa e revise as linhas antes de confirmar.</p>
     </div>
     <form className="statement-import-form" onSubmit={preparePreview}>
-      <label htmlFor="statement-import-account">Conta do extrato</label>
-      <select id="statement-import-account" value={accountId} onChange={(event) => setAccountId(event.target.value)} required>
-        <option value="">Selecione uma conta</option>
-        {cashAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-      </select>
-      <label htmlFor="statement-import-file">Arquivo CSV</label>
-      <input id="statement-import-file" type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} required />
+      <div className="statement-import-field">
+        <label htmlFor="statement-import-account">Conta do extrato</label>
+        <select id="statement-import-account" value={accountId} onChange={(event) => setAccountId(event.target.value)} required>
+          <option value="">Selecione uma conta</option>
+          {cashAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+        </select>
+      </div>
+      <div className="statement-import-field">
+        <label htmlFor="statement-import-file">Arquivo CSV</label>
+        <input id="statement-import-file" type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} required />
+      </div>
       <button disabled={!file || !accountId || !ownerId || pendingAction === "preparing"}>
         {pendingAction === "preparing" ? "Preparando prévia..." : "Preparar prévia"}
       </button>
     </form>
+    {reloadFailed ? <p className="form-error" role="alert">A ação foi concluída, mas a tela não foi atualizada. <button type="button" onClick={() => void reloadAfterSuccess("Atualização solicitada.")}>Tentar atualizar</button></p> : null}
     {previewTitle ? <ImportPreview
       title={previewTitle}
       items={previewItems}
@@ -187,8 +215,7 @@ function classifyPreview(preview: StatementCsvPreview): { items: PreviewItem[] }
 
 function toImportItem(item: PreviewItem, batchId: string, workspaceId: string, ownerId: string) {
   if ("fingerprint" in item) {
-    const duplicate = "duplicate" in item && item.duplicate;
-    return { batch_id: batchId, workspace_id: workspaceId, owner_id: ownerId, row_number: item.rowNumber, competence_date: item.competenceDate, description: item.description, amount_cents: item.amountCents, type: item.type, status: duplicate ? "duplicate" : "ready", reason: duplicate ? "duplicate_in_file" : null, fingerprint: item.fingerprint };
+    return { batch_id: batchId, workspace_id: workspaceId, owner_id: ownerId, row_number: item.rowNumber, competence_date: item.competenceDate, description: item.description, amount_cents: item.amountCents, type: item.type, status: "ready", reason: null, fingerprint: item.fingerprint };
   }
   return { batch_id: batchId, workspace_id: workspaceId, owner_id: ownerId, row_number: item.rowNumber, competence_date: null, description: null, amount_cents: null, type: null, status: "invalid", reason: item.reason, fingerprint: null };
 }
