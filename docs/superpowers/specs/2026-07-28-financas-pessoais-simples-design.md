@@ -43,3 +43,9 @@ O painel passa a ser o ponto de entrada diário. Contas, categorias, cartões, c
 - Cartões de crédito, investimentos, transferências e movimentações planejadas não distorcem o valor disponível.
 - O histórico permite encontrar uma movimentação por descrição e limitar a visualização por tipo e período.
 - As rotas existentes continuam acessíveis e os testes, lint e build passam.
+
+## Verificação do ciclo
+
+O cenário manual reproduzível está no README: criar uma conta corrente como principal, registrar uma renda planejada futura, criar um compromisso fixo, abrir o painel e conferir a reserva, lançar uma despesa rápida e encontrá-la pelo histórico. A verificação automática roda `npm run lint`, `npm test` e `npm run build`.
+
+Com isso, este ciclo entrega conta principal, saldo real, disponibilidade projetada, registro simples, navegação e histórico. Importação, regras de categorização e contexto MEI permanecem fora do escopo; o próximo ciclo é importação OFX/CSV com prévia, deduplicação e inbox de revisão. Open Finance não foi implementado.

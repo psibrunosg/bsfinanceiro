@@ -24,7 +24,7 @@ O projeto Supabase do BS Financeiro é `wgntlhzjyriwhncumjsv`, que também apare
 6. Estados vazios e erros claros nas telas principais.
 7. Navegação sem links para rotas não implementadas.
 
-## P2. Fechar os ciclos financeiros já modelados — Em andamento
+## P2. Fechar os ciclos financeiros já modelados — Concluído
 
 ### 2.1 Refatorar componentes
 - [x] Extrair `finance-client.tsx` monolítico em componentes por página.
@@ -68,6 +68,16 @@ O projeto Supabase do BS Financeiro é `wgntlhzjyriwhncumjsv`, que também apare
 ### 2.6 Configurações
 - [x] Implementar tela de preferências de alertas (ler/salvar `alert_preferences`).
 - [x] Implementar logout funcional na página de configurações.
+
+### 2.7 Pessoa física: decisão diária
+- [x] Definir conta principal de caixa e preservar o saldo real das contas.
+- [x] Explicar a disponibilidade projetada, reservando compromissos até a próxima renda planejada.
+- [x] Registrar despesa rápida na conta principal e encontrá-la pelo histórico pesquisável.
+- [x] Verificar lint, testes e build; o cenário manual reproduzível está no README.
+
+## Próxima fronteira: Importação OFX/CSV com prévia, deduplicação e inbox de revisão
+
+Esta fase ainda precisa de plano próprio para modelo de dados, erros de arquivo e revisão humana. Open Finance não faz parte da entrega atual.
 
 ## P3. Preparar uma primeira liberação
 
