@@ -320,7 +320,7 @@ begin
     user_a,
     2,
     current_date,
-    '  Rêcéita--A!!  ',
+    '  Rêcéita--A!!' || chr(6832) || '  ',
     10000,
     'income',
     'ready',

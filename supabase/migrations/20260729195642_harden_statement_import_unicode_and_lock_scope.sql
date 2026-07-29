@@ -1,0 +1,44 @@
+create or replace function public.normalize_transaction_import_description(p_description text)
+returns text language sql immutable strict set search_path = '' as $$
+  with ranges(start_codepoint,end_codepoint) as (
+    select * from unnest(
+      array[94,96,168,175,180,183,688,848,861,884,890,900,1155,1369,1425,1471,1473,1476,1479,1611,1623,1759,1765,1770,1840,1958,2027,2072,2200,2249,2275,2364,2381,2385,2417,2492,2509,2620,2637,2748,2765,2813,2876,2893,2901,3021,3132,3149,3260,3277,3387,3405,3530,3642,3655,3662,3770,3784,3864,3893,3895,3897,3902,3970,3974,4038,4151,4153,4195,4201,4231,4239,4250,4957,5908,5940,6089,6109,6457,6752,6773,6783,6832,6849,6863,6880,6964,6980,7019,7082,7142,7154,7222,7288,7376,7405,7412,7415,7468,7579,7620,7669,8125,8127,8141,8157,8173,8189,11503,11823,12330,12441,12540,42607,42620,42623,42652,42736,42752,42888,42993,43000,43014,43052,43204,43232,43307,43347,43443,43456,43493,43643,43711,43766,43867,43881,44012,64286,65056,65342,65344,65392,65438,65507,66272,67456,67463,67506,68152,68159,68325,68898,68942,68969,69370,69373,69446,69506,69702,69744,69817,69939,70003,70080,70090,70197,70377,70459,70477,70502,70512,70606,70610,70625,70722,70726,70850,71103,71231,71350,71467,71737,71997,72003,72160,72244,72263,72345,72767,73026,73028,73111,73177,73537,73562,78919,90415,92912,92976,93547,94095,94192,110576,110581,110589,118528,118576,119143,119149,119163,119173,119210,122928,123184,123566,123628,124398,125136,125252,125256]::int[],
+      array[94,96,168,175,180,184,846,855,866,885,890,901,1159,1369,1469,1471,1474,1477,1479,1618,1624,1760,1766,1772,1866,1968,2037,2073,2207,2258,2302,2364,2381,2388,2417,2492,2509,2620,2637,2748,2765,2815,2876,2893,2901,3021,3132,3149,3260,3277,3388,3405,3530,3642,3660,3662,3770,3788,3865,3893,3895,3897,3903,3972,3975,4038,4151,4154,4196,4205,4237,4239,4251,4959,5909,5940,6099,6109,6459,6752,6780,6783,6846,6859,6877,6891,6964,6980,7027,7083,7142,7155,7223,7293,7400,7405,7412,7417,7530,7614,7631,7679,8125,8129,8143,8159,8175,8190,11505,11823,12335,12444,12540,42607,42621,42623,42653,42737,42785,42890,42993,43001,43014,43052,43204,43249,43310,43347,43443,43456,43493,43645,43714,43766,43871,43883,44013,64286,65071,65342,65344,65392,65439,65507,66272,67461,67504,67514,68154,68159,68326,68903,68942,68973,69370,69375,69456,69509,69702,69744,69818,69940,70003,70080,70092,70198,70378,70460,70477,70508,70516,70608,70611,70626,70722,70726,70851,71104,71231,71351,71467,71738,71998,72003,72160,72244,72263,72345,72767,73026,73029,73111,73177,73538,73562,78933,90415,92916,92982,93548,94111,94193,110579,110587,110590,118573,118598,119145,119154,119170,119179,119213,122989,123190,123566,123631,124399,125142,125254,125258]::int[]
+    )
+  ), chars(position,character) as (
+    select series.position, substr(normalize(p_description,NFD),series.position,1)
+    from generate_series(1,char_length(normalize(p_description,NFD))) as series(position)
+  ), without_diacritics as (
+    select coalesce(string_agg(character,'' order by position),'') as value
+    from chars
+    where not exists (select 1 from ranges where ascii(character) between start_codepoint and end_codepoint)
+  )
+  select btrim(regexp_replace(lower(value),'[^a-z0-9]+',' ','g')) from without_diacritics;
+$$;
+
+drop index public.transactions_statement_import_duplicate_idx;
+create index transactions_statement_import_duplicate_idx on public.transactions(owner_id,account_id,competence_date,type,amount,public.normalize_transaction_import_description(description));
+
+create or replace function public.apply_transaction_import_batch(p_batch_id uuid)
+returns table(transaction_id uuid) language plpgsql security definer set search_path='' as $$
+declare v_user_id uuid:=(select auth.uid()); v_batch public.transaction_import_batches%rowtype;
+begin
+ if v_user_id is null then raise exception 'authentication required' using errcode='28000'; end if;
+ select batch.* into v_batch from public.transaction_import_batches batch where batch.id=p_batch_id and batch.owner_id=v_user_id for update;
+ if not found then raise exception 'transaction import batch not found' using errcode='P0002'; end if;
+ if v_batch.status='applied' then return query select item.transaction_id from public.transaction_import_items item where item.batch_id=v_batch.id and item.workspace_id=v_batch.workspace_id and item.owner_id=v_user_id and item.status='ready' and item.transaction_id is not null order by item.row_number; return; end if;
+ if v_batch.status<>'pending' then raise exception 'transaction import batch is not pending' using errcode='55000'; end if;
+ if not exists(select 1 from public.accounts account where account.id=v_batch.account_id and account.workspace_id=v_batch.workspace_id and account.owner_id=v_user_id and account.active and account.type in ('checking','cash','savings')) then raise exception 'active cash account not found' using errcode='P0002'; end if;
+ perform pg_advisory_xact_lock(hashtextextended(v_user_id::text||'|'||v_batch.account_id::text,0));
+ with ready_items as (
+  select item.id,row_number() over(partition by item.competence_date,item.type,item.amount_cents,public.normalize_transaction_import_description(item.description) order by item.row_number,item.id) duplicate_rank,
+   exists(select 1 from public.transactions transaction where transaction.owner_id=v_user_id and transaction.workspace_id=v_batch.workspace_id and transaction.account_id=v_batch.account_id and transaction.competence_date=item.competence_date and transaction.type=item.type and transaction.amount=item.amount_cents::numeric/100 and public.normalize_transaction_import_description(transaction.description)=public.normalize_transaction_import_description(item.description)) matches_existing_transaction
+  from public.transaction_import_items item where item.batch_id=v_batch.id and item.workspace_id=v_batch.workspace_id and item.owner_id=v_user_id and item.status='ready'
+ ) update public.transaction_import_items item set status='duplicate',reason=case when ready_items.matches_existing_transaction then 'duplicate transaction already exists' else 'duplicate row in import batch' end,transaction_id=null from ready_items where item.id=ready_items.id and (ready_items.matches_existing_transaction or ready_items.duplicate_rank>1);
+ insert into public.transactions(workspace_id,owner_id,account_id,type,status,description,amount,competence_date,paid_at,notes,idempotency_key)
+ select item.workspace_id,item.owner_id,v_batch.account_id,item.type,'paid',trim(item.description),item.amount_cents::numeric/100,item.competence_date,item.competence_date,'Importado do lote de extrato '||v_batch.id::text,md5('transaction-import:'||item.batch_id::text||':'||item.row_number::text)::uuid from public.transaction_import_items item where item.batch_id=v_batch.id and item.workspace_id=v_batch.workspace_id and item.owner_id=v_user_id and item.status='ready' order by item.row_number on conflict(owner_id,idempotency_key) do nothing;
+ update public.transaction_import_items item set transaction_id=transaction.id from public.transactions transaction where item.batch_id=v_batch.id and item.workspace_id=v_batch.workspace_id and item.owner_id=v_user_id and item.status='ready' and transaction.workspace_id=item.workspace_id and transaction.owner_id=item.owner_id and transaction.idempotency_key=md5('transaction-import:'||item.batch_id::text||':'||item.row_number::text)::uuid;
+ if exists(select 1 from public.transaction_import_items item left join public.transactions transaction on transaction.id=item.transaction_id and transaction.workspace_id=item.workspace_id and transaction.owner_id=item.owner_id where item.batch_id=v_batch.id and item.workspace_id=v_batch.workspace_id and item.owner_id=v_user_id and item.status='ready' and (transaction.id is null or transaction.account_id is distinct from v_batch.account_id or transaction.type is distinct from item.type or transaction.status is distinct from 'paid'::public.transaction_status or transaction.description is distinct from trim(item.description) or transaction.amount is distinct from item.amount_cents::numeric/100 or transaction.competence_date is distinct from item.competence_date or transaction.paid_at is distinct from item.competence_date or transaction.notes is distinct from 'Importado do lote de extrato '||v_batch.id::text)) then raise exception 'transaction import idempotency collision' using errcode='23505'; end if;
+ update public.transaction_import_batches batch set status='applied',applied_at=now() where batch.id=v_batch.id and batch.workspace_id=v_batch.workspace_id and batch.owner_id=v_user_id and batch.status='pending';
+ return query select item.transaction_id from public.transaction_import_items item where item.batch_id=v_batch.id and item.workspace_id=v_batch.workspace_id and item.owner_id=v_user_id and item.status='ready' and item.transaction_id is not null order by item.row_number;
+end; $$;
