@@ -69,7 +69,7 @@ Expected: FAIL porque `workspace_preferences` ainda não existe.
 
 - [ ] **Step 3: Criar a migration mínima**
 
-Crie a tabela com RLS, unicidade de `(workspace_id, owner_id)`, chave estrangeira composta para `workspaces(id, owner_id)` e chave estrangeira composta para `accounts(id, workspace_id, owner_id)`. A conta principal deve aceitar `null`; quando preenchida, a aplicação só aceitará conta ativa de caixa.
+Crie a tabela com RLS, unicidade de `(workspace_id, owner_id)`, chave estrangeira composta para `workspaces(id, owner_id)` e chave estrangeira composta para `accounts(id, workspace_id, owner_id)`. A conta principal deve aceitar `null`; quando preenchida, a aplicação só aceitará conta ativa de caixa. Ao remover a conta, anule somente `default_cash_account_id`; nunca anule `workspace_id` nem `owner_id`.
 
 ```sql
 create table public.workspace_preferences (
@@ -80,7 +80,8 @@ create table public.workspace_preferences (
   foreign key (workspace_id, owner_id)
     references public.workspaces(id, owner_id) on delete cascade,
   foreign key (default_cash_account_id, workspace_id, owner_id)
-    references public.accounts(id, workspace_id, owner_id) on delete set null
+    references public.accounts(id, workspace_id, owner_id)
+    on delete set null (default_cash_account_id)
 );
 
 alter table public.workspace_preferences enable row level security;
