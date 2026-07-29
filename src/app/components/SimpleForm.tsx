@@ -14,7 +14,7 @@ export function SimpleForm({
 
   return (
     <form
-      className="finance-form"
+      className="simple-form"
       onSubmit={async (e) => {
         e.preventDefault();
         setError("");
