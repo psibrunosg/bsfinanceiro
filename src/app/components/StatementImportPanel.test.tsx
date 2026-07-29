@@ -47,15 +47,23 @@ const pendingBatch = {
   ],
 };
 
-function renderPanel(batches: TransactionImportBatch[] = []) {
+function renderPanel({
+  batches = [],
+  onReload = vi.fn().mockResolvedValue(undefined),
+  onMessage = vi.fn(),
+}: {
+  batches?: TransactionImportBatch[];
+  onReload?: () => Promise<void>;
+  onMessage?: (message: string) => void;
+} = {}) {
   return render(
     <StatementImportPanel
       workspaceId="workspace-1"
       ownerId="owner-1"
       accounts={accounts}
       batches={batches}
-      onReload={vi.fn().mockResolvedValue(undefined)}
-      onMessage={vi.fn()}
+      onReload={onReload}
+      onMessage={onMessage}
     />,
   );
 }
@@ -106,13 +114,13 @@ describe("StatementImportPanel", () => {
     });
     expect(mocks.itemInsert).toHaveBeenCalledWith(expect.arrayContaining([
       expect.objectContaining({ batch_id: "batch-new", status: "ready", owner_id: "owner-1" }),
-      expect.objectContaining({ batch_id: "batch-new", status: "duplicate", reason: "duplicate_in_file" }),
+      expect.objectContaining({ batch_id: "batch-new", status: "ready", reason: null }),
       expect.objectContaining({ batch_id: "batch-new", status: "invalid", reason: "invalid_amount" }),
     ]));
   });
 
   it("confirms only pending batches with ready items through the protected RPC", async () => {
-    renderPanel([pendingBatch]);
+    renderPanel({ batches: [pendingBatch] });
 
     fireEvent.click(screen.getByRole("button", { name: "Confirmar anterior.csv" }));
 
@@ -123,7 +131,7 @@ describe("StatementImportPanel", () => {
   });
 
   it("discards a pending batch through the protected RPC", async () => {
-    renderPanel([pendingBatch]);
+    renderPanel({ batches: [pendingBatch] });
 
     fireEvent.click(screen.getByRole("button", { name: "Descartar anterior.csv" }));
 
@@ -131,5 +139,66 @@ describe("StatementImportPanel", () => {
       "discard_transaction_import_batch",
       { p_batch_id: "batch-pending" },
     ));
+  });
+
+  it("compensates a created batch when item persistence fails", async () => {
+    const onMessage = vi.fn();
+    mocks.itemInsert.mockResolvedValueOnce({ error: new Error("item_insert_failed") });
+    renderPanel({ onMessage });
+    const file = new File(["data,descricao,valor\n29/07/2026,Salário,1000"], "falha.csv", { type: "text/csv" });
+    Object.defineProperty(file, "text", { value: vi.fn().mockResolvedValue("data,descricao,valor\n29/07/2026,Salário,1000") });
+    fireEvent.change(screen.getByLabelText("Conta do extrato"), { target: { value: "account-1" } });
+    fireEvent.change(screen.getByLabelText("Arquivo CSV"), { target: { files: [file] } });
+    fireEvent.submit(screen.getByRole("button", { name: "Preparar prévia" }).closest("form")!);
+
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith(
+      "discard_transaction_import_batch",
+      { p_batch_id: "batch-new" },
+    ));
+    expect(onMessage).toHaveBeenCalledWith("Não foi possível preparar a prévia do CSV.");
+    expect(screen.queryByText("Prévia de falha.csv")).toBeNull();
+  });
+
+  it("limits the preview table to fifty rows", async () => {
+    const csv = ["data,descricao,valor", ...Array.from({ length: 51 }, (_, index) => `29/07/2026,Linha ${index + 1},1`)].join("\n");
+    renderPanel();
+    const file = new File([csv], "longo.csv", { type: "text/csv" });
+    Object.defineProperty(file, "text", { value: vi.fn().mockResolvedValue(csv) });
+    fireEvent.change(screen.getByLabelText("Conta do extrato"), { target: { value: "account-1" } });
+    fireEvent.change(screen.getByLabelText("Arquivo CSV"), { target: { files: [file] } });
+    fireEvent.submit(screen.getByRole("button", { name: "Preparar prévia" }).closest("form")!);
+
+    await screen.findByText("Prévia de longo.csv");
+    expect(screen.getAllByRole("row")).toHaveLength(51);
+    expect(screen.getByText("Linhas da prévia; mostrando as primeiras 50.")).toBeTruthy();
+  });
+
+  it("disables confirmation with no ready item and while confirmation is pending", () => {
+    const invalidBatch: TransactionImportBatch = { ...pendingBatch, transaction_import_items: [{ ...pendingBatch.transaction_import_items[0], status: "invalid", reason: "invalid_amount" }] };
+    renderPanel({ batches: [invalidBatch] });
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Confirmar anterior.csv" }).disabled).toBe(true);
+    cleanup();
+
+    mocks.rpc.mockReturnValueOnce(new Promise(() => undefined));
+    renderPanel({ batches: [pendingBatch] });
+    fireEvent.click(screen.getByRole("button", { name: "Revisar anterior.csv" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Confirmar anterior.csv" }).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Processando..." })).toBeTruthy();
+  });
+
+  it("opens an inbox preview and preserves success when reload fails", async () => {
+    const onMessage = vi.fn();
+    const onReload = vi.fn().mockRejectedValue(new Error("reload_failed"));
+    renderPanel({ batches: [pendingBatch], onReload, onMessage });
+    fireEvent.click(screen.getByRole("button", { name: "Revisar anterior.csv" }));
+    expect(screen.getByText("Prévia de anterior.csv")).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: "Confirmar anterior.csv" })[0]);
+
+    await screen.findByRole("alert");
+    expect(screen.getByRole("alert").textContent).toContain("A ação foi concluída");
+    expect(onMessage).toHaveBeenCalledWith("Importação anterior.csv confirmada.");
+    fireEvent.click(screen.getByRole("button", { name: "Tentar atualizar" }));
+    expect(onReload).toHaveBeenCalledTimes(2);
   });
 });
