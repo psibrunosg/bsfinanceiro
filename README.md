@@ -14,6 +14,19 @@ Requer Node.js 22 ou superior.
 Use `npm run lint`, `npm test` e `npm run build` antes de integrar mudanças.
 Use `supabase/rls-smoke-test.sql` para conferir isolamento básico de RLS no banco remoto vinculado.
 
+### Cenário manual de aceitação: decisão diária
+
+Com uma conta de teste autenticada, percorra o fluxo abaixo para validar a experiência de pessoa física:
+
+1. Crie uma conta corrente ativa e defina-a como conta principal.
+2. Registre uma renda planejada futura.
+3. Crie um compromisso fixo ainda não pago, com vencimento antes dessa renda.
+4. Abra o Painel e confira `Disponível para gastar`, a data da próxima entrada e a explicação da reserva do compromisso.
+5. Lance uma despesa pelo registro rápido, informando somente valor e descrição; ela deve usar a conta principal e a data de hoje.
+6. Abra Movimentações, pesquise pela descrição e confirme que a despesa aparece no histórico.
+
+O ciclo não inclui importação bancária. A próxima fronteira é importação OFX/CSV com prévia, deduplicação e inbox de revisão.
+
 ## Deploy no GitHub Pages
 Configure estes Repository secrets em `Settings > Secrets and variables > Actions`:
 
