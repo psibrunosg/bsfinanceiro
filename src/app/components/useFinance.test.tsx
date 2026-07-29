@@ -70,6 +70,37 @@ function resolveQuery(state: QueryState, single = false) {
   if (state.table === "workspace_preferences") {
     return { data: single ? { default_cash_account_id: "cash" } : [] };
   }
+  if (state.table === "transaction_import_batches") {
+    return {
+      data: [
+        {
+          id: "batch-2",
+          account_id: "cash",
+          file_name: "julho.csv",
+          status: "pending",
+          created_at: "2026-07-29T12:00:00Z",
+          applied_at: null,
+          discarded_at: null,
+          transaction_import_items: [
+            {
+              id: "item-1",
+              batch_id: "batch-2",
+              row_number: 1,
+              competence_date: "2026-07-29",
+              description: "Mercado",
+              amount_cents: 1250,
+              type: "expense",
+              status: "ready",
+              reason: null,
+              fingerprint: "fingerprint-1",
+              transaction_id: null,
+              created_at: "2026-07-29T12:00:00Z",
+            },
+          ],
+        },
+      ],
+    };
+  }
   if (state.table !== "transactions") return { data: single ? null : [] };
 
   const status = filterValue(state, "eq", "status");
@@ -226,6 +257,41 @@ afterEach(() => {
 });
 
 describe("useFinance transaction loading", () => {
+  it("loads the ten newest import batches from the current workspace and reloads the inbox", async () => {
+    const { result } = renderHook(() => useFinance("transactions"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const importBatchQuery = () =>
+      mocks.queries.filter(
+        (query) => query.table === "transaction_import_batches",
+      );
+    expect(importBatchQuery()).toHaveLength(1);
+    expect(importBatchQuery()[0]).toMatchObject({
+      filters: [["eq", "workspace_id", "workspace-1"]],
+      orders: [["created_at", false]],
+      limitValue: 10,
+    });
+    expect(result.current.transactionImportBatches).toMatchObject([
+      {
+        id: "batch-2",
+        file_name: "julho.csv",
+        transaction_import_items: [
+          { id: "item-1", row_number: 1, amount_cents: 1250 },
+        ],
+      },
+    ]);
+
+    await result.current.reload();
+
+    expect(importBatchQuery()).toHaveLength(2);
+    expect(importBatchQuery()[1]).toMatchObject({
+      filters: [["eq", "workspace_id", "workspace-1"]],
+      orders: [["created_at", false]],
+      limitValue: 10,
+    });
+  });
+
   it("applies inclusive server filters and a stable second history page", async () => {
     const { result } = renderHook(() =>
       useFinance("transactions", undefined, {
