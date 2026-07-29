@@ -26,6 +26,7 @@ export function QuickTransactionForm({
   onSaved,
 }: QuickTransactionFormProps) {
   const supabase = useMemo(() => createClient(), []);
+  const today = useMemo(todayInSaoPaulo, []);
   const initialAccountId =
     accounts.find((account) => account.id === defaultCashAccountId)?.id ?? "";
   const [type, setType] = useState<TransactionType>("expense");
@@ -34,11 +35,13 @@ export function QuickTransactionForm({
   const [selectedAccountId, setSelectedAccountId] =
     useState(initialAccountId);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
-  const [selectedDate, setSelectedDate] = useState(todayInSaoPaulo);
+  const [selectedDate, setSelectedDate] = useState(today);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const submittingRef = useRef(false);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const accountRef = useRef<HTMLSelectElement>(null);
 
   const availableCategories = categories.filter(
     (category) => category.kind === type,
@@ -52,6 +55,8 @@ export function QuickTransactionForm({
     setStatus("");
 
     if (!accounts.some((account) => account.id === selectedAccountId)) {
+      if (detailsRef.current) detailsRef.current.open = true;
+      accountRef.current?.focus();
       setError("Escolha uma conta.");
       return;
     }
@@ -131,7 +136,7 @@ export function QuickTransactionForm({
           <p className="eyebrow">Registro rápido</p>
           <h2 id="quick-entry-title">Como seu saldo mudou?</h2>
         </div>
-        <span>Pago hoje</span>
+        {selectedDate === today ? <span>Pago hoje</span> : null}
       </div>
 
       <form className="quick-transaction-form" onSubmit={submit}>
@@ -192,18 +197,28 @@ export function QuickTransactionForm({
           {pending ? "Registrando..." : "Registrar"}
         </button>
 
-        <details className="quick-transaction-details">
+        <details className="quick-transaction-details" ref={detailsRef}>
           <summary>Mais detalhes</summary>
           <div>
             <label className="quick-transaction-field">
               <span>Conta</span>
               <select
+                ref={accountRef}
                 name="account_id"
                 value={selectedAccountId}
-                onChange={(event) =>
-                  setSelectedAccountId(event.currentTarget.value)
-                }
+                onChange={(event) => {
+                  setSelectedAccountId(event.currentTarget.value);
+                  if (error === "Escolha uma conta.") setError("");
+                }}
                 aria-required="true"
+                aria-invalid={
+                  error === "Escolha uma conta." ? "true" : undefined
+                }
+                aria-describedby={
+                  error === "Escolha uma conta."
+                    ? "quick-transaction-account-error"
+                    : undefined
+                }
               >
                 <option value="">Escolha uma conta</option>
                 {accounts.map((account) => (
@@ -246,7 +261,15 @@ export function QuickTransactionForm({
         </details>
 
         {error ? (
-          <p className="form-error quick-transaction-message" role="alert">
+          <p
+            className="form-error quick-transaction-message"
+            id={
+              error === "Escolha uma conta."
+                ? "quick-transaction-account-error"
+                : undefined
+            }
+            role="alert"
+          >
             {error}
           </p>
         ) : null}

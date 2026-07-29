@@ -117,6 +117,17 @@ describe("QuickTransactionForm", () => {
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Escolha uma conta",
     );
+    const accountSelect =
+      screen.getByLabelText<HTMLSelectElement>("Conta");
+    const accountError = screen.getByRole("alert");
+    expect(screen.getByText("Mais detalhes").closest("details")?.open).toBe(
+      true,
+    );
+    expect(document.activeElement).toBe(accountSelect);
+    expect(accountSelect.getAttribute("aria-invalid")).toBe("true");
+    expect(accountSelect.getAttribute("aria-describedby")).toBe(
+      accountError.id,
+    );
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
@@ -156,6 +167,7 @@ describe("QuickTransactionForm", () => {
     fireEvent.change(screen.getByLabelText("Data"), {
       target: { value: "2026-07-27" },
     });
+    expect(screen.queryByText("Pago hoje")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
 
     await waitFor(() =>
