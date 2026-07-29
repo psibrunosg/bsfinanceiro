@@ -7,6 +7,7 @@ import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
 import { List } from "./components/List";
 import { SimpleForm } from "./components/SimpleForm";
+import { StatementImportPanel } from "./components/StatementImportPanel";
 import { money, parseMoney } from "./components/Money";
 import { createClient } from "@/lib/supabase/client";
 import { todayInSaoPaulo } from "@/lib/finance/local-date";
@@ -22,6 +23,7 @@ function TransactionsPageInner() {
   const [page, setPage] = useState(0);
   const {
     workspace,
+    ownerId,
     accounts,
     categories,
     transactions,
@@ -31,6 +33,7 @@ function TransactionsPageInner() {
     message,
     setMessage,
     reload,
+    transactionImportBatches,
   } = useFinance("transactions", undefined, {
     transactionFilters: { query, type, from, to },
     transactionPage: page,
@@ -60,6 +63,14 @@ function TransactionsPageInner() {
     <PageHeader title="Movimentações" subtitle="Registre entradas, saídas e transferências." workspaceName={workspace.name} />
     <Nav />
     {message && <p className={messageIsError ? "form-error" : "form-success"} role={messageIsError ? "alert" : "status"}>{message}</p>}
+    <StatementImportPanel
+      workspaceId={workspace.id}
+      ownerId={ownerId}
+      accounts={accounts}
+      batches={transactionImportBatches}
+      onReload={reload}
+      onMessage={setMessage}
+    />
     <section className="management-grid">
       <List title="Histórico">
         <form className="transaction-filters" onSubmit={(event) => event.preventDefault()}>
