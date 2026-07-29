@@ -112,11 +112,18 @@ describe("StatementImportPanel", () => {
       account_id: "account-1",
       file_name: "extrato.csv",
     });
-    expect(mocks.itemInsert).toHaveBeenCalledWith(expect.arrayContaining([
-      expect.objectContaining({ batch_id: "batch-new", status: "ready", owner_id: "owner-1" }),
-      expect.objectContaining({ batch_id: "batch-new", status: "ready", reason: null }),
-      expect.objectContaining({ batch_id: "batch-new", status: "invalid", reason: "invalid_amount" }),
-    ]));
+    expect(mocks.itemInsert).toHaveBeenCalledTimes(1);
+    expect(mocks.itemInsert.mock.calls[0][0]).toEqual([
+      expect.objectContaining({
+        batch_id: "batch-new", owner_id: "owner-1", row_number: 2,
+        fingerprint: "2026-07-29|100000|income|salario", status: "ready", reason: null,
+      }),
+      expect.objectContaining({
+        batch_id: "batch-new", owner_id: "owner-1", row_number: 3,
+        fingerprint: "2026-07-29|100000|income|salario", status: "ready", reason: null,
+      }),
+      expect.objectContaining({ batch_id: "batch-new", row_number: 4, status: "invalid", reason: "invalid_amount" }),
+    ]);
   });
 
   it("confirms only pending batches with ready items through the protected RPC", async () => {
