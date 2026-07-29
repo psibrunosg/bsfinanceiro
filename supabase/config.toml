@@ -1,0 +1,14 @@
+project_id = "wgntlhzjyriwhncumjsv"
+
+[auth]
+site_url = "https://psibrunosg.github.io/bsfinanceiro"
+additional_redirect_urls = ["https://psibrunosg.github.io/bsfinanceiro/auth/callback"]
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.email]
+enable_confirmations = true
+max_frequency = "1m"
+otp_length = 8

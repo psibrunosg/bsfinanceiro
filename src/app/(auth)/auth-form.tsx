@@ -5,10 +5,16 @@ import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { appPath, appUrl, LOGO_URL } from "@/lib/app-path";
 import { createClient } from "@/lib/supabase/client";
-import { authErrorMessage, authSchema } from "@/lib/validation/auth";
+import { authErrorMessage, authLoginErrorMessage, authSchema } from "@/lib/validation/auth";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
-  const [state, setState] = useState<{ error?: string; success?: string }>({});
+  const [state, setState] = useState<{ error?: string; success?: string }>(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("erro") === "confirmacao") {
+      return { error: "Nao foi possivel confirmar seu e-mail. Solicite um novo link de confirmacao." };
+    }
+
+    return {};
+  });
   const [pending, setPending] = useState(false);
   const enter = mode === "login";
 
@@ -22,10 +28,18 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       return;
     }
 
-    const supabase = createClient();
+    let supabase;
+    try {
+      supabase = createClient();
+    } catch {
+      setState({ error: "O servico de acesso esta indisponivel. Tente novamente em alguns instantes." });
+      setPending(false);
+      return;
+    }
+
     if (enter) {
       const { error } = await supabase.auth.signInWithPassword(parsed.data);
-      if (error) setState({ error: "E-mail ou senha incorretos." });
+      if (error) setState({ error: authLoginErrorMessage(error) });
       else window.location.replace(appPath("/"));
     } else {
       const { error } = await supabase.auth.signUp({
