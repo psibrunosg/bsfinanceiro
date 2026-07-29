@@ -6,10 +6,13 @@ import {
 } from "./today-adapter";
 
 describe("buildTodayDashboard", () => {
-  it("excludes credit-card accounts and respects the low-balance preference", () => {
+  it("uses the supplied cash balance and respects the low-balance preference", () => {
     const model = buildTodayDashboard(
-      [{ type: "checking", initial_balance: 10 }, { type: "credit_card", initial_balance: 9_999 }],
-      [{ type: "expense", amount: 20, competence_date: "2026-07-28" }, { type: "income", amount: 30, competence_date: "2026-07-29" }],
+      10_00,
+      [
+        { type: "expense", amount: 20, status: "planned", competence_date: "2026-07-28" },
+        { type: "income", amount: 30, status: "planned", competence_date: "2026-07-29" },
+      ],
       { budget_alerts: true, goal_alerts: true, fixed_commitment_alerts: true, credit_card_alerts: true, low_balance_alerts: false, low_balance_amount: 0 },
       "2026-07-28",
     );
@@ -20,6 +23,51 @@ describe("buildTodayDashboard", () => {
 
   it("uses enabled defaults when preferences do not exist", () => {
     expect(alertPreferencesFromRow(null).cashflow).toBe(true);
+  });
+
+  it("uses the cash position without replaying paid transactions in the projection", () => {
+    const transactions = [
+      {
+        account_id: "cash",
+        destination_account_id: null,
+        type: "expense",
+        amount: 10,
+        status: "paid",
+        competence_date: "2026-07-28",
+      },
+      {
+        account_id: "cash",
+        destination_account_id: null,
+        type: "expense",
+        amount: 20,
+        status: "planned",
+        competence_date: "2026-07-29",
+      },
+      {
+        account_id: "cash",
+        destination_account_id: null,
+        type: "income",
+        amount: 30,
+        status: "planned",
+        competence_date: "2026-07-30",
+      },
+    ];
+    const cashPosition = buildDashboardMoneyModel({
+      accounts: [{ id: "cash", type: "checking", initial_balance: 100 }],
+      transactions,
+      occurrences: [],
+      today: "2026-07-28",
+    }).cashPosition;
+
+    const model = buildTodayDashboard(
+      cashPosition.balanceCents,
+      transactions,
+      { budget_alerts: true, goal_alerts: true, fixed_commitment_alerts: true, credit_card_alerts: true, low_balance_alerts: true, low_balance_amount: 0 },
+      "2026-07-28",
+    );
+
+    expect(model.currentBalanceCents).toBe(90_00);
+    expect(model.projectedBalanceCents).toBe(100_00);
   });
 });
 

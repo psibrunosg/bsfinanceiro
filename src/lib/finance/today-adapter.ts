@@ -11,8 +11,12 @@ import {
 } from "./spending-power";
 import { projectUntilNextIncome, type TodayProjection } from "./today";
 
-type AccountRow = { type: string; initial_balance: number };
-type TransactionRow = { type: string; amount: number; competence_date: string };
+type TransactionRow = {
+  type: string;
+  amount: number;
+  competence_date: string;
+  status: string;
+};
 type PreferenceRow = {
   budget_alerts: boolean;
   goal_alerts: boolean;
@@ -63,17 +67,18 @@ export function alertPreferencesFromRow(row: PreferenceRow): AlertPreferences {
 }
 
 export function buildTodayDashboard(
-  accounts: readonly AccountRow[],
+  currentBalanceCents: number,
   transactions: readonly TransactionRow[],
   preferences: PreferenceRow,
   today: string,
 ): TodayDashboardModel {
-  const currentBalanceCents = accounts
-    .filter((account) => account.type !== "credit_card")
-    .reduce((sum, account) => sum + toCents(account.initial_balance), 0);
   const projection = projectUntilNextIncome(
     transactions
-      .filter((transaction) => transaction.type === "income" || transaction.type === "expense")
+      .filter(
+        (transaction) =>
+          transaction.status === "planned" &&
+          (transaction.type === "income" || transaction.type === "expense")
+      )
       .map((transaction) => ({
         date: transaction.competence_date,
         type: transaction.type as "income" | "expense",
