@@ -5,14 +5,17 @@ import { usePathname } from "next/navigation";
 import { appPath } from "@/lib/app-path";
 import { createClient } from "@/lib/supabase/client";
 
-const links = [
+const directLinks = [
   { href: "/", label: "Painel" },
+  { href: "/movimentacoes", label: "Movimentações" },
+  { href: "/planejamento", label: "Planejamento" },
+];
+
+const moreLinks = [
   { href: "/contas", label: "Contas" },
   { href: "/cartoes", label: "Cartões" },
-  { href: "/movimentacoes", label: "Movimentações" },
   { href: "/categorias", label: "Categorias" },
   { href: "/compromissos", label: "Compromissos" },
-  { href: "/planejamento", label: "Planejamento" },
   { href: "/configuracoes", label: "Configurações" },
 ];
 
@@ -26,17 +29,33 @@ export function Nav() {
   }
 
   return (
-    <nav className="quick-actions">
-      {links.map((link) => (
+    <nav className="quick-actions finance-nav" aria-label="Navegação principal">
+      {directLinks.map((link) => (
         <Link
           key={link.href}
           className={`quick-link${pathname === link.href ? " active" : ""}`}
           href={link.href}
+          aria-current={pathname === link.href ? "page" : undefined}
         >
           {link.label}
         </Link>
       ))}
-      <button className="quick-link" onClick={signOut}>
+      <details className="nav-more">
+        <summary className="quick-link">Mais</summary>
+        <div className="nav-more-links">
+          {moreLinks.map((link) => (
+            <Link
+              key={link.href}
+              className={`quick-link${pathname === link.href ? " active" : ""}`}
+              href={link.href}
+              aria-current={pathname === link.href ? "page" : undefined}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      </details>
+      <button className="quick-link nav-signout" type="button" onClick={signOut}>
         Sair
       </button>
     </nav>
