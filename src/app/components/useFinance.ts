@@ -100,6 +100,27 @@ export function useFinance(route: string, cardId?: string): FinanceData {
 
     const today = todayInSaoPaulo();
     const [currentOccurrenceMonth, nextOccurrenceMonth] = monthStartsForSaoPauloDate(today);
+    const transactionQuery =
+      route === "dashboard"
+        ? supabase
+          .from("transactions")
+          .select(
+            "id,account_id,destination_account_id,type,status,description,amount,competence_date"
+          )
+          .eq("workspace_id", ws.id)
+          .or(`status.eq.paid,and(status.eq.planned,competence_date.gte.${today})`)
+          .order("competence_date", { ascending: false })
+        : supabase
+          .from("transactions")
+          .select(
+            "id,account_id,destination_account_id,type,status,description,amount,competence_date"
+          )
+          .eq("workspace_id", ws.id)
+          .order("competence_date", { ascending: false });
+    const transactionRowsQuery =
+      route === "dashboard" || route === "transactions"
+        ? transactionQuery
+        : transactionQuery.limit(30);
     const [
       { data: accountRows },
       { data: categoryRows },
@@ -131,23 +152,7 @@ export function useFinance(route: string, cardId?: string): FinanceData {
         .eq("workspace_id", ws.id)
         .eq("active", true)
         .order("created_at"),
-      route === "dashboard"
-        ? supabase
-          .from("transactions")
-          .select(
-            "id,account_id,destination_account_id,type,status,description,amount,competence_date"
-          )
-          .eq("workspace_id", ws.id)
-          .or(`status.eq.paid,and(status.eq.planned,competence_date.gte.${today})`)
-          .order("competence_date", { ascending: false })
-        : supabase
-          .from("transactions")
-          .select(
-            "id,account_id,destination_account_id,type,status,description,amount,competence_date"
-          )
-          .eq("workspace_id", ws.id)
-          .order("competence_date", { ascending: false })
-          .limit(30),
+      transactionRowsQuery,
       route === "dashboard" || route === "settings"
         ? supabase
           .from("alert_preferences")
