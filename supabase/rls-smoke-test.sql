@@ -20,6 +20,8 @@ declare
   transaction_a uuid;
   import_batch_a uuid;
   duplicate_batch_a uuid;
+  parallel_first_batch_a uuid;
+  parallel_second_batch_a uuid;
   discard_batch_a uuid;
   collision_batch_a uuid;
   applied_first uuid[];
@@ -27,6 +29,9 @@ declare
   transaction_count_after_first integer;
   duplicate_transaction_count integer;
   duplicate_result_count integer;
+  parallel_first_result_count integer;
+  parallel_second_result_count integer;
+  parallel_transaction_count integer;
   failure_transaction_count integer;
 begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
@@ -315,7 +320,7 @@ begin
     user_a,
     2,
     current_date,
-    '  receita a  ',
+    '  Rêcéita--A!!  ',
     10000,
     'income',
     'ready',
@@ -364,6 +369,116 @@ begin
       and transaction_id is null
   ) then
     raise exception 'apply should independently mark the client duplicate';
+  end if;
+
+  insert into public.transaction_import_batches (
+    workspace_id,
+    owner_id,
+    account_id,
+    file_name
+  )
+  values (
+    workspace_a,
+    user_a,
+    transaction_account_a,
+    'extrato-primeiro-lote-concorrente-a.csv'
+  )
+  returning id into parallel_first_batch_a;
+
+  insert into public.transaction_import_items (
+    batch_id,
+    workspace_id,
+    owner_id,
+    row_number,
+    competence_date,
+    description,
+    amount_cents,
+    type,
+    status,
+    fingerprint
+  )
+  values (
+    parallel_first_batch_a,
+    workspace_a,
+    user_a,
+    2,
+    current_date - 5,
+    'Compra Única--Concorrente',
+    3210,
+    'expense',
+    'ready',
+    'compra-unica-concorrente'
+  );
+
+  select count(*)
+  into parallel_first_result_count
+  from public.apply_transaction_import_batch(parallel_first_batch_a);
+
+  if parallel_first_result_count <> 1 then
+    raise exception 'first distinct import batch should create one transaction';
+  end if;
+
+  insert into public.transaction_import_batches (
+    workspace_id,
+    owner_id,
+    account_id,
+    file_name
+  )
+  values (
+    workspace_a,
+    user_a,
+    transaction_account_a,
+    'extrato-segundo-lote-concorrente-a.csv'
+  )
+  returning id into parallel_second_batch_a;
+
+  insert into public.transaction_import_items (
+    batch_id,
+    workspace_id,
+    owner_id,
+    row_number,
+    competence_date,
+    description,
+    amount_cents,
+    type,
+    status,
+    fingerprint
+  )
+  values (
+    parallel_second_batch_a,
+    workspace_a,
+    user_a,
+    2,
+    current_date - 5,
+    'compra unica concorrente',
+    3210,
+    'expense',
+    'ready',
+    'compra-unica-concorrente-cliente'
+  );
+
+  select count(*)
+  into parallel_second_result_count
+  from public.apply_transaction_import_batch(parallel_second_batch_a);
+
+  if parallel_second_result_count <> 0 then
+    raise exception 'second distinct import batch should be deduplicated';
+  end if;
+
+  select count(*)
+  into parallel_transaction_count
+  from public.transactions
+  where owner_id = user_a
+    and workspace_id = workspace_a
+    and account_id = transaction_account_a
+    and competence_date = current_date - 5
+    and type = 'expense'
+    and amount = 32.10
+    and public.normalize_transaction_import_description(description)
+      = 'compra unica concorrente';
+
+  if parallel_transaction_count <> 1 then
+    raise exception 'distinct identical batches created duplicate transactions';
   end if;
 
   execute 'set local role postgres';
