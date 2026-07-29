@@ -26,4 +26,33 @@ describe("calculateCashPosition", () => {
       ).accountBalancesCents,
     ).toEqual({ a: 60_00, b: 40_00 });
   });
+
+  it("ignores paid transfers when either account is not eligible for cash position", () => {
+    expect(
+      calculateCashPosition(
+        [
+          { id: "checking", type: "checking", initial_balance: 100 },
+          { id: "cash", type: "cash", initial_balance: 50 },
+          { id: "card", type: "credit_card", initial_balance: 2_000 },
+          { id: "investment", type: "investment", initial_balance: 3_000 },
+        ],
+        [
+          { account_id: "checking", destination_account_id: "card", type: "transfer", amount: 40, status: "paid" },
+          { account_id: "investment", destination_account_id: "cash", type: "transfer", amount: 30, status: "paid" },
+        ],
+      ).accountBalancesCents,
+    ).toEqual({ checking: 100_00, cash: 50_00 });
+  });
+
+  it("ignores planned transfers even when both accounts are eligible", () => {
+    expect(
+      calculateCashPosition(
+        [
+          { id: "a", type: "checking", initial_balance: 100 },
+          { id: "b", type: "savings", initial_balance: 0 },
+        ],
+        [{ account_id: "a", destination_account_id: "b", type: "transfer", amount: 40, status: "planned" }],
+      ).accountBalancesCents,
+    ).toEqual({ a: 100_00, b: 0 });
+  });
 });
