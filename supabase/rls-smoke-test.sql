@@ -20,8 +20,11 @@ declare
   transaction_a uuid;
   import_batch_a uuid;
   discard_batch_a uuid;
+  collision_batch_a uuid;
   applied_first uuid[];
   applied_second uuid[];
+  transaction_count_after_first integer;
+  failure_transaction_count integer;
 begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
@@ -107,6 +110,35 @@ begin
     raise exception 'user A should see exactly one transaction';
   end if;
 
+  begin
+    update public.transaction_import_batches
+    set status = 'applied', applied_at = now()
+    where id = import_batch_a;
+    raise exception 'owner can directly apply a transaction import batch';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
+
+  begin
+    update public.transaction_import_items
+    set transaction_id = transaction_a
+    where batch_id = import_batch_a;
+    raise exception 'owner can directly link a transaction import item';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
+
+  begin
+    delete from public.transaction_import_items
+    where batch_id = import_batch_a;
+    raise exception 'owner can directly delete transaction import items';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
+
   perform set_config('request.jwt.claim.sub', user_b::text, true);
 
   workspace_b := public.bootstrap_personal_workspace('Teste B', 'Carteira B', 'save');
@@ -186,6 +218,12 @@ begin
   into applied_first
   from public.apply_transaction_import_batch(import_batch_a) as result;
 
+  select count(*)
+  into transaction_count_after_first
+  from public.transactions
+  where owner_id = user_a
+    and workspace_id = workspace_a;
+
   select array_agg(result.transaction_id order by result.transaction_id)
   into applied_second
   from public.apply_transaction_import_batch(import_batch_a) as result;
@@ -196,6 +234,17 @@ begin
 
   if applied_first is distinct from applied_second then
     raise exception 'repeated confirmation should return the same transactions';
+  end if;
+
+  if not exists (
+    select 1
+    from public.transaction_import_batches
+    where id = import_batch_a
+      and status = 'applied'
+      and applied_at is not null
+      and discarded_at is null
+  ) then
+    raise exception 'confirmation should mark the batch applied with an applied timestamp';
   end if;
 
   if (
@@ -216,6 +265,146 @@ begin
       and transaction_id = any(applied_first)
   ) <> 2 then
     raise exception 'ready import items should link to confirmed transactions';
+  end if;
+
+  if transaction_count_after_first <> 3 then
+    raise exception 'confirmation should add exactly two transactions once';
+  end if;
+
+  if (
+    select count(*)
+    from public.transactions
+    where owner_id = user_a
+      and workspace_id = workspace_a
+  ) <> transaction_count_after_first then
+    raise exception 'reapplying an import batch created duplicate transactions';
+  end if;
+
+  insert into public.transaction_import_batches (
+    workspace_id,
+    owner_id,
+    account_id,
+    file_name
+  )
+  values (
+    workspace_a,
+    user_a,
+    transaction_account_a,
+    'extrato-colisao-a.csv'
+  )
+  returning id into collision_batch_a;
+
+  insert into public.transaction_import_items (
+    batch_id,
+    workspace_id,
+    owner_id,
+    row_number,
+    competence_date,
+    description,
+    amount_cents,
+    type,
+    status,
+    fingerprint
+  )
+  values
+    (
+      collision_batch_a,
+      workspace_a,
+      user_a,
+      2,
+      current_date - 2,
+      'Linha que deve sofrer rollback',
+      500,
+      'expense',
+      'ready',
+      'rollback-importado-a'
+    ),
+    (
+      collision_batch_a,
+      workspace_a,
+      user_a,
+      3,
+      current_date - 1,
+      'Colisão previsível',
+      1234,
+      'expense',
+      'ready',
+      'colisao-importado-a'
+    );
+
+  insert into public.transactions (
+    workspace_id,
+    owner_id,
+    account_id,
+    type,
+    status,
+    description,
+    amount,
+    competence_date,
+    paid_at,
+    notes,
+    idempotency_key
+  )
+  values (
+    workspace_a,
+    user_a,
+    transaction_account_a,
+    'expense',
+    'paid',
+    'Colisão previsível',
+    12.34,
+    current_date - 1,
+    null,
+    'marcador incorreto de colisão',
+    md5(
+      'transaction-import:'
+      || collision_batch_a::text
+      || ':3'
+    )::uuid
+  );
+
+  select count(*)
+  into failure_transaction_count
+  from public.transactions
+  where owner_id = user_a
+    and workspace_id = workspace_a;
+
+  begin
+    perform *
+    from public.apply_transaction_import_batch(collision_batch_a);
+    raise exception 'idempotency collision unexpectedly applied a batch';
+  exception
+    when unique_violation then
+      null;
+  end;
+
+  if not exists (
+    select 1
+    from public.transaction_import_batches
+    where id = collision_batch_a
+      and status = 'pending'
+      and applied_at is null
+      and discarded_at is null
+  ) then
+    raise exception 'idempotency collision should leave the batch pending';
+  end if;
+
+  if exists (
+    select 1
+    from public.transaction_import_items
+    where batch_id = collision_batch_a
+      and transaction_id is not null
+  ) then
+    raise exception 'idempotency collision should roll back item transaction links';
+  end if;
+
+  if (
+    select count(*)
+    from public.transactions
+    where owner_id = user_a
+      and workspace_id = workspace_a
+  ) <> failure_transaction_count then
+    raise exception 'idempotency collision should roll back inserted transactions';
   end if;
 
   insert into public.transaction_import_batches (
