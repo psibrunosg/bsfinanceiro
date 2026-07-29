@@ -280,6 +280,41 @@ begin
     raise exception 'reapplying an import batch created duplicate transactions';
   end if;
 
+  execute 'set local role postgres';
+
+  begin
+    insert into public.transaction_import_items (
+      batch_id,
+      workspace_id,
+      owner_id,
+      row_number,
+      competence_date,
+      description,
+      amount_cents,
+      type,
+      status,
+      fingerprint
+    )
+    values (
+      import_batch_a,
+      workspace_a,
+      user_a,
+      99,
+      current_date,
+      'Tentativa terminal',
+      1,
+      'expense',
+      'ready',
+      'tentativa-terminal'
+    );
+    raise exception 'terminal batch accepted an import item';
+  exception
+    when object_not_in_prerequisite_state then
+      null;
+  end;
+
+  execute 'set local role authenticated';
+
   insert into public.transaction_import_batches (
     workspace_id,
     owner_id,
@@ -437,6 +472,37 @@ begin
     'invalid',
     'linha inválida para o smoke test'
   );
+
+  begin
+    insert into public.transaction_import_items (
+      batch_id,
+      workspace_id,
+      owner_id,
+      row_number,
+      competence_date,
+      description,
+      amount_cents,
+      type,
+      status,
+      fingerprint
+    )
+    values (
+      discard_batch_a,
+      workspace_a,
+      user_a,
+      3,
+      current_date,
+      'Valor além da precisão da transação',
+      100000000000000,
+      'expense',
+      'ready',
+      'valor-alem-do-limite'
+    );
+    raise exception 'oversized import amount unexpectedly succeeded';
+  exception
+    when check_violation then
+      null;
+  end;
 
   perform public.discard_transaction_import_batch(discard_batch_a);
 
