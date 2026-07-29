@@ -18,6 +18,10 @@ declare
   account_a uuid;
   transaction_account_a uuid;
   transaction_a uuid;
+  import_batch_a uuid;
+  discard_batch_a uuid;
+  applied_first uuid[];
+  applied_second uuid[];
 begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
@@ -38,6 +42,62 @@ begin
   insert into public.transactions (workspace_id, owner_id, account_id, type, status, description, amount, competence_date)
   values (workspace_a, user_a, transaction_account_a, 'income', 'paid', 'Receita A', 100.00, current_date)
   returning id into transaction_a;
+
+  insert into public.transaction_import_batches (
+    workspace_id,
+    owner_id,
+    account_id,
+    file_name
+  )
+  values (
+    workspace_a,
+    user_a,
+    transaction_account_a,
+    'extrato-a.csv'
+  )
+  returning id into import_batch_a;
+
+  insert into public.transaction_import_items (
+    batch_id,
+    workspace_id,
+    owner_id,
+    row_number,
+    competence_date,
+    description,
+    amount_cents,
+    type,
+    status,
+    fingerprint
+  )
+  values
+    (
+      import_batch_a,
+      workspace_a,
+      user_a,
+      2,
+      current_date - 1,
+      'Receita importada A',
+      25050,
+      'income',
+      'ready',
+      'receita-importada-a'
+    ),
+    (
+      import_batch_a,
+      workspace_a,
+      user_a,
+      3,
+      current_date,
+      'Despesa importada A',
+      1099,
+      'expense',
+      'ready',
+      'despesa-importada-a'
+    );
+
+  if (select count(*) from public.transactions) <> 1 then
+    raise exception 'preview must not create transactions before confirmation';
+  end if;
 
   if (select count(*) from public.workspaces) <> 1 then
     raise exception 'user A should see exactly one workspace';
@@ -70,6 +130,39 @@ begin
     raise exception 'user B can read user A workspace preference';
   end if;
 
+  if exists (
+    select 1
+    from public.transaction_import_batches
+    where id = import_batch_a
+  ) then
+    raise exception 'user B can read user A transaction import batch';
+  end if;
+
+  if exists (
+    select 1
+    from public.transaction_import_items
+    where batch_id = import_batch_a
+  ) then
+    raise exception 'user B can read user A transaction import items';
+  end if;
+
+  begin
+    perform *
+    from public.apply_transaction_import_batch(import_batch_a);
+    raise exception 'user B confirmed user A transaction import batch';
+  exception
+    when no_data_found or insufficient_privilege then
+      null;
+  end;
+
+  begin
+    perform public.discard_transaction_import_batch(import_batch_a);
+    raise exception 'user B discarded user A transaction import batch';
+  exception
+    when no_data_found or insufficient_privilege then
+      null;
+  end;
+
   update public.workspace_preferences
   set default_cash_account_id = null
   where workspace_id = workspace_a and owner_id = user_a;
@@ -88,6 +181,93 @@ begin
   end;
 
   perform set_config('request.jwt.claim.sub', user_a::text, true);
+
+  select array_agg(result.transaction_id order by result.transaction_id)
+  into applied_first
+  from public.apply_transaction_import_batch(import_batch_a) as result;
+
+  select array_agg(result.transaction_id order by result.transaction_id)
+  into applied_second
+  from public.apply_transaction_import_batch(import_batch_a) as result;
+
+  if applied_first is null or cardinality(applied_first) <> 2 then
+    raise exception 'confirmation should create exactly two ready transactions';
+  end if;
+
+  if applied_first is distinct from applied_second then
+    raise exception 'repeated confirmation should return the same transactions';
+  end if;
+
+  if (
+    select count(*)
+    from public.transactions
+    where id = any(applied_first)
+      and owner_id = user_a
+      and workspace_id = workspace_a
+  ) <> 2 then
+    raise exception 'confirmed import transactions are missing or out of scope';
+  end if;
+
+  if (
+    select count(*)
+    from public.transaction_import_items
+    where batch_id = import_batch_a
+      and status = 'ready'
+      and transaction_id = any(applied_first)
+  ) <> 2 then
+    raise exception 'ready import items should link to confirmed transactions';
+  end if;
+
+  insert into public.transaction_import_batches (
+    workspace_id,
+    owner_id,
+    account_id,
+    file_name
+  )
+  values (
+    workspace_a,
+    user_a,
+    transaction_account_a,
+    'extrato-descartado-a.csv'
+  )
+  returning id into discard_batch_a;
+
+  insert into public.transaction_import_items (
+    batch_id,
+    workspace_id,
+    owner_id,
+    row_number,
+    status,
+    reason
+  )
+  values (
+    discard_batch_a,
+    workspace_a,
+    user_a,
+    2,
+    'invalid',
+    'linha inválida para o smoke test'
+  );
+
+  perform public.discard_transaction_import_batch(discard_batch_a);
+
+  if not exists (
+    select 1
+    from public.transaction_import_batches
+    where id = discard_batch_a
+      and status = 'discarded'
+      and discarded_at is not null
+  ) then
+    raise exception 'own pending batch should be marked discarded';
+  end if;
+
+  if exists (
+    select 1
+    from public.transaction_import_items
+    where batch_id = discard_batch_a
+  ) then
+    raise exception 'discarding a pending batch should remove its items';
+  end if;
 
   delete from public.accounts
   where id = account_a and workspace_id = workspace_a and owner_id = user_a;
