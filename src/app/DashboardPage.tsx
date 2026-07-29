@@ -6,6 +6,7 @@ import { List } from "./components/List";
 import { money } from "./components/Money";
 import { BrandLogo } from "./brand-logo";
 import { TodayPanel } from "./components/TodayPanel";
+import { SpendingPowerCard } from "./components/SpendingPowerCard";
 import { buildTodayDashboard } from "../lib/finance/today-adapter";
 import { todayInSaoPaulo } from "../lib/finance/local-date";
 import { todayActions } from "../lib/finance/today-actions";
@@ -20,6 +21,7 @@ export function DashboardPage() {
     alertPrefs,
     goals,
     cashPosition,
+    spendingPower,
     loading,
   } = useFinance("dashboard");
 
@@ -75,6 +77,7 @@ export function DashboardPage() {
           <strong>{money(totalCards)}</strong>
         </article>
       </section>
+      <SpendingPowerCard spendingPower={spendingPower} />
       <TodayPanel today={today} actions={actions} />
       <section className="management-grid">
         <List title="Cartões">
