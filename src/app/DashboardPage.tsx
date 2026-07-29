@@ -14,7 +14,6 @@ import { appPath } from "../lib/app-path";
 export function DashboardPage() {
   const {
     workspace,
-    accounts,
     cards,
     transactions,
     todayTransactions,
@@ -36,7 +35,7 @@ export function DashboardPage() {
     0
   );
   const today = buildTodayDashboard(
-    accounts,
+    cashPosition.balanceCents,
     todayTransactions,
     alertPrefs,
     todayInSaoPaulo(),

@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { appPath } from "@/lib/app-path";
 import { createClient } from "@/lib/supabase/client";
 import { monthStart, nextMonthStart } from "./Money";
-import { todayInSaoPaulo } from "../../lib/finance/local-date";
+import {
+  monthStartsForSaoPauloDate,
+  todayInSaoPaulo,
+} from "../../lib/finance/local-date";
 import { buildDashboardMoneyModel } from "../../lib/finance/today-adapter";
 import type { SpendingPower } from "../../lib/finance/spending-power";
 import type {
@@ -93,6 +96,7 @@ export function useFinance(route: string, cardId?: string): FinanceData {
     setWorkspace(ws);
 
     const today = todayInSaoPaulo();
+    const [currentOccurrenceMonth, nextOccurrenceMonth] = monthStartsForSaoPauloDate(today);
     const [
       { data: accountRows },
       { data: categoryRows },
@@ -166,13 +170,13 @@ export function useFinance(route: string, cardId?: string): FinanceData {
       route === "dashboard"
         ? supabase.rpc(
           "materialize_fixed_commitment_occurrences",
-          { p_workspace_id: ws.id, p_month: monthStart() }
+          { p_workspace_id: ws.id, p_month: currentOccurrenceMonth }
         )
         : Promise.resolve({ data: [] }),
       route === "dashboard"
         ? supabase.rpc(
           "materialize_fixed_commitment_occurrences",
-          { p_workspace_id: ws.id, p_month: nextMonthStart() }
+          { p_workspace_id: ws.id, p_month: nextOccurrenceMonth }
         )
         : Promise.resolve({ data: [] }),
     ]);

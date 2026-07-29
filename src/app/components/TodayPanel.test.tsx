@@ -18,8 +18,11 @@ describe("TodayPanel", () => {
 
   it("shows the selected alert and exactly four contextual actions", () => {
     const today = buildTodayDashboard(
-      [{ type: "checking", initial_balance: 10 }],
-      [{ type: "expense", amount: 20, competence_date: "2026-07-28" }, { type: "income", amount: 30, competence_date: "2026-07-29" }],
+      10_00,
+      [
+        { type: "expense", amount: 20, status: "planned", competence_date: "2026-07-28" },
+        { type: "income", amount: 30, status: "planned", competence_date: "2026-07-29" },
+      ],
       { budget_alerts: true, goal_alerts: true, fixed_commitment_alerts: true, credit_card_alerts: true, low_balance_alerts: true, low_balance_amount: 0 },
       "2026-07-28",
     );
