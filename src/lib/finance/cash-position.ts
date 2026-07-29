@@ -24,21 +24,24 @@ export function calculateCashPosition(accounts: CashAccount[], transactions: Pos
   for (const transaction of transactions.filter((row) => row.status === "paid")) {
     const amountCents = Math.round(Number(transaction.amount) * 100);
 
-    if (transaction.type === "income" && transaction.account_id in accountBalancesCents) {
+    if (transaction.type === "income" && Object.hasOwn(accountBalancesCents, transaction.account_id)) {
       accountBalancesCents[transaction.account_id] += amountCents;
     }
 
-    if (transaction.type === "expense" && transaction.account_id in accountBalancesCents) {
+    if (transaction.type === "expense" && Object.hasOwn(accountBalancesCents, transaction.account_id)) {
       accountBalancesCents[transaction.account_id] -= amountCents;
     }
 
     if (transaction.type === "transfer") {
-      if (transaction.account_id in accountBalancesCents) {
-        accountBalancesCents[transaction.account_id] -= amountCents;
-      }
+      const destinationAccountId = transaction.destination_account_id;
+      const isCashToCashTransfer =
+        destinationAccountId !== null &&
+        Object.hasOwn(accountBalancesCents, transaction.account_id) &&
+        Object.hasOwn(accountBalancesCents, destinationAccountId);
 
-      if (transaction.destination_account_id && transaction.destination_account_id in accountBalancesCents) {
-        accountBalancesCents[transaction.destination_account_id] += amountCents;
+      if (isCashToCashTransfer) {
+        accountBalancesCents[transaction.account_id] -= amountCents;
+        accountBalancesCents[destinationAccountId] += amountCents;
       }
     }
   }
