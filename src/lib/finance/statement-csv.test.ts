@@ -103,4 +103,16 @@ describe("parseStatementCsv", () => {
     expect(preview).toMatchObject({ valid: 0, invalid: 1 });
     expect(preview.items[0]).toMatchObject({ rowNumber: 2, reason: "missing_mapping" });
   });
+
+  it("marks descriptions and amounts that violate import-item limits as invalid", () => {
+    const preview = parseStatementCsv(
+      `date,description,amount\n2026-07-29,${"a".repeat(161)},10\n2026-07-30,Valor alto,1000000000000`,
+    );
+
+    expect(preview).toMatchObject({ valid: 0, invalid: 2 });
+    expect(preview.items).toEqual([
+      expect.objectContaining({ rowNumber: 2, reason: "invalid_description" }),
+      expect.objectContaining({ rowNumber: 3, reason: "invalid_amount" }),
+    ]);
+  });
 });

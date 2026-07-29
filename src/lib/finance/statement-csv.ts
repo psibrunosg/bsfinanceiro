@@ -15,7 +15,7 @@ export type StatementCsvValidItem = {
 
 export type StatementCsvInvalidItem = {
   rowNumber: number;
-  reason: "missing_mapping" | "invalid_date" | "missing_description" | "invalid_amount";
+  reason: "missing_mapping" | "invalid_date" | "missing_description" | "invalid_description" | "invalid_amount";
 };
 
 export type StatementCsvPreview = {
@@ -30,6 +30,7 @@ const HEADER_ALIASES = {
   description: ["description", "descricao", "historico", "narrativa"],
   amount: ["amount", "valor", "value", "valor r"],
 } as const;
+export const STATEMENT_IMPORT_MAX_AMOUNT_CENTS = 99_999_999_999_999;
 
 export function parseStatementCsv(input: string, mapping: StatementCsvMapping = {}): StatementCsvPreview {
   const rows = parseRows(input.replace(/^\uFEFF/, ""));
@@ -50,9 +51,10 @@ export function parseStatementCsv(input: string, mapping: StatementCsvMapping = 
 
     const description = values[indexes.description]?.trim();
     if (!description) return [{ rowNumber, reason: "missing_description" as const }];
+    if (description.length > 160) return [{ rowNumber, reason: "invalid_description" as const }];
 
     const signedAmountCents = parseAmountCents(values[indexes.amount]);
-    if (signedAmountCents === undefined || signedAmountCents === 0) {
+    if (signedAmountCents === undefined || signedAmountCents === 0 || Math.abs(signedAmountCents) > STATEMENT_IMPORT_MAX_AMOUNT_CENTS) {
       return [{ rowNumber, reason: "invalid_amount" as const }];
     }
 
@@ -64,7 +66,7 @@ export function parseStatementCsv(input: string, mapping: StatementCsvMapping = 
       description,
       amountCents,
       type,
-      fingerprint: `${competenceDate}|${amountCents}|${type}|${normalizeText(description)}`,
+      fingerprint: statementTransactionFingerprint(competenceDate, amountCents, type, description),
     }];
   });
 
@@ -197,6 +199,10 @@ function isValidIntegerPart(value: string, groupingSeparator: string | undefined
 
 function countOccurrences(value: string, character: string): number {
   return value.split(character).length - 1;
+}
+
+export function statementTransactionFingerprint(competenceDate: string, amountCents: number, type: "income" | "expense", description: string): string {
+  return `${competenceDate}|${amountCents}|${type}|${normalizeText(description)}`;
 }
 
 function normalizeText(value: string): string {

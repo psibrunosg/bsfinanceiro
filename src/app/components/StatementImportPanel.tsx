@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   parseStatementCsv,
+  statementTransactionFingerprint,
+  type StatementCsvMapping,
   type StatementCsvInvalidItem,
   type StatementCsvPreview,
   type StatementCsvValidItem,
@@ -20,7 +22,7 @@ type StatementImportPanelProps = {
   onMessage: (message: string) => void;
 };
 
-type ClassifiedValidItem = StatementCsvValidItem & { duplicate?: true; reason?: string };
+type ClassifiedValidItem = StatementCsvValidItem & { duplicate?: true; duplicateSource?: "existing" | "file"; reason?: string };
 type PreviewItem = ClassifiedValidItem | StatementCsvInvalidItem;
 type PreviewBatch = { id: string; fileName: string; status: "pending"; items: PreviewItem[] };
 
@@ -37,6 +39,9 @@ export function StatementImportPanel({
   const supabase = useMemo(() => createClient(), []);
   const [accountId, setAccountId] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [csvText, setCsvText] = useState<string | null>(null);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [mapping, setMapping] = useState<StatementCsvMapping>({});
   const [preview, setPreview] = useState<PreviewBatch | null>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -53,8 +58,15 @@ export function StatementImportPanel({
     let batchId: string | null = null;
     setPendingAction("preparing");
     try {
-      const parsed = parseStatementCsv(await file.text());
-      const classified = classifyPreview(parsed);
+      const text = csvText ?? await file.text();
+      const parsed = parseStatementCsv(text, mapping);
+      if (parsed.items.some((item) => "reason" in item && item.reason === "missing_mapping")) {
+        setCsvText(text);
+        setHeaders(parsed.headers);
+        return;
+      }
+      const existingTransactions = await loadExistingTransactions();
+      const classified = classifyPreview(parsed, existingTransactions);
       const { data: batch, error: batchError } = await supabase
         .from("transaction_import_batches")
         .insert({ workspace_id: workspaceId, owner_id: ownerId, account_id: accountId, file_name: file.name })
@@ -107,6 +119,16 @@ export function StatementImportPanel({
     }
   }
 
+  async function loadExistingTransactions() {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("competence_date,description,amount,type")
+      .eq("workspace_id", workspaceId)
+      .eq("account_id", accountId);
+    if (error) throw error;
+    return data ?? [];
+  }
+
   async function reloadAfterSuccess(successMessage: string) {
     onMessage(successMessage);
     try {
@@ -132,12 +154,24 @@ export function StatementImportPanel({
       </div>
       <div className="statement-import-field">
         <label htmlFor="statement-import-file">Arquivo CSV</label>
-        <input id="statement-import-file" type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} required />
+        <input id="statement-import-file" type="file" accept=".csv,text/csv" onChange={(event) => {
+          setFile(event.target.files?.[0] ?? null);
+          setCsvText(null);
+          setHeaders([]);
+          setMapping({});
+        }} required />
       </div>
       <button disabled={!file || !accountId || !ownerId || pendingAction === "preparing"}>
         {pendingAction === "preparing" ? "Preparando prévia..." : "Preparar prévia"}
       </button>
     </form>
+    {headers.length > 0 ? <fieldset className="statement-import-mapping">
+      <legend>Mapeie as colunas do CSV</legend>
+      <p className="muted">Escolha data, descrição e valor para continuar.</p>
+      <ColumnMapping label="Coluna da data" value={mapping.date ?? ""} headers={headers} onChange={(value) => setMapping((current) => ({ ...current, date: value || undefined }))} />
+      <ColumnMapping label="Coluna da descrição" value={mapping.description ?? ""} headers={headers} onChange={(value) => setMapping((current) => ({ ...current, description: value || undefined }))} />
+      <ColumnMapping label="Coluna do valor" value={mapping.amount ?? ""} headers={headers} onChange={(value) => setMapping((current) => ({ ...current, amount: value || undefined }))} />
+    </fieldset> : null}
     {reloadFailed ? <p className="form-error" role="alert">A ação foi concluída, mas a tela não foi atualizada. <button type="button" onClick={() => void reloadAfterSuccess("Atualização solicitada.")}>Tentar atualizar</button></p> : null}
     {previewTitle ? <ImportPreview
       title={previewTitle}
@@ -159,6 +193,11 @@ export function StatementImportPanel({
       onDiscard={(batch) => actOnBatch({ id: batch.id, fileName: batch.file_name }, "discard")}
     />
   </section>;
+}
+
+function ColumnMapping({ label, value, headers, onChange }: { label: string; value: string; headers: string[]; onChange: (value: string) => void }) {
+  const id = `statement-import-${label.toLocaleLowerCase("pt-BR").replace(/\s+/g, "-")}`;
+  return <label htmlFor={id}>{label}<select id={id} value={value} onChange={(event) => onChange(event.target.value)}><option value="">Selecione uma coluna</option>{headers.map((header) => <option key={header} value={header}>{header}</option>)}</select></label>;
 }
 
 function ImportInbox({ batches, selectedBatchId, busy, onReview, onConfirm, onDiscard }: {
@@ -203,11 +242,18 @@ function ImportPreview({ title, items, onConfirm, onDiscard, busy }: {
   </section>;
 }
 
-function classifyPreview(preview: StatementCsvPreview): { items: PreviewItem[] } {
+function classifyPreview(preview: StatementCsvPreview, existingTransactions: Array<{ competence_date: string; description: string; amount: number; type: "income" | "expense" }>): { items: PreviewItem[] } {
   const fingerprints = new Set<string>();
+  const existingFingerprints = new Set(existingTransactions.map((transaction) => statementTransactionFingerprint(
+    transaction.competence_date,
+    Math.round(Number(transaction.amount) * 100),
+    transaction.type,
+    transaction.description,
+  )));
   return { items: preview.items.map((item) => {
     if (!("fingerprint" in item)) return item;
-    if (fingerprints.has(item.fingerprint)) return { ...item, reason: "duplicate_in_file", duplicate: true };
+    if (existingFingerprints.has(item.fingerprint)) return { ...item, reason: "duplicate_existing", duplicate: true, duplicateSource: "existing" };
+    if (fingerprints.has(item.fingerprint)) return { ...item, reason: "duplicate_in_file", duplicate: true, duplicateSource: "file" };
     fingerprints.add(item.fingerprint);
     return item;
   }) };
@@ -215,7 +261,8 @@ function classifyPreview(preview: StatementCsvPreview): { items: PreviewItem[] }
 
 function toImportItem(item: PreviewItem, batchId: string, workspaceId: string, ownerId: string) {
   if ("fingerprint" in item) {
-    return { batch_id: batchId, workspace_id: workspaceId, owner_id: ownerId, row_number: item.rowNumber, competence_date: item.competenceDate, description: item.description, amount_cents: item.amountCents, type: item.type, status: "ready", reason: null, fingerprint: item.fingerprint };
+    const existingDuplicate = item.duplicateSource === "existing";
+    return { batch_id: batchId, workspace_id: workspaceId, owner_id: ownerId, row_number: item.rowNumber, competence_date: item.competenceDate, description: item.description, amount_cents: item.amountCents, type: item.type, status: existingDuplicate ? "duplicate" : "ready", reason: existingDuplicate ? "duplicate_existing" : null, fingerprint: item.fingerprint };
   }
   return { batch_id: batchId, workspace_id: workspaceId, owner_id: ownerId, row_number: item.rowNumber, competence_date: null, description: null, amount_cents: null, type: null, status: "invalid", reason: item.reason, fingerprint: null };
 }
@@ -250,10 +297,10 @@ function getStatusLabel(item: PreviewItem | TransactionImportItem) {
   const status = getStatus(item);
   if (status === "ready") return "Pronta";
   const reason = isPersistedItem(item) ? item.reason : item.reason;
-  if (status === "duplicate") return reason === "duplicate_in_file" ? "Duplicada no arquivo" : "Duplicada";
+  if (status === "duplicate") return reason === "duplicate_in_file" ? "Duplicada no arquivo" : reason === "duplicate_existing" ? "Duplicada no histórico" : "Duplicada";
   return invalidReason(reason);
 }
 
 function invalidReason(reason: string | null | undefined) {
-  return ({ missing_mapping: "Mapeamento ausente", invalid_date: "Data inválida", missing_description: "Descrição ausente", invalid_amount: "Valor inválido" } as Record<string, string>)[reason ?? ""] ?? "Inválida";
+  return ({ missing_mapping: "Mapeamento ausente", invalid_date: "Data inválida", missing_description: "Descrição ausente", invalid_description: "Descrição muito longa", invalid_amount: "Valor inválido" } as Record<string, string>)[reason ?? ""] ?? "Inválida";
 }
