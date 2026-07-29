@@ -1,4 +1,7 @@
 export type Workspace = { id: string; name: string };
+export type WorkspacePreference = {
+  default_cash_account_id: string | null;
+};
 export type Account = {
   id: string;
   name: string;
