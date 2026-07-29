@@ -14,6 +14,7 @@ type QuickTransactionFormProps = {
   defaultCashAccountId: string | null;
   accounts: Account[];
   categories: Category[];
+  onSubmitStart: () => void;
   onSaved: () => Promise<void>;
 };
 
@@ -23,6 +24,7 @@ export function QuickTransactionForm({
   defaultCashAccountId,
   accounts,
   categories,
+  onSubmitStart,
   onSaved,
 }: QuickTransactionFormProps) {
   const supabase = useMemo(() => createClient(), []);
@@ -51,6 +53,7 @@ export function QuickTransactionForm({
     event.preventDefault();
     if (submittingRef.current) return;
 
+    onSubmitStart();
     setError("");
     setStatus("");
 

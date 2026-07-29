@@ -41,6 +41,7 @@ function renderForm(
       defaultCashAccountId="a"
       accounts={accounts}
       categories={categories}
+      onSubmitStart={vi.fn()}
       onSaved={onSaved}
       {...overrides}
     />,
