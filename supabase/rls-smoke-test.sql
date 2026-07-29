@@ -81,6 +81,21 @@ begin
     when foreign_key_violation or insufficient_privilege or check_violation or with_check_option_violation then
       null;
   end;
+
+  perform set_config('request.jwt.claim.sub', user_a::text, true);
+
+  delete from public.transactions
+  where id = transaction_a and workspace_id = workspace_a and owner_id = user_a;
+
+  delete from public.accounts
+  where id = account_a and workspace_id = workspace_a and owner_id = user_a;
+
+  if (select count(*) from public.workspace_preferences
+      where workspace_id = workspace_a
+        and owner_id = user_a
+        and default_cash_account_id is null) <> 1 then
+    raise exception 'deleting default account should preserve preference scope and clear only account reference';
+  end if;
 end $$;
 
 rollback;
