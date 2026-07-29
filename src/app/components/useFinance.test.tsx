@@ -5,6 +5,7 @@ import { useFinance } from "./useFinance";
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
+  rpc: vi.fn(),
   transactionQueries: [] as Array<{ limit: ReturnType<typeof vi.fn> }>,
 }));
 
@@ -48,12 +49,14 @@ vi.mock("@/lib/supabase/client", () => ({
       }),
     },
     from: mocks.from,
+    rpc: mocks.rpc,
   }),
 }));
 
 beforeEach(() => {
   mocks.transactionQueries.length = 0;
   mocks.from.mockReset().mockImplementation(createQuery);
+  mocks.rpc.mockReset().mockResolvedValue({ data: [] });
 });
 
 afterEach(() => cleanup());
@@ -70,6 +73,15 @@ describe("useFinance transaction history query", () => {
 
   it("keeps the transaction cap on lightweight routes", async () => {
     const { result } = renderHook(() => useFinance("accounts"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(mocks.transactionQueries).toHaveLength(1);
+    expect(mocks.transactionQueries[0].limit).toHaveBeenCalledWith(30);
+  });
+
+  it("keeps the transaction cap on the dashboard", async () => {
+    const { result } = renderHook(() => useFinance("dashboard"));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
