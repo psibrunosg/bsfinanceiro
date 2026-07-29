@@ -118,7 +118,7 @@ export function useFinance(route: string, cardId?: string): FinanceData {
           .eq("workspace_id", ws.id)
           .order("competence_date", { ascending: false });
     const transactionRowsQuery =
-      route === "dashboard" || route === "transactions"
+      route === "transactions"
         ? transactionQuery
         : transactionQuery.limit(30);
     const [
