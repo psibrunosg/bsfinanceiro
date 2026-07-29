@@ -72,6 +72,31 @@ describe("parseStatementCsv", () => {
     ]);
   });
 
+  it("rejects malformed and incomplete monetary separators instead of truncating them", () => {
+    const preview = parseStatementCsv(
+      "date,description,amount\n2026-08-01,Pontos,12.3.4\n2026-08-02,Virgulas,1,2,3\n2026-08-03,Vazio,12,",
+    );
+
+    expect(preview).toMatchObject({ valid: 0, invalid: 3 });
+    expect(preview.items).toEqual([
+      expect.objectContaining({ rowNumber: 2, reason: "invalid_amount" }),
+      expect.objectContaining({ rowNumber: 3, reason: "invalid_amount" }),
+      expect.objectContaining({ rowNumber: 4, reason: "invalid_amount" }),
+    ]);
+  });
+
+  it("accepts isolated thousands separators", () => {
+    const preview = parseStatementCsv(
+      "date;description;amount\n2026-08-01;Milhar americano;1,234\n2026-08-02;Milhar brasileiro;1.234",
+    );
+
+    expect(preview).toMatchObject({ valid: 2, invalid: 0 });
+    expect(preview.items).toEqual([
+      expect.objectContaining({ amountCents: 123_400 }),
+      expect.objectContaining({ amountCents: 123_400 }),
+    ]);
+  });
+
   it("reports every data row as invalid when required columns cannot be mapped", () => {
     const preview = parseStatementCsv("quando,narrativa,total\n2026-07-29,Teste,10");
 
