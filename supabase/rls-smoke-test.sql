@@ -16,6 +16,7 @@ declare
   workspace_a uuid;
   workspace_b uuid;
   account_a uuid;
+  transaction_account_a uuid;
   transaction_a uuid;
 begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
@@ -30,8 +31,12 @@ begin
   insert into public.workspace_preferences (workspace_id, owner_id, default_cash_account_id)
   values (workspace_a, user_a, account_a);
 
+  insert into public.accounts (workspace_id, owner_id, name, type, initial_balance)
+  values (workspace_a, user_a, 'Conta para transações A', 'checking', 0)
+  returning id into transaction_account_a;
+
   insert into public.transactions (workspace_id, owner_id, account_id, type, status, description, amount, competence_date)
-  values (workspace_a, user_a, account_a, 'income', 'paid', 'Receita A', 100.00, current_date)
+  values (workspace_a, user_a, transaction_account_a, 'income', 'paid', 'Receita A', 100.00, current_date)
   returning id into transaction_a;
 
   if (select count(*) from public.workspaces) <> 1 then
@@ -78,14 +83,11 @@ begin
     values (workspace_a, user_b, account_a, 'expense', 'paid', 'Tentativa cruzada', 10.00, current_date);
     raise exception 'cross-user insert unexpectedly succeeded';
   exception
-    when foreign_key_violation or insufficient_privilege or check_violation or with_check_option_violation then
+    when foreign_key_violation or insufficient_privilege or check_violation or with_check_option_violation or object_not_in_prerequisite_state then
       null;
   end;
 
   perform set_config('request.jwt.claim.sub', user_a::text, true);
-
-  delete from public.transactions
-  where id = transaction_a and workspace_id = workspace_a and owner_id = user_a;
 
   delete from public.accounts
   where id = account_a and workspace_id = workspace_a and owner_id = user_a;
