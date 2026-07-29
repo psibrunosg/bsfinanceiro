@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
@@ -16,6 +16,10 @@ function TransactionsPageInner() {
   const presetType = searchParams.get("type") === "income" ? "income" : "expense";
   const { workspace, accounts, categories, transactions, loading, message, setMessage, reload } = useFinance("transactions");
   const supabase = useMemo(() => createClient(), []);
+  const [query, setQuery] = useState("");
+  const [type, setType] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
   if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
 
@@ -32,30 +36,105 @@ function TransactionsPageInner() {
   }
 
   const messageIsError = message.startsWith("Não");
+  const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
+  const visibleTransactions = transactions.filter((transaction) =>
+    transaction.description.toLocaleLowerCase("pt-BR").includes(normalizedQuery) &&
+    (!type || transaction.type === type) &&
+    (!from || transaction.competence_date >= from) &&
+    (!to || transaction.competence_date <= to)
+  );
+  const hasActiveFilters = Boolean(normalizedQuery || type || from || to);
 
   return <main className="management-page">
     <PageHeader title="Movimentações" subtitle="Registre entradas, saídas e transferências." workspaceName={workspace.name} />
     <Nav />
     {message && <p className={messageIsError ? "form-error" : "form-success"} role={messageIsError ? "alert" : "status"}>{message}</p>}
     <section className="management-grid">
-      <List title="Últimos lançamentos">{transactions.map((t) => <article className="account-row" key={t.id}><span>{t.type === "income" ? "↑" : "↓"}</span><div><strong>{t.description}</strong><small>{t.competence_date}</small></div><b>{money(t.amount)}</b></article>)}</List>
-      <aside className="form-card"><h2>Nova movimentação</h2><SimpleForm onSubmit={submitTransaction}>
-        <label htmlFor="transaction-type">Tipo de movimentação</label>
-        <select id="transaction-type" name="type" defaultValue={presetType} autoFocus><option value="expense">Despesa</option><option value="income">Receita</option><option value="transfer">Transferência</option></select>
-        <label htmlFor="transaction-amount">Valor</label>
-        <input id="transaction-amount" name="amount" placeholder="0,00" required />
-        <label htmlFor="transaction-account">Conta</label>
-        <select id="transaction-account" name="account_id" required><option value="">Conta</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
-        <label htmlFor="transaction-category">Categoria</label>
-        <select id="transaction-category" name="category_id"><option value="">Categoria</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <label htmlFor="transaction-destination">Conta de destino</label>
-        <select id="transaction-destination" name="destination_account_id"><option value="">Destino se transferência</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
-        <label htmlFor="transaction-description">Descrição</label>
-        <input id="transaction-description" name="description" placeholder="Descrição" />
-        <label htmlFor="transaction-date">Data</label>
-        <input id="transaction-date" name="competence_date" type="date" defaultValue={todayInSaoPaulo()} required />
-        <button>Salvar</button>
-      </SimpleForm></aside>
+      <List title="Histórico">
+        <form className="transaction-filters" onSubmit={(event) => event.preventDefault()}>
+          <div className="transaction-filter transaction-filter-query">
+            <label htmlFor="transaction-query">Buscar movimentações</label>
+            <input
+              id="transaction-query"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Descrição"
+            />
+          </div>
+          <div className="transaction-filter">
+            <label htmlFor="transaction-filter-type">Tipo</label>
+            <select
+              id="transaction-filter-type"
+              value={type}
+              onChange={(event) => setType(event.target.value)}
+            >
+              <option value="">Todos</option>
+              <option value="expense">Despesa</option>
+              <option value="income">Receita</option>
+              <option value="transfer">Transferência</option>
+            </select>
+          </div>
+          <div className="transaction-filter">
+            <label htmlFor="transaction-from">Data inicial</label>
+            <input
+              id="transaction-from"
+              type="date"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+            />
+          </div>
+          <div className="transaction-filter">
+            <label htmlFor="transaction-to">Data final</label>
+            <input
+              id="transaction-to"
+              type="date"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+            />
+          </div>
+        </form>
+        {visibleTransactions.map((transaction) => (
+          <article className="account-row" key={transaction.id}>
+            <span aria-hidden="true">{transaction.type === "income" ? "↑" : "↓"}</span>
+            <div>
+              <strong>{transaction.description}</strong>
+              <small>{transaction.competence_date}</small>
+            </div>
+            <b>{money(transaction.amount)}</b>
+          </article>
+        ))}
+        {visibleTransactions.length === 0 ? (
+          <p className="empty-state" role="status">
+            {hasActiveFilters
+              ? "Nenhuma movimentação corresponde aos filtros."
+              : "Nenhuma movimentação registrada."}
+          </p>
+        ) : null}
+      </List>
+      <aside className="form-card">
+        <h2>Nova movimentação</h2>
+        <details className="transaction-entry-details">
+          <summary>Mais detalhes para registrar</summary>
+          <SimpleForm onSubmit={submitTransaction}>
+            <label htmlFor="transaction-type">Tipo de movimentação</label>
+            <select id="transaction-type" name="type" defaultValue={presetType}><option value="expense">Despesa</option><option value="income">Receita</option><option value="transfer">Transferência</option></select>
+            <label htmlFor="transaction-amount">Valor</label>
+            <input id="transaction-amount" name="amount" placeholder="0,00" required />
+            <label htmlFor="transaction-account">Conta</label>
+            <select id="transaction-account" name="account_id" required><option value="">Conta</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+            <label htmlFor="transaction-category">Categoria</label>
+            <select id="transaction-category" name="category_id"><option value="">Categoria</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+            <label htmlFor="transaction-destination">Conta de destino</label>
+            <select id="transaction-destination" name="destination_account_id"><option value="">Destino se transferência</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+            <label htmlFor="transaction-description">Descrição</label>
+            <input id="transaction-description" name="description" placeholder="Descrição" />
+            <label htmlFor="transaction-date">Data</label>
+            <input id="transaction-date" name="competence_date" type="date" defaultValue={todayInSaoPaulo()} required />
+            <button>Salvar</button>
+          </SimpleForm>
+        </details>
+      </aside>
     </section>
   </main>;
 }
