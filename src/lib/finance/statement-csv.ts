@@ -153,21 +153,50 @@ function parseAmountCents(value: string | undefined): number | undefined {
   let input = value?.trim().replace(/\s/g, "");
   if (!input) return undefined;
 
-  const negative = input.startsWith("-") || (input.startsWith("(") && input.endsWith(")"));
-  input = input.replace(/^[-+]/, "").replace(/^\(/, "").replace(/\)$/, "").replace(/^R\$/i, "");
-  if (!/^[\d.,]+$/.test(input)) return undefined;
+  const wrappedInParentheses = input.startsWith("(") || input.endsWith(")");
+  if (wrappedInParentheses && !(input.startsWith("(") && input.endsWith(")"))) return undefined;
 
-  const decimalSeparator = input.lastIndexOf(",") > input.lastIndexOf(".")
-    ? ","
-    : input.includes(".") && input.split(".").at(-1)!.length <= 2
-      ? "."
-      : undefined;
-  const [integerPart, decimalPart = ""] = decimalSeparator ? input.split(decimalSeparator, 2) : [input];
+  const negative = input.startsWith("-") || wrappedInParentheses;
+  input = input.replace(/^[-+]/, "").replace(/^\(/, "").replace(/\)$/, "").replace(/^R\$/i, "");
+  const amountParts = splitAmount(input);
+  if (!amountParts) return undefined;
+
+  const { integerPart, decimalPart } = amountParts;
   const integer = integerPart.replace(/[.,]/g, "");
-  if (!integer || decimalPart.length > 2 || !/^\d+$/.test(integer) || !/^\d*$/.test(decimalPart)) return undefined;
 
   const cents = Number(integer) * 100 + Number(decimalPart.padEnd(2, "0"));
   return Number.isSafeInteger(cents) ? (negative ? -cents : cents) : undefined;
+}
+
+function splitAmount(input: string): { integerPart: string; decimalPart: string } | undefined {
+  if (!/^[\d.,]+$/.test(input)) return undefined;
+
+  const commaCount = countOccurrences(input, ",");
+  const dotCount = countOccurrences(input, ".");
+  const separator = commaCount > 0 && dotCount > 0
+    ? input.lastIndexOf(",") > input.lastIndexOf(".") ? "," : "."
+    : commaCount === 1 && input.split(",")[1].length <= 2 ? ","
+      : dotCount === 1 && input.split(".")[1].length <= 2 ? "."
+        : undefined;
+  const groupingSeparator = separator === "," ? "." : separator === "." ? "," : commaCount > 0 ? "," : dotCount > 0 ? "." : undefined;
+
+  if (separator && countOccurrences(input, separator) !== 1) return undefined;
+
+  const [integerPart, decimalPart = ""] = separator ? input.split(separator) : [input];
+  if (!integerPart || (separator && !/^\d{1,2}$/.test(decimalPart)) || !isValidIntegerPart(integerPart, groupingSeparator)) return undefined;
+
+  return { integerPart, decimalPart };
+}
+
+function isValidIntegerPart(value: string, groupingSeparator: string | undefined): boolean {
+  if (!groupingSeparator || !value.includes(groupingSeparator)) return /^\d+$/.test(value);
+
+  const escapedSeparator = groupingSeparator === "." ? "\\." : groupingSeparator;
+  return new RegExp(`^\\d{1,3}(?:${escapedSeparator}\\d{3})*$`).test(value);
+}
+
+function countOccurrences(value: string, character: string): number {
+  return value.split(character).length - 1;
 }
 
 function normalizeText(value: string): string {
