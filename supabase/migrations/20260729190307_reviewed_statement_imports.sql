@@ -78,19 +78,44 @@ create table public.transaction_import_items (
 alter table public.transaction_import_batches enable row level security;
 alter table public.transaction_import_items enable row level security;
 
-create policy "transaction_import_batches_own"
+create policy "transaction_import_batches_select_own"
 on public.transaction_import_batches
-for all
+for select
 to authenticated
-using ((select auth.uid()) = owner_id)
-with check ((select auth.uid()) = owner_id);
+using ((select auth.uid()) = owner_id);
 
-create policy "transaction_import_items_own"
-on public.transaction_import_items
-for all
+create policy "transaction_import_batches_insert_own"
+on public.transaction_import_batches
+for insert
 to authenticated
-using ((select auth.uid()) = owner_id)
-with check ((select auth.uid()) = owner_id);
+with check (
+  (select auth.uid()) = owner_id
+  and status = 'pending'
+  and applied_at is null
+  and discarded_at is null
+);
+
+create policy "transaction_import_items_select_own"
+on public.transaction_import_items
+for select
+to authenticated
+using ((select auth.uid()) = owner_id);
+
+create policy "transaction_import_items_insert_own"
+on public.transaction_import_items
+for insert
+to authenticated
+with check (
+  (select auth.uid()) = owner_id
+  and exists (
+    select 1
+    from public.transaction_import_batches as batch
+    where batch.id = transaction_import_items.batch_id
+      and batch.workspace_id = transaction_import_items.workspace_id
+      and batch.owner_id = transaction_import_items.owner_id
+      and batch.status = 'pending'
+  )
+);
 
 create index transaction_import_batches_workspace_status_idx
 on public.transaction_import_batches(
@@ -108,7 +133,7 @@ create or replace function public.apply_transaction_import_batch(
 )
 returns table (transaction_id uuid)
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 declare
@@ -227,13 +252,15 @@ begin
       and item.status = 'ready'
       and (
         transaction.id is null
-        or transaction.account_id <> v_batch.account_id
-        or transaction.type <> item.type
-        or transaction.status <> 'paid'
-        or transaction.description <> trim(item.description)
-        or transaction.amount <> item.amount_cents::numeric / 100
-        or transaction.competence_date <> item.competence_date
-        or transaction.paid_at <> item.competence_date
+        or transaction.account_id is distinct from v_batch.account_id
+        or transaction.type is distinct from item.type
+        or transaction.status is distinct from 'paid'::public.transaction_status
+        or transaction.description is distinct from trim(item.description)
+        or transaction.amount is distinct from item.amount_cents::numeric / 100
+        or transaction.competence_date is distinct from item.competence_date
+        or transaction.paid_at is distinct from item.competence_date
+        or transaction.notes is distinct from
+          'Importado do lote de extrato ' || v_batch.id::text
       )
   ) then
     raise exception 'transaction import idempotency collision'
@@ -265,7 +292,7 @@ create or replace function public.discard_transaction_import_batch(
 )
 returns void
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 declare
@@ -311,21 +338,33 @@ begin
 end;
 $$;
 
-revoke all on table public.transaction_import_batches from public, anon;
-revoke all on table public.transaction_import_items from public, anon;
+revoke all on table public.transaction_import_batches from public, anon, authenticated;
+revoke all on table public.transaction_import_items from public, anon, authenticated;
 
-grant select, insert, update, delete
-on table public.transaction_import_batches
-to authenticated;
+grant select on table public.transaction_import_batches to authenticated;
+grant insert (workspace_id, owner_id, account_id, file_name)
+on table public.transaction_import_batches to authenticated;
 
-grant select, insert, update, delete
-on table public.transaction_import_items
-to authenticated;
+grant select on table public.transaction_import_items to authenticated;
+grant insert (
+  batch_id,
+  workspace_id,
+  owner_id,
+  row_number,
+  competence_date,
+  description,
+  amount_cents,
+  type,
+  status,
+  reason,
+  fingerprint
+)
+on table public.transaction_import_items to authenticated;
 
 revoke all on function public.apply_transaction_import_batch(uuid)
-from public, anon;
+from public, anon, authenticated;
 revoke all on function public.discard_transaction_import_batch(uuid)
-from public, anon;
+from public, anon, authenticated;
 
 grant execute on function public.apply_transaction_import_batch(uuid)
 to authenticated;
