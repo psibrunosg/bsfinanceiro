@@ -33,6 +33,7 @@ import type {
   Occurrence,
   AlertPreference,
   StatementImport,
+  TransactionImportBatch,
 } from "./types";
 
 const TRANSACTION_SELECT =
@@ -70,6 +71,7 @@ export type FinanceData = {
   occurrences: Occurrence[];
   alertPrefs: AlertPreference | null;
   statementImports: StatementImport[];
+  transactionImportBatches: TransactionImportBatch[];
   defaultCashAccountId: string | null;
   cashPosition: {
     balanceCents: number;
@@ -108,6 +110,9 @@ export function useFinance(
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [alertPrefs, setAlertPrefs] = useState<AlertPreference | null>(null);
   const [statementImports, setStatementImports] = useState<StatementImport[]>([]);
+  const [transactionImportBatches, setTransactionImportBatches] = useState<
+    TransactionImportBatch[]
+  >([]);
   const [defaultCashAccountId, setDefaultCashAccountId] = useState<string | null>(
     null,
   );
@@ -201,6 +206,7 @@ export function useFinance(
     let upcomingTransactionRows: Transaction[] = [];
     let occurrenceRows: Occurrence[] = [];
     let historyTotal = 0;
+    let importBatchRows: TransactionImportBatch[] = [];
 
     if (route === "dashboard") {
       const { data: nextIncomeData } = await supabase
@@ -299,12 +305,23 @@ export function useFinance(
       if (historyTo) query = query.lte("competence_date", historyTo);
 
       const from = historyPage * TRANSACTION_HISTORY_PAGE_SIZE;
-      const { data, count } = await query
-        .order("competence_date", { ascending: false })
-        .order("id", { ascending: false })
-        .range(from, from + TRANSACTION_HISTORY_PAGE_SIZE - 1);
+      const [{ data, count }, { data: batches }] = await Promise.all([
+        query
+          .order("competence_date", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, from + TRANSACTION_HISTORY_PAGE_SIZE - 1),
+        supabase
+          .from("transaction_import_batches")
+          .select(
+            "id,account_id,file_name,status,created_at,applied_at,discarded_at,transaction_import_items(id,batch_id,row_number,competence_date,description,amount_cents,type,status,reason,fingerprint,transaction_id,created_at)",
+          )
+          .eq("workspace_id", ws.id)
+          .order("created_at", { ascending: false })
+          .limit(10),
+      ]);
       visibleTransactionRows = (data ?? []) as Transaction[];
       historyTotal = count ?? 0;
+      importBatchRows = (batches ?? []) as TransactionImportBatch[];
     } else {
       const { data } = await supabase
         .from("transactions")
@@ -328,6 +345,7 @@ export function useFinance(
     setTodayTransactions(upcomingTransactionRows);
     setTransactionTotal(historyTotal);
     setAlertPrefs(preferenceRows || null);
+    setTransactionImportBatches(importBatchRows);
     if (route === "dashboard") {
       const workspacePreference =
         workspacePreferenceRows as WorkspacePreference | null;
@@ -470,6 +488,7 @@ export function useFinance(
     occurrences,
     alertPrefs,
     statementImports,
+    transactionImportBatches,
     defaultCashAccountId,
     cashPosition: dashboardMoneyModel.cashPosition,
     spendingPower: dashboardMoneyModel.spendingPower,

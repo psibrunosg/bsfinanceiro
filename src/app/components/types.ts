@@ -57,6 +57,30 @@ export type StatementImport = {
   error_code: string | null;
   created_at: string;
 };
+export type TransactionImportItem = {
+  id: string;
+  batch_id: string;
+  row_number: number;
+  competence_date: string | null;
+  description: string | null;
+  amount_cents: number | null;
+  type: "income" | "expense" | null;
+  status: "ready" | "duplicate" | "invalid";
+  reason: string | null;
+  fingerprint: string | null;
+  transaction_id: string | null;
+  created_at: string;
+};
+export type TransactionImportBatch = {
+  id: string;
+  account_id: string;
+  file_name: string;
+  status: "pending" | "applied" | "discarded";
+  created_at: string;
+  applied_at: string | null;
+  discarded_at: string | null;
+  transaction_import_items: TransactionImportItem[];
+};
 export type Budget = {
   id: string;
   category_id: string;
