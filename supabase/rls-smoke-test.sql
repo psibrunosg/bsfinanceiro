@@ -27,6 +27,9 @@ begin
   values (workspace_a, user_a, 'Conta A', 'checking', 1000.00)
   returning id into account_a;
 
+  insert into public.workspace_preferences (workspace_id, owner_id, default_cash_account_id)
+  values (workspace_a, user_a, account_a);
+
   insert into public.transactions (workspace_id, owner_id, account_id, type, status, description, amount, competence_date)
   values (workspace_a, user_a, account_a, 'income', 'paid', 'Receita A', 100.00, current_date)
   returning id into transaction_a;
@@ -56,6 +59,18 @@ begin
 
   if exists (select 1 from public.transactions where id = transaction_a) then
     raise exception 'user B can read user A transaction';
+  end if;
+
+  if (select count(*) from public.workspace_preferences where owner_id = user_a) <> 0 then
+    raise exception 'user B can read user A workspace preference';
+  end if;
+
+  update public.workspace_preferences
+  set default_cash_account_id = null
+  where workspace_id = workspace_a and owner_id = user_a;
+
+  if found then
+    raise exception 'user B can update user A workspace preference';
   end if;
 
   begin
