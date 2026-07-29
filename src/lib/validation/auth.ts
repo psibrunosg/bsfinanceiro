@@ -22,3 +22,17 @@ export function authErrorMessage(error: { message?: string; code?: string } | nu
 
   return "Nao foi possivel criar a conta. Tente novamente.";
 }
+
+export function authLoginErrorMessage(error: { message?: string; code?: string } | null | undefined) {
+  const text = `${error?.code ?? ""} ${error?.message ?? ""}`.toLowerCase();
+
+  if (text.includes("email_not_confirmed") || text.includes("email not confirmed")) {
+    return "Confirme seu e-mail antes de entrar. Use o link enviado no cadastro.";
+  }
+
+  if (text.includes("fetch") || text.includes("network")) {
+    return "Nao foi possivel conectar ao servico de acesso. Tente novamente em alguns instantes.";
+  }
+
+  return "E-mail ou senha incorretos.";
+}

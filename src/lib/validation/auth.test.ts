@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authErrorMessage, authSchema } from "./auth";
+import { authErrorMessage, authLoginErrorMessage, authSchema } from "./auth";
 
 describe("authSchema", () => {
   it("aceita e-mail e senha validos", () => {
@@ -45,5 +45,12 @@ describe("authSchema", () => {
     expect(authErrorMessage({ message: "User already registered" })).toBe(
       "Este e-mail ja esta cadastrado. Tente entrar.",
     );
+  });
+
+  it("explica quando a conta ainda precisa de confirmacao", () => {
+    expect(authLoginErrorMessage({ code: "email_not_confirmed", message: "Email not confirmed" })).toBe(
+      "Confirme seu e-mail antes de entrar. Use o link enviado no cadastro.",
+    );
+    expect(authLoginErrorMessage({ message: "Invalid login credentials" })).toBe("E-mail ou senha incorretos.");
   });
 });
