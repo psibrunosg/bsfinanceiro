@@ -19,11 +19,14 @@ declare
   transaction_account_a uuid;
   transaction_a uuid;
   import_batch_a uuid;
+  duplicate_batch_a uuid;
   discard_batch_a uuid;
   collision_batch_a uuid;
   applied_first uuid[];
   applied_second uuid[];
   transaction_count_after_first integer;
+  duplicate_transaction_count integer;
+  duplicate_result_count integer;
   failure_transaction_count integer;
 begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
@@ -280,6 +283,89 @@ begin
     raise exception 'reapplying an import batch created duplicate transactions';
   end if;
 
+  insert into public.transaction_import_batches (
+    workspace_id,
+    owner_id,
+    account_id,
+    file_name
+  )
+  values (
+    workspace_a,
+    user_a,
+    transaction_account_a,
+    'extrato-duplicado-pelo-cliente-a.csv'
+  )
+  returning id into duplicate_batch_a;
+
+  insert into public.transaction_import_items (
+    batch_id,
+    workspace_id,
+    owner_id,
+    row_number,
+    competence_date,
+    description,
+    amount_cents,
+    type,
+    status,
+    fingerprint
+  )
+  values (
+    duplicate_batch_a,
+    workspace_a,
+    user_a,
+    2,
+    current_date,
+    '  receita a  ',
+    10000,
+    'income',
+    'ready',
+    'fingerprint-enviado-pelo-cliente'
+  );
+
+  select count(*)
+  into duplicate_transaction_count
+  from public.transactions
+  where owner_id = user_a
+    and workspace_id = workspace_a;
+
+  select count(*)
+  into duplicate_result_count
+  from public.apply_transaction_import_batch(duplicate_batch_a);
+
+  if duplicate_result_count <> 0 then
+    raise exception 'client-marked ready duplicate returned a transaction';
+  end if;
+
+  if (
+    select count(*)
+    from public.transactions
+    where owner_id = user_a
+      and workspace_id = workspace_a
+  ) <> duplicate_transaction_count then
+    raise exception 'client-marked ready duplicate created a transaction';
+  end if;
+
+  if not exists (
+    select 1
+    from public.transaction_import_batches
+    where id = duplicate_batch_a
+      and status = 'applied'
+      and applied_at is not null
+  ) then
+    raise exception 'duplicate-only batch should still be applied';
+  end if;
+
+  if not exists (
+    select 1
+    from public.transaction_import_items
+    where batch_id = duplicate_batch_a
+      and status = 'duplicate'
+      and reason = 'duplicate transaction already exists'
+      and transaction_id is null
+  ) then
+    raise exception 'apply should independently mark the client duplicate';
+  end if;
+
   execute 'set local role postgres';
 
   begin
@@ -386,7 +472,7 @@ begin
     transaction_account_a,
     'expense',
     'paid',
-    'Colisão previsível',
+    'Colisão de idempotência previsível',
     12.34,
     current_date - 1,
     null,
