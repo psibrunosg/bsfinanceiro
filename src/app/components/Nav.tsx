@@ -21,6 +21,7 @@ const moreLinks = [
 
 export function Nav() {
   const pathname = usePathname();
+  const moreIsActive = moreLinks.some((link) => pathname === link.href);
 
   async function signOut() {
     const supabase = createClient();
@@ -40,8 +41,10 @@ export function Nav() {
           {link.label}
         </Link>
       ))}
-      <details className="nav-more">
-        <summary className="quick-link">Mais</summary>
+      <details className="nav-more" open={moreIsActive || undefined}>
+        <summary className={`quick-link${moreIsActive ? " active" : ""}`}>
+          Mais
+        </summary>
         <div className="nav-more-links">
           {moreLinks.map((link) => (
             <Link
