@@ -9,6 +9,7 @@ import { BrandLogo } from "./brand-logo";
 import { TodayPanel } from "./components/TodayPanel";
 import { SpendingPowerCard } from "./components/SpendingPowerCard";
 import { QuickTransactionForm } from "./components/QuickTransactionForm";
+import { DefaultCashAccountForm } from "./components/DefaultCashAccountForm";
 import { buildTodayDashboard } from "../lib/finance/today-adapter";
 import { todayInSaoPaulo } from "../lib/finance/local-date";
 import { todayActions } from "../lib/finance/today-actions";
@@ -96,6 +97,13 @@ export function DashboardPage() {
           {quickTransactionStatus}
         </p>
       ) : null}
+      <DefaultCashAccountForm
+        workspaceId={workspace.id}
+        ownerId={ownerId}
+        defaultCashAccountId={defaultCashAccountId}
+        accounts={accounts}
+        onSaved={reload}
+      />
       <QuickTransactionForm
         workspaceId={workspace.id}
         ownerId={ownerId}

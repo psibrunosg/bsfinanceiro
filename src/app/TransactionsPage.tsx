@@ -14,12 +14,27 @@ import { todayInSaoPaulo } from "@/lib/finance/local-date";
 function TransactionsPageInner() {
   const searchParams = useSearchParams();
   const presetType = searchParams.get("type") === "income" ? "income" : "expense";
-  const { workspace, accounts, categories, transactions, loading, message, setMessage, reload } = useFinance("transactions");
   const supabase = useMemo(() => createClient(), []);
   const [query, setQuery] = useState("");
   const [type, setType] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [page, setPage] = useState(0);
+  const {
+    workspace,
+    accounts,
+    categories,
+    transactions,
+    transactionTotal,
+    transactionPageSize,
+    loading,
+    message,
+    setMessage,
+    reload,
+  } = useFinance("transactions", undefined, {
+    transactionFilters: { query, type, from, to },
+    transactionPage: page,
+  });
 
   if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
 
@@ -36,14 +51,10 @@ function TransactionsPageInner() {
   }
 
   const messageIsError = message.startsWith("Não");
-  const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
-  const visibleTransactions = transactions.filter((transaction) =>
-    transaction.description.toLocaleLowerCase("pt-BR").includes(normalizedQuery) &&
-    (!type || transaction.type === type) &&
-    (!from || transaction.competence_date >= from) &&
-    (!to || transaction.competence_date <= to)
-  );
-  const hasActiveFilters = Boolean(normalizedQuery || type || from || to);
+  const hasActiveFilters = Boolean(query.trim() || type || from || to);
+  const pageSize = transactionPageSize || 25;
+  const total = transactionTotal ?? transactions.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return <main className="management-page">
     <PageHeader title="Movimentações" subtitle="Registre entradas, saídas e transferências." workspaceName={workspace.name} />
@@ -58,7 +69,10 @@ function TransactionsPageInner() {
               id="transaction-query"
               type="search"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setPage(0);
+              }}
               placeholder="Descrição"
             />
           </div>
@@ -67,7 +81,10 @@ function TransactionsPageInner() {
             <select
               id="transaction-filter-type"
               value={type}
-              onChange={(event) => setType(event.target.value)}
+              onChange={(event) => {
+                setType(event.target.value);
+                setPage(0);
+              }}
             >
               <option value="">Todos</option>
               <option value="expense">Despesa</option>
@@ -81,7 +98,10 @@ function TransactionsPageInner() {
               id="transaction-from"
               type="date"
               value={from}
-              onChange={(event) => setFrom(event.target.value)}
+              onChange={(event) => {
+                setFrom(event.target.value);
+                setPage(0);
+              }}
             />
           </div>
           <div className="transaction-filter">
@@ -90,11 +110,14 @@ function TransactionsPageInner() {
               id="transaction-to"
               type="date"
               value={to}
-              onChange={(event) => setTo(event.target.value)}
+              onChange={(event) => {
+                setTo(event.target.value);
+                setPage(0);
+              }}
             />
           </div>
         </form>
-        {visibleTransactions.map((transaction) => (
+        {transactions.map((transaction) => (
           <article className="account-row" key={transaction.id}>
             <span aria-hidden="true">{transaction.type === "income" ? "↑" : "↓"}</span>
             <div>
@@ -104,12 +127,33 @@ function TransactionsPageInner() {
             <b>{money(transaction.amount)}</b>
           </article>
         ))}
-        {visibleTransactions.length === 0 ? (
+        {transactions.length === 0 ? (
           <p className="empty-state" role="status">
             {hasActiveFilters
               ? "Nenhuma movimentação corresponde aos filtros."
               : "Nenhuma movimentação registrada."}
           </p>
+        ) : null}
+        {total > 0 ? (
+          <nav className="transaction-pagination" aria-label="Paginação do histórico">
+            <button
+              type="button"
+              disabled={page === 0}
+              onClick={() => setPage((current) => Math.max(0, current - 1))}
+            >
+              Anterior
+            </button>
+            <span>
+              Página {page + 1} de {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={page + 1 >= totalPages}
+              onClick={() => setPage((current) => current + 1)}
+            >
+              Próxima
+            </button>
+          </nav>
         ) : null}
       </List>
       <aside className="form-card">

@@ -21,3 +21,24 @@ export function monthStartsForSaoPauloDate(today: string): [string, string] {
     `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`,
   ];
 }
+
+/** Lists every calendar month intersecting an inclusive ISO date interval. */
+export function monthStartsThroughDate(from: string, through: string): string[] {
+  const [fromYear, fromMonth] = from.split("-").map(Number);
+  const [throughYear, throughMonth] = through.split("-").map(Number);
+  const months: string[] = [];
+  let year = fromYear;
+  let month = fromMonth;
+
+  while (year < throughYear || (year === throughYear && month <= throughMonth)) {
+    months.push(`${year}-${String(month).padStart(2, "0")}-01`);
+    if (month === 12) {
+      year += 1;
+      month = 1;
+    } else {
+      month += 1;
+    }
+  }
+
+  return months;
+}
