@@ -86,7 +86,7 @@ afterEach(() => {
 });
 
 describe("DashboardPage quick transaction integration", () => {
-  it("keeps success feedback visible after reload unmounts the form", async () => {
+  it("keeps success after reload, then clears it before an invalid retry", async () => {
     render(<DashboardPage />);
     fireEvent.change(screen.getByLabelText("Valor"), {
       target: { value: "12,50" },
@@ -106,6 +106,11 @@ describe("DashboardPage quick transaction integration", () => {
     expect((await screen.findByRole("status")).textContent).toContain(
       "Movimentação registrada",
     );
-    expect(screen.getByRole("button", { name: "Registrar" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Informe um valor maior que zero",
+    );
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });

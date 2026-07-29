@@ -102,6 +102,7 @@ export function DashboardPage() {
         defaultCashAccountId={defaultCashAccountId}
         accounts={accounts}
         categories={categories}
+        onSubmitStart={() => setQuickTransactionStatus("")}
         onSaved={reloadAfterQuickTransaction}
       />
       <TodayPanel today={today} actions={actions} />
