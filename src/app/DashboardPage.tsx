@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { List } from "./components/List";
@@ -14,6 +15,7 @@ import { todayActions } from "../lib/finance/today-actions";
 import { appPath } from "../lib/app-path";
 
 export function DashboardPage() {
+  const [quickTransactionStatus, setQuickTransactionStatus] = useState("");
   const {
     ownerId,
     workspace,
@@ -50,6 +52,11 @@ export function DashboardPage() {
   );
   const actions = todayActions(goals).map((action) => ({ ...action, href: appPath(action.href) }));
 
+  async function reloadAfterQuickTransaction() {
+    setQuickTransactionStatus("Movimentação registrada.");
+    await reload();
+  }
+
   return (
     <main className="dashboard-shell">
       <section className="hero-card">
@@ -84,13 +91,18 @@ export function DashboardPage() {
         </article>
       </section>
       <SpendingPowerCard spendingPower={spendingPower} />
+      {quickTransactionStatus ? (
+        <p className="form-success" role="status">
+          {quickTransactionStatus}
+        </p>
+      ) : null}
       <QuickTransactionForm
         workspaceId={workspace.id}
         ownerId={ownerId}
         defaultCashAccountId={defaultCashAccountId}
         accounts={accounts}
         categories={categories}
-        onSaved={reload}
+        onSaved={reloadAfterQuickTransaction}
       />
       <TodayPanel today={today} actions={actions} />
       <section className="management-grid">
