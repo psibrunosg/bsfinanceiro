@@ -112,6 +112,7 @@ beforeEach(() => {
       const pageSize = 3;
       const page = options.transactionPage ?? 0;
       return {
+        ownerId: "owner-1",
         workspace: { id: "workspace-1", name: "Pessoal" },
         accounts: [
           {
@@ -125,6 +126,7 @@ beforeEach(() => {
         transactions: filtered.slice(page * pageSize, (page + 1) * pageSize),
         transactionTotal: filtered.length,
         transactionPageSize: pageSize,
+        transactionImportBatches: [],
         loading: false,
         message: "",
         setMessage: vi.fn(),
