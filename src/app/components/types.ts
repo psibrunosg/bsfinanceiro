@@ -16,6 +16,7 @@ export type Category = {
 };
 export type Card = {
   id: string;
+  account_id?: string;
   name: string;
   brand?: string | null;
   last_four?: string | null;
