@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   batchInsert: vi.fn(),
   itemInsert: vi.fn(),
   rpc: vi.fn(),
+  transactionSelect: vi.fn(),
+  transactionWorkspaceFilter: vi.fn(),
+  transactionAccountFilter: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -74,9 +77,13 @@ beforeEach(() => {
   });
   mocks.itemInsert.mockReset().mockResolvedValue({ error: null });
   mocks.rpc.mockReset().mockResolvedValue({ error: null });
+  mocks.transactionAccountFilter.mockReset().mockResolvedValue({ data: [], error: null });
+  mocks.transactionWorkspaceFilter.mockReset().mockReturnValue({ eq: mocks.transactionAccountFilter });
+  mocks.transactionSelect.mockReset().mockReturnValue({ eq: mocks.transactionWorkspaceFilter });
   mocks.from.mockReset().mockImplementation((table: string) => {
     if (table === "transaction_import_batches") return { insert: mocks.batchInsert };
     if (table === "transaction_import_items") return { insert: mocks.itemInsert };
+    if (table === "transactions") return { select: mocks.transactionSelect };
     throw new Error(`Unexpected table: ${table}`);
   });
 });
@@ -135,6 +142,32 @@ describe("StatementImportPanel", () => {
       "apply_transaction_import_batch",
       { p_batch_id: "batch-pending" },
     ));
+  });
+
+  it("maps unrecognized headers and persists existing-history duplicates for review", async () => {
+    mocks.transactionAccountFilter.mockResolvedValueOnce({
+      data: [{ competence_date: "2026-07-29", description: "Salário", amount: 1000, type: "income" }],
+      error: null,
+    });
+    renderPanel();
+    const csv = "quando,detalhe,total\n2026-07-29,Salário,1000";
+    const file = new File([csv], "mapeado.csv", { type: "text/csv" });
+    Object.defineProperty(file, "text", { value: vi.fn().mockResolvedValue(csv) });
+    fireEvent.change(screen.getByLabelText("Conta do extrato"), { target: { value: "account-1" } });
+    fireEvent.change(screen.getByLabelText("Arquivo CSV"), { target: { files: [file] } });
+    fireEvent.submit(screen.getByRole("button", { name: "Preparar prévia" }).closest("form")!);
+
+    await screen.findByText("Mapeie as colunas do CSV");
+    fireEvent.change(screen.getByLabelText("Coluna da data"), { target: { value: "quando" } });
+    fireEvent.change(screen.getByLabelText("Coluna da descrição"), { target: { value: "detalhe" } });
+    fireEvent.change(screen.getByLabelText("Coluna do valor"), { target: { value: "total" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Preparar prévia" }).closest("form")!);
+
+    await screen.findByText("Duplicada no histórico");
+    expect(mocks.itemInsert.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ row_number: 2, status: "duplicate", reason: "duplicate_existing" }),
+    ]);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Confirmar importação" }).disabled).toBe(true);
   });
 
   it("discards a pending batch through the protected RPC", async () => {
