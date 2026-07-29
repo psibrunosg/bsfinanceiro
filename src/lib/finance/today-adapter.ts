@@ -1,4 +1,14 @@
 import { selectTopAlert, type AlertPreferences, type FinancialAlert } from "./alerts";
+import {
+  calculateCashPosition,
+  type CashAccount,
+  type PostedTransaction,
+} from "./cash-position";
+import {
+  buildSpendingPower,
+  type PlannedCommitment,
+  type PlannedTransaction,
+} from "./spending-power";
 import { projectUntilNextIncome, type TodayProjection } from "./today";
 
 type AccountRow = { type: string; initial_balance: number };
@@ -17,8 +27,29 @@ export type TodayDashboardModel = TodayProjection & {
   alert: FinancialAlert | null;
 };
 
+export type DashboardMoneyInput = {
+  accounts: CashAccount[];
+  transactions: Array<PostedTransaction & PlannedTransaction>;
+  occurrences: PlannedCommitment[];
+  today: string;
+};
+
 function toCents(value: number) {
   return Math.round(Number(value || 0) * 100);
+}
+
+export function buildDashboardMoneyModel(input: DashboardMoneyInput) {
+  const cashPosition = calculateCashPosition(input.accounts, input.transactions);
+
+  return {
+    cashPosition,
+    spendingPower: buildSpendingPower({
+      currentBalanceCents: cashPosition.balanceCents,
+      today: input.today,
+      plannedTransactions: input.transactions,
+      commitments: input.occurrences,
+    }),
+  };
 }
 
 export function alertPreferencesFromRow(row: PreferenceRow): AlertPreferences {

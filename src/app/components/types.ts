@@ -41,7 +41,10 @@ export type Invoice = {
 };
 export type Transaction = {
   id: string;
+  account_id: string;
+  destination_account_id: string | null;
   type: string;
+  status: string;
   description: string;
   amount: number;
   competence_date: string;

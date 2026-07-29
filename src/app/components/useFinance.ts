@@ -5,8 +5,11 @@ import { appPath } from "@/lib/app-path";
 import { createClient } from "@/lib/supabase/client";
 import { monthStart, nextMonthStart } from "./Money";
 import { todayInSaoPaulo } from "../../lib/finance/local-date";
+import { buildDashboardMoneyModel } from "../../lib/finance/today-adapter";
+import type { SpendingPower } from "../../lib/finance/spending-power";
 import type {
   Workspace,
+  WorkspacePreference,
   Account,
   Category,
   Card,
@@ -35,6 +38,12 @@ export type FinanceData = {
   occurrences: Occurrence[];
   alertPrefs: AlertPreference | null;
   statementImports: StatementImport[];
+  defaultCashAccountId: string | null;
+  cashPosition: {
+    balanceCents: number;
+    accountBalancesCents: Record<string, number>;
+  };
+  spendingPower: SpendingPower;
   loading: boolean;
   message: string;
   setMessage: (msg: string) => void;
@@ -58,6 +67,7 @@ export function useFinance(route: string, cardId?: string): FinanceData {
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [alertPrefs, setAlertPrefs] = useState<AlertPreference | null>(null);
   const [statementImports, setStatementImports] = useState<StatementImport[]>([]);
+  const [defaultCashAccountId, setDefaultCashAccountId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
   const load = useCallback(async () => {
@@ -88,9 +98,11 @@ export function useFinance(route: string, cardId?: string): FinanceData {
       { data: categoryRows },
       { data: cardRows },
       { data: txRows },
-      { data: todayTransactionRows },
       { data: preferenceRows },
       { data: dashboardGoalRows },
+      { data: workspacePreferenceRows },
+      { data: currentOccurrenceRows },
+      { data: nextOccurrenceRows },
     ] = await Promise.all([
       supabase
         .from("accounts")
@@ -112,20 +124,23 @@ export function useFinance(route: string, cardId?: string): FinanceData {
         .eq("workspace_id", ws.id)
         .eq("active", true)
         .order("created_at"),
-      supabase
-        .from("transactions")
-        .select("id,type,description,amount,competence_date")
-        .eq("workspace_id", ws.id)
-        .order("competence_date", { ascending: false })
-        .limit(30),
       route === "dashboard"
         ? supabase
           .from("transactions")
-          .select("id,type,description,amount,competence_date")
+          .select(
+            "id,account_id,destination_account_id,type,status,description,amount,competence_date"
+          )
           .eq("workspace_id", ws.id)
-          .gte("competence_date", today)
-          .order("competence_date")
-        : Promise.resolve({ data: [] }),
+          .or(`status.eq.paid,and(status.eq.planned,competence_date.gte.${today})`)
+          .order("competence_date", { ascending: false })
+        : supabase
+          .from("transactions")
+          .select(
+            "id,account_id,destination_account_id,type,status,description,amount,competence_date"
+          )
+          .eq("workspace_id", ws.id)
+          .order("competence_date", { ascending: false })
+          .limit(30),
       route === "dashboard" || route === "settings"
         ? supabase
           .from("alert_preferences")
@@ -141,15 +156,50 @@ export function useFinance(route: string, cardId?: string): FinanceData {
           .eq("status", "active")
           .order("created_at")
         : Promise.resolve({ data: [] }),
+      route === "dashboard"
+        ? supabase
+          .from("workspace_preferences")
+          .select("default_cash_account_id")
+          .eq("workspace_id", ws.id)
+          .maybeSingle()
+        : Promise.resolve({ data: null }),
+      route === "dashboard"
+        ? supabase.rpc(
+          "materialize_fixed_commitment_occurrences",
+          { p_workspace_id: ws.id, p_month: monthStart() }
+        )
+        : Promise.resolve({ data: [] }),
+      route === "dashboard"
+        ? supabase.rpc(
+          "materialize_fixed_commitment_occurrences",
+          { p_workspace_id: ws.id, p_month: nextMonthStart() }
+        )
+        : Promise.resolve({ data: [] }),
     ]);
 
     setAccounts(accountRows || []);
     setCategories(categoryRows || []);
     setCards(cardRows || []);
     setTransactions(txRows || []);
-    setTodayTransactions(todayTransactionRows || []);
+    setTodayTransactions(
+      route === "dashboard"
+        ? (txRows || []).filter((transaction) => transaction.competence_date >= today)
+        : []
+    );
     setAlertPrefs(preferenceRows || null);
-    if (route === "dashboard") setGoals(dashboardGoalRows || []);
+    if (route === "dashboard") {
+      const workspacePreference = workspacePreferenceRows as WorkspacePreference | null;
+      const preferredAccountId = workspacePreference?.default_cash_account_id ?? null;
+      const isActiveCashAccount = (accountRows || []).some(
+        (account) =>
+          account.id === preferredAccountId &&
+          (account.type === "checking" || account.type === "cash" || account.type === "savings")
+      );
+
+      setDefaultCashAccountId(isActiveCashAccount ? preferredAccountId : null);
+      setGoals(dashboardGoalRows || []);
+      setOccurrences([...(currentOccurrenceRows || []), ...(nextOccurrenceRows || [])]);
+    }
 
     if (route === "card" && cardId) {
       const [{ data }, { data: importRows }] = await Promise.all([
@@ -235,6 +285,16 @@ export function useFinance(route: string, cardId?: string): FinanceData {
     void load();
   }, [load]);
 
+  const dashboardMoneyModel = useMemo(
+    () => buildDashboardMoneyModel({
+      accounts,
+      transactions,
+      occurrences,
+      today: todayInSaoPaulo(),
+    }),
+    [accounts, transactions, occurrences]
+  );
+
   return {
     workspace: workspace!,
     accounts,
@@ -250,6 +310,9 @@ export function useFinance(route: string, cardId?: string): FinanceData {
     occurrences,
     alertPrefs,
     statementImports,
+    defaultCashAccountId,
+    cashPosition: dashboardMoneyModel.cashPosition,
+    spendingPower: dashboardMoneyModel.spendingPower,
     loading,
     message,
     setMessage,

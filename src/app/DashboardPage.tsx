@@ -12,8 +12,17 @@ import { todayActions } from "../lib/finance/today-actions";
 import { appPath } from "../lib/app-path";
 
 export function DashboardPage() {
-  const { workspace, accounts, cards, transactions, todayTransactions, alertPrefs, goals, loading } =
-    useFinance("dashboard");
+  const {
+    workspace,
+    accounts,
+    cards,
+    transactions,
+    todayTransactions,
+    alertPrefs,
+    goals,
+    cashPosition,
+    loading,
+  } = useFinance("dashboard");
 
   if (loading || !workspace)
     return (
@@ -24,10 +33,6 @@ export function DashboardPage() {
 
   const totalCards = cards.reduce(
     (sum, c) => sum + Number(c.credit_limit),
-    0
-  );
-  const balance = accounts.reduce(
-    (sum, a) => sum + Number(a.initial_balance),
     0
   );
   const today = buildTodayDashboard(
@@ -59,8 +64,8 @@ export function DashboardPage() {
       </section>
       <section className="summary-grid">
         <article>
-          <span>Saldo inicial</span>
-          <strong>{money(balance)}</strong>
+          <span>Saldo atual</span>
+          <strong>{money(cashPosition.balanceCents / 100)}</strong>
         </article>
         <article>
           <span>Cartões</span>
