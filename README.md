@@ -27,6 +27,12 @@ Com uma conta de teste autenticada, percorra o fluxo abaixo para validar a exper
 
 O ciclo não inclui importação bancária. A próxima fronteira é importação OFX/CSV com prévia, deduplicação e inbox de revisão.
 
+### Importar extrato CSV com revisão
+
+Em **Movimentações**, escolha uma conta e envie um CSV UTF-8 com cabeçalho. O formato reconhecido usa colunas de data, descrição e valor (por exemplo, `date,description,amount`); valores positivos viram receitas e negativos, despesas. A prévia mostra linhas prontas, duplicadas e inválidas, sem gravar movimentações. Só `Confirmar importação` aplica as linhas prontas. Duplicatas são revalidadas no banco por conta, data, tipo, valor e descrição normalizada; reenviar ou confirmar o mesmo lote não duplica lançamentos.
+
+OFX, PDF, OCR, Open Finance e categorização automática ainda não fazem parte desta entrega.
+
 ## Deploy no GitHub Pages
 Configure estes Repository secrets em `Settings > Secrets and variables > Actions`:
 

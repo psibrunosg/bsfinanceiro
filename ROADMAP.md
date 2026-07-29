@@ -76,9 +76,16 @@ O projeto Supabase do BS Financeiro é `wgntlhzjyriwhncumjsv`, que também apare
 - [x] Verificar lint, testes e build; o cenário manual reproduzível está no README.
 - [ ] Executar o cenário manual autenticado contra um Supabase configurado antes de declarar P2 concluído.
 
-## Próxima fronteira: Importação OFX/CSV com prévia, deduplicação e inbox de revisão
+## P2.8 Importação CSV com prévia e revisão — Concluída
 
-Esta fase ainda precisa de plano próprio para modelo de dados, erros de arquivo e revisão humana. Open Finance não faz parte da entrega atual.
+- [x] Importar CSV UTF-8 com cabeçalho e conta selecionada.
+- [x] Mostrar prévia sem criar lançamentos, incluindo linhas prontas, duplicadas e inválidas.
+- [x] Persistir inbox de lotes e aplicar somente após confirmação explícita.
+- [x] Revalidar duplicatas no banco e tornar confirmação idempotente, inclusive em lotes concorrentes.
+
+## Próxima fronteira: OFX
+
+OFX reutilizará a mesma prévia, inbox, deduplicação e confirmação do CSV. PDF, OCR, Open Finance e categorização automática continuam fora do escopo.
 
 ## P3. Preparar uma primeira liberação
 
