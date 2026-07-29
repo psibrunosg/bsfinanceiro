@@ -130,6 +130,11 @@ describe("QuickTransactionForm", () => {
       accountError.id,
     );
     expect(mocks.insert).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("link", { name: "defina a conta principal" }).getAttribute(
+        "href",
+      ),
+    ).toBe("#definir-conta-principal");
   });
 
   it.each([

@@ -25,10 +25,17 @@ export type SpendingPower = {
   reservedExpenseCents: number;
 };
 
-function addIsoDays(date: string, days: number): string {
+export function addIsoDays(date: string, days: number): string {
   const parsed = new Date(`${date}T00:00:00.000Z`);
   parsed.setUTCDate(parsed.getUTCDate() + days);
   return parsed.toISOString().slice(0, 10);
+}
+
+export function decisionWindowCutoff(
+  today: string,
+  nextIncomeDate: string | null,
+): string {
+  return nextIncomeDate ?? addIsoDays(today, 30);
 }
 
 function isWithinDecisionWindow(date: string, today: string, cutoff: string): boolean {
@@ -44,7 +51,7 @@ export function buildSpendingPower(input: SpendingPowerInput): SpendingPower {
     .filter((row) => row.type === "income" && row.status === "planned" && row.competence_date >= input.today)
     .map((row) => row.competence_date)
     .sort()[0] ?? null;
-  const cutoff = nextIncomeDate ?? addIsoDays(input.today, 30);
+  const cutoff = decisionWindowCutoff(input.today, nextIncomeDate);
 
   const reservedExpenseCents = input.plannedTransactions
     .filter(

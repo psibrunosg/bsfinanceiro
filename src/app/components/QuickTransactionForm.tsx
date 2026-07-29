@@ -141,6 +141,12 @@ export function QuickTransactionForm({
         </div>
         {selectedDate === today ? <span>Pago hoje</span> : null}
       </div>
+      {!defaultCashAccountId ? (
+        <p className="quick-default-account-help">
+          Escolha uma conta neste registro ou{" "}
+          <a href="#definir-conta-principal">defina a conta principal</a>.
+        </p>
+      ) : null}
 
       <form className="quick-transaction-form" onSubmit={submit}>
         <fieldset className="quick-transaction-type">
