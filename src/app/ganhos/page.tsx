@@ -16,7 +16,7 @@ export default function GanhosPage() {
   const [openDialog, setOpenDialog] = useState(false);
 
   if (loading || !workspace) {
-    return <main className="management-page"><p className="muted">Carregando</p</main>;
+    return <main className="management-page"><p className="muted">Carregando...</p></main>;
   }
 
   const income = transactions.filter((t) => t.type === "income");
@@ -71,7 +71,7 @@ export default function GanhosPage() {
             <ul className="list">
               {income.map((t) => (
                 <li key={t.id}>
-                  <span>{t.description</span>
+                  <span>{t.description}</span>
                   <strong>{money(t.amount)}</strong>
                </li>
               ))}

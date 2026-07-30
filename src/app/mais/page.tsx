@@ -10,7 +10,7 @@ export default function MaisPage() {
   const { workspace, loading } = useFinance("dashboard");
 
   if (loading || !workspace) {
-    return <main className="management-page"><p className="muted">Carregando</p</main>;
+    return <main className="management-page"><p className="muted">Carregando...</p></main>;
   }
 
   const moreLinks = [
@@ -35,8 +35,8 @@ export default function MaisPage() {
           <li key={href}>
             <Link href={href} className="list-card">
               <Icon aria-hidden="true" />
-              <strong>{label</strong>
-              <small className="muted">{description</small>
+              <strong>{label}</strong>
+              <small className="muted">{description}</small>
           </Link>
         </li>
         ))}
@@ -44,3 +44,4 @@ export default function MaisPage() {
   </main>
   );
 }
+

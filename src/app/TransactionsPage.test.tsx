@@ -192,7 +192,7 @@ describe("TransactionsPage", () => {
     navigationMocks.pathname = "/categorias";
     render(<TransactionsPage />);
 
-    expect(screen.getByRole("link", { name: "Mais" }).getAttribute("href")).toBe(
+    expect(screen.getAllByRole("link", { name: "Mais" })[0].getAttribute("href")).toBe(
       "/configuracoes",
     );
     expect(

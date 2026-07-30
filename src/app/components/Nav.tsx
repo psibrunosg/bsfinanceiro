@@ -15,7 +15,8 @@ const desktopLinks = [
   { href: "/cartoes", label: "Cartões", icon: CreditCard },
   { href: "/investimentos", label: "Investimentos", icon: WalletCards },
   { href: "/planejamento", label: "Planejamento", icon: Target },
-  { href: "/mais", label: "Mais", icon: Menu },
+  { href: "/categorias", label: "Categorias", icon: ReceiptText },
+  { href: "/configuracoes", label: "Mais", icon: Menu },
 ];
 
 export function Nav() {
@@ -71,7 +72,7 @@ export function Nav() {
       <Link href="/ganhos" className={pathname === "/ganhos" ? "active" : ""}><TrendingUp aria-hidden="true" /><span>Ganhos</span></Link>
       <Link href="/movimentacoes" className="mobile-add" aria-label="Adicionar movimentação"><CirclePlus aria-hidden="true" /></Link>
       <Link href="/gastos" className={pathname === "/gastos" ? "active" : ""}><ReceiptText aria-hidden="true" /><span>Gastos</span></Link>
-      <Link href="/mais"><Menu aria-hidden="true" /><span>Mais</span></Link>
+      <Link href="/configuracoes"><Menu aria-hidden="true" /><span>Mais</span></Link>
     </nav>
   </>;
 }

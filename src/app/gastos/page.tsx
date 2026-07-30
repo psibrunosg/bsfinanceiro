@@ -16,7 +16,7 @@ export default function GastosPage() {
   const [openDialog, setOpenDialog] = useState(false);
 
   if (loading || !workspace) {
-    return <main className="management-page"><p className="muted">Carregando</p</main>;
+    return <main className="management-page"><p className="muted">Carregando...</p></main>;
   }
 
   const expenses = transactions.filter((t) => t.type === "expense");
@@ -38,7 +38,7 @@ export default function GastosPage() {
         <button type="button" aria-pressed={tab === "overview"} onClick={() => setTab("overview")} className={tab === "overview" ? "active" : ""}>Visao geral</button>
         <button type="button" aria-pressed={tab === "launches"} onClick={() => setTab("launches")} className={tab === "launches" ? "active" : ""}>Lancamentos</button>
         <button type="button" aria-pressed={tab === "recurrent"} onClick={() => setTab("recurrent")} className={tab === "recurrent" ? "active" : ""}>Recorrentes</button>
-    </nav>
+      </nav>
 
       {tab === "overview" && (
         <section className="hub-overview">
@@ -46,8 +46,8 @@ export default function GastosPage() {
             <ReceiptText aria-hidden="true" />
             <strong>{money(totalExpenses)}</strong>
             <span className="muted">Total gasto</span>
-        </article>
-      </section>
+          </article>
+        </section>
       )}
 
       {tab === "launches" && (
@@ -58,24 +58,24 @@ export default function GastosPage() {
             <ul className="list">
               {expenses.map((t) => (
                 <li key={t.id}>
-                  <span>{t.description</span>
+                  <span>{t.description}</span>
                   <strong>{money(t.amount)}</strong>
-              </li>
+                </li>
               ))}
-          </ul>
+            </ul>
           )}
-      </section>
+        </section>
       )}
 
       {tab === "recurrent" && (
         <section>
           <p className="muted">Compromissos fixos e gastos recorrentes aparecerao aqui</p>
-      </section>
+        </section>
       )}
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title="Registrar gasto">
         <p className="muted">Formulario completo de gasto sera exibido aqui</p>
-    </Dialog>
-  </main>
+      </Dialog>
+    </main>
   );
 }
