@@ -49,6 +49,7 @@ export type Transaction = {
   description: string;
   amount: number;
   competence_date: string;
+  category_id?: string | null;
 };
 export type StatementImport = {
   id: string;

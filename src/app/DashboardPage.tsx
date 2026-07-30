@@ -1,147 +1,56 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { ChevronDown, CircleAlert, Target, WalletCards } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
-import { List } from "./components/List";
-import { money } from "./components/Money";
-import { BrandLogo } from "./brand-logo";
-import { TodayPanel } from "./components/TodayPanel";
-import { SpendingPowerCard } from "./components/SpendingPowerCard";
+import { money, monthStart } from "./components/Money";
+import { DashboardChart } from "./components/DashboardChart";
 import { QuickTransactionForm } from "./components/QuickTransactionForm";
-import { DefaultCashAccountForm } from "./components/DefaultCashAccountForm";
-import { buildTodayDashboard } from "../lib/finance/today-adapter";
-import { todayInSaoPaulo } from "../lib/finance/local-date";
-import { todayActions } from "../lib/finance/today-actions";
-import { appPath } from "../lib/app-path";
+
+const monthName = new Intl.DateTimeFormat("pt-BR", { month: "short" });
 
 export function DashboardPage() {
+  const { ownerId, workspace, accounts, cards, transactions, categories, budgets = [], goals, monthSpent = {}, commitments = [], occurrences = [], invoices = [], defaultCashAccountId, loading, reload } = useFinance("dashboard");
   const [quickTransactionStatus, setQuickTransactionStatus] = useState("");
-  const {
-    ownerId,
-    workspace,
-    accounts,
-    categories,
-    cards,
-    transactions,
-    todayTransactions,
-    alertPrefs,
-    goals,
-    cashPosition,
-    spendingPower,
-    defaultCashAccountId,
-    loading,
-    reload,
-  } = useFinance("dashboard");
+  const metrics = useMemo(() => {
+    const currentMonth = monthStart();
+    const expenses = transactions.filter((t) => t.type === "expense");
+    const income = transactions.filter((t) => t.type === "income");
+    const monthIncome = income.filter((t) => t.competence_date >= currentMonth).reduce((sum, t) => sum + Number(t.amount), 0);
+    const monthExpense = expenses.filter((t) => t.competence_date >= currentMonth).reduce((sum, t) => sum + Number(t.amount), 0);
+    const balance = accounts.reduce((sum, item) => sum + Number(item.initial_balance), 0) + income.reduce((sum, t) => sum + Number(t.amount), 0) - expenses.reduce((sum, t) => sum + Number(t.amount), 0);
+    const months = Array.from({ length: 6 }, (_, index) => { const date = new Date(); date.setMonth(date.getMonth() - (5 - index)); return date; });
+    const evolution = months.map((month) => transactions.filter((t) => t.competence_date <= `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-31`).reduce((sum, t) => sum + (t.type === "income" ? Number(t.amount) : t.type === "expense" ? -Number(t.amount) : 0), accounts.reduce((sum, item) => sum + Number(item.initial_balance), 0)));
+    const expensesByCategory = categories.filter((category) => category.kind === "expense").map((category) => ({ label: category.name, value: expenses.filter((t) => t.competence_date >= currentMonth && t.category_id === category.id).reduce((sum, t) => sum + Number(t.amount), 0) })).filter((item) => item.value > 0).sort((a, b) => b.value - a.value).slice(0, 5);
+    return { balance, monthIncome, monthExpense, months: months.map(monthName.format), evolution, expensesByCategory };
+  }, [accounts, categories, transactions]);
 
-  if (loading || !workspace || !ownerId)
-    return (
-      <main className="management-page">
-        <p className="muted">Carregando...</p>
-      </main>
-    );
-
-  const totalCards = cards.reduce(
-    (sum, c) => sum + Number(c.credit_limit),
-    0
-  );
-  const today = buildTodayDashboard(
-    cashPosition.balanceCents,
-    todayTransactions,
-    alertPrefs,
-    todayInSaoPaulo(),
-  );
-  const actions = todayActions(goals).map((action) => ({ ...action, href: appPath(action.href) }));
+  if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
 
   async function reloadAfterQuickTransaction() {
     setQuickTransactionStatus("Movimentação registrada.");
     await reload();
   }
 
-  return (
-    <main className="dashboard-shell">
-      <section className="hero-card">
-        <div className="hero-brand">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            className="brand-logo"
-            src="https://raw.githubusercontent.com/psibrunosg/bsfinanceiro/refs/heads/main/public/logo-bsfinanceiro.png"
-            alt="BS Financeiro"
-            width={52}
-            height={52}
-          />
-          <div>
-            <p className="eyebrow">BS Financeiro</p>
-            <h1>Seu painel financeiro</h1>
-          </div>
-        </div>
-        <Nav />
-      </section>
-      <section className="summary-grid">
-        <article>
-          <span>Saldo atual</span>
-          <strong>{money(cashPosition.balanceCents / 100)}</strong>
-        </article>
-        <article>
-          <span>Cartões</span>
-          <strong>{cards.length}</strong>
-        </article>
-        <article>
-          <span>Limite total</span>
-          <strong>{money(totalCards)}</strong>
-        </article>
-      </section>
-      <SpendingPowerCard spendingPower={spendingPower} />
-      {quickTransactionStatus ? (
-        <p className="form-success" role="status">
-          {quickTransactionStatus}
-        </p>
-      ) : null}
-      <DefaultCashAccountForm
-        workspaceId={workspace.id}
-        ownerId={ownerId}
-        defaultCashAccountId={defaultCashAccountId}
-        accounts={accounts}
-        onSaved={reload}
-      />
-      <QuickTransactionForm
-        workspaceId={workspace.id}
-        ownerId={ownerId}
-        defaultCashAccountId={defaultCashAccountId}
-        accounts={accounts}
-        categories={categories}
-        onSubmitStart={() => setQuickTransactionStatus("")}
-        onSaved={reloadAfterQuickTransaction}
-      />
-      <TodayPanel today={today} actions={actions} />
-      <section className="management-grid">
-        <List title="Cartões">
-          {cards.map((c) => (
-            <article className="account-row" key={c.id}>
-              <span className="brand-badge">
-                <BrandLogo brand={c.brand} />
-              </span>
-              <div>
-                <strong>{c.name}</strong>
-                <small>Vence dia {c.due_day}</small>
-              </div>
-              <b>{money(c.credit_limit)}</b>
-            </article>
-          ))}
-        </List>
-        <List title="Movimentações recentes">
-          {transactions.slice(0, 8).map((t) => (
-            <article className="account-row" key={t.id}>
-              <span>{t.type === "income" ? "↑" : "↓"}</span>
-              <div>
-                <strong>{t.description}</strong>
-                <small>{t.competence_date}</small>
-              </div>
-              <b>{money(t.amount)}</b>
-            </article>
-          ))}
-        </List>
-      </section>
-    </main>
-  );
+  const alerts = [
+    ...occurrences.filter((item) => item.status !== "paid").slice(0, 2).map((item) => ({ href: "/compromissos", title: item.description, text: `Vence em ${new Date(`${item.due_date}T12:00:00`).toLocaleDateString("pt-BR")}` })),
+    ...invoices.slice(0, 1).map((item) => ({ href: "/cartoes", title: "Fatura de cartão", text: `Vence em ${new Date(`${item.due_date}T12:00:00`).toLocaleDateString("pt-BR")}` })),
+    ...budgets.filter((budget) => (monthSpent[budget.category_id] || 0) >= Number(budget.amount) * .8).slice(0, 1).map(() => ({ href: "/planejamento", title: "Orçamento perto do limite", text: "Revise seus gastos deste mês" })),
+  ].slice(0, 3);
+  const invoicesTotal = invoices.reduce((sum, invoice) => sum + (invoice.credit_card_installments || []).reduce((inner, installment) => inner + Number(installment.amount), 0), 0);
+
+  return <main className="dashboard-shell">
+    <Nav />
+    <section className="dashboard-hero"><div><p className="eyebrow">{workspace.name}</p><h1>Visão financeira completa</h1><p className="muted">Decisões melhores, sem planilhas complicadas.</p></div><WalletCards aria-hidden="true" size={42} /></section>
+    {quickTransactionStatus ? <p className="form-success" role="status">{quickTransactionStatus}</p> : null}
+    {ownerId ? <QuickTransactionForm workspaceId={workspace.id} ownerId={ownerId} defaultCashAccountId={defaultCashAccountId} accounts={accounts} categories={categories} onSubmitStart={() => setQuickTransactionStatus("")} onSaved={reloadAfterQuickTransaction} /> : null}
+    <details className="dashboard-section" open><summary><div><p className="eyebrow">SAÚDE DO MÊS</p><strong>{money(metrics.balance)} disponível</strong></div><ChevronDown aria-hidden="true" /></summary><div className="dashboard-section__body">
+      <div className="metric-grid"><article className="metric positive"><span>Entradas</span><strong>{money(metrics.monthIncome)}</strong></article><article className="metric"><span>Saídas</span><strong>{money(metrics.monthExpense)}</strong></article><article className="metric"><span>Saldo do mês</span><strong>{money(metrics.monthIncome - metrics.monthExpense)}</strong></article></div>
+      <div className="dashboard-columns"><article className="dashboard-card"><h3>Gastos por categoria</h3><div className="chart-wrap">{metrics.expensesByCategory.length ? <DashboardChart type="doughnut" label="Gastos" labels={metrics.expensesByCategory.map((item) => item.label)} values={metrics.expensesByCategory.map((item) => item.value)} color="var(--accent)" /> : <p className="dashboard-empty">Registre despesas para ver categorias.</p>}</div></article><article className="dashboard-card"><h3><CircleAlert aria-hidden="true" /> Atenção agora</h3><div className="insight-list">{alerts.length ? alerts.map((alert) => <Link className="insight-link" href={alert.href} key={`${alert.href}-${alert.title}`}><span>{alert.title}<small>{alert.text}</small></span><ChevronDown aria-hidden="true" /></Link>) : <p className="dashboard-empty">Nenhuma pendência urgente.</p>}</div></article></div>
+    </div></details>
+    <details className="dashboard-section"><summary><div><p className="eyebrow">PATRIMÔNIO</p><strong>{accounts.length} contas e {cards.length} cartões</strong></div><ChevronDown aria-hidden="true" /></summary><div className="dashboard-section__body"><div className="metric-grid"><article className="metric"><span>Saldo real</span><strong>{money(metrics.balance)}</strong></article><article className="metric"><span>Limite de cartões</span><strong>{money(cards.reduce((sum, card) => sum + Number(card.credit_limit), 0))}</strong></article><article className="metric"><span>Faturas abertas</span><strong>{money(invoicesTotal)}</strong></article></div><article className="dashboard-card"><h3>Evolução do saldo</h3><div className="chart-wrap"><DashboardChart type="line" label="Saldo" labels={metrics.months} values={metrics.evolution} color="#087f5b" /></div><p className="chart-summary">Evolução calculada com contas e lançamentos registrados.</p></article></div></details>
+    <details className="dashboard-section"><summary><div><p className="eyebrow">PLANEJAMENTO</p><strong>{goals.length} metas e {commitments.length} compromissos</strong></div><ChevronDown aria-hidden="true" /></summary><div className="dashboard-section__body"><div className="dashboard-columns"><article className="dashboard-card"><h3>Metas financeiras</h3><div className="insight-list">{goals.length ? goals.slice(0, 4).map((goal) => <Link href="/planejamento" className="insight-link" key={goal.id}><span>{goal.name}<small>{money(goal.current_amount)} de {money(goal.target_amount)}</small></span><Target aria-hidden="true" /></Link>) : <p className="dashboard-empty">Crie uma meta para acompanhar seu progresso.</p>}</div></article><article className="dashboard-card"><h3>Compromissos do mês</h3><div className="insight-list">{commitments.length ? commitments.slice(0, 4).map((item) => <Link href="/compromissos" className="insight-link" key={item.id}><span>{item.description}<small>Dia {item.due_day}</small></span><strong>{money(item.amount)}</strong></Link>) : <p className="dashboard-empty">Cadastre despesas recorrentes para planejar melhor.</p>}</div></article></div></div></details>
+  </main>;
 }

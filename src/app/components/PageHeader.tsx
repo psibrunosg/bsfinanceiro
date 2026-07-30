@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { LOGO_URL } from "@/lib/app-path";
 
 export function PageHeader({
@@ -12,9 +13,7 @@ export function PageHeader({
 }) {
   return (
     <header className="management-header">
-      <Link href="/" aria-label="Voltar">
-        ←
-      </Link>
+      <Link href="/" aria-label="Voltar"><ArrowLeft aria-hidden="true" /></Link>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         className="brand-logo"

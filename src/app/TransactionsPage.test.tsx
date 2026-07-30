@@ -192,15 +192,14 @@ describe("TransactionsPage", () => {
     navigationMocks.pathname = "/categorias";
     render(<TransactionsPage />);
 
-    const moreNavigation = screen.getByText("Mais").closest("details");
-    expect(moreNavigation).toBeTruthy();
-    expect(moreNavigation?.open).toBe(true);
-    expect(screen.getByText("Mais").classList.contains("active")).toBe(true);
+    expect(screen.getByRole("link", { name: "Mais" }).getAttribute("href")).toBe(
+      "/configuracoes",
+    );
     expect(
       screen.getByRole("link", { name: "Categorias" }).getAttribute("aria-current"),
     ).toBe("page");
-    expect(moreNavigation?.querySelector('a[href="/contas"]')).toBeTruthy();
-    expect(moreNavigation?.querySelector('a[href="/cartoes"]')).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Contas" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Cartões" })).toBeTruthy();
     expect(
       screen.getByText("Mais detalhes para registrar").closest("details"),
     ).toBeTruthy();
