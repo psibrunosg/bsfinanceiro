@@ -11,6 +11,7 @@ import "./projection.css";
 import "./planning.css";
 import "./settings.css";
 import "./dashboard-extra.css";
+import { ThemeProvider } from "./components/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "BS Financeiro",
@@ -24,5 +25,5 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#173b35" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR"><body>{children}</body></html>;
+  return <html lang="pt-BR" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: "document.documentElement.dataset.theme=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'" }} /></head><body><ThemeProvider>{children}</ThemeProvider></body></html>;
 }

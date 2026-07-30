@@ -64,6 +64,7 @@ vi.mock("./components/useFinance", () => ({
 }));
 
 vi.mock("./components/Nav", () => ({ Nav: () => null }));
+vi.mock("./components/DashboardChart", () => ({ DashboardChart: () => null }));
 vi.mock("./components/List", () => ({ List: () => null }));
 vi.mock("./brand-logo", () => ({ BrandLogo: () => null }));
 vi.mock("./components/TodayPanel", () => ({ TodayPanel: () => null }));

@@ -8,6 +8,7 @@ import { SimpleForm } from "./components/SimpleForm";
 import { money, parseMoney, dateFmt } from "./components/Money";
 import { createClient } from "@/lib/supabase/client";
 import { useMemo, useState } from "react";
+import { CalendarDays, Check, Pin } from "lucide-react";
 
 export function CommitmentsPage() {
   const {
@@ -96,7 +97,7 @@ export function CommitmentsPage() {
             const cat = categories.find((x) => x.id === c.category_id);
             return (
               <article className="account-row" key={c.id}>
-                <span>📌</span>
+                <span><Pin aria-hidden="true" /></span>
                 <div>
                   <strong>{c.description}</strong>
                   <small>
@@ -163,7 +164,7 @@ export function CommitmentsPage() {
           const payable = o.status === "planned";
           return (
             <article className="account-row" key={o.id}>
-              <span>{paid ? "✅" : "🗓️"}</span>
+              <span>{paid ? <Check aria-hidden="true" /> : <CalendarDays aria-hidden="true" />}</span>
               <div>
                 <strong>{o.description}</strong>
                 <small>
