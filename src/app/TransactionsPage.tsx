@@ -7,6 +7,7 @@ import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
 import { List } from "./components/List";
 import { SimpleForm } from "./components/SimpleForm";
+import { Dialog } from "./components/Dialog";
 import { StatementImportPanel } from "./components/StatementImportPanel";
 import { money, parseMoney } from "./components/Money";
 import { createClient } from "@/lib/supabase/client";
@@ -21,6 +22,7 @@ function TransactionsPageInner() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [page, setPage] = useState(0);
+  const [openDialog, setOpenDialog] = useState(false);
   const {
     workspace,
     ownerId,
@@ -60,7 +62,12 @@ function TransactionsPageInner() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return <main className="management-page">
-    <PageHeader title="Movimentações" subtitle="Registre entradas, saídas e transferências." workspaceName={workspace.name} />
+    <PageHeader 
+      title="Movimentações" 
+      subtitle="Registre entradas, saídas e transferências." 
+      workspaceName={workspace.name} 
+      action={{ label: "Nova movimentação", onClick: () => setOpenDialog(true) }} 
+    />
     <Nav />
     {message && <p className={messageIsError ? "form-error" : "form-success"} role={messageIsError ? "alert" : "status"}>{message}</p>}
     <StatementImportPanel
@@ -71,7 +78,7 @@ function TransactionsPageInner() {
       onReload={reload}
       onMessage={setMessage}
     />
-    <section className="management-grid">
+    <section className="management-grid" style={{ gridTemplateColumns: '1fr' }}>
       <List title="Histórico">
         <form className="transaction-filters" onSubmit={(event) => event.preventDefault()}>
           <div className="transaction-filter transaction-filter-query">
@@ -167,11 +174,13 @@ function TransactionsPageInner() {
           </nav>
         ) : null}
       </List>
-      <aside className="form-card">
-        <h2>Nova movimentação</h2>
-        <details className="transaction-entry-details">
-          <summary>Mais detalhes para registrar</summary>
-          <SimpleForm onSubmit={submitTransaction}>
+      
+      {openDialog && (
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title="Nova movimentação">
+          <SimpleForm onSubmit={async (form) => {
+            await submitTransaction(form);
+            if (!messageIsError) setOpenDialog(false);
+          }}>
             <label htmlFor="transaction-type">Tipo de movimentação</label>
             <select id="transaction-type" name="type" defaultValue={presetType}><option value="expense">Despesa</option><option value="income">Receita</option><option value="transfer">Transferência</option></select>
             <label htmlFor="transaction-amount">Valor</label>
@@ -188,8 +197,8 @@ function TransactionsPageInner() {
             <input id="transaction-date" name="competence_date" type="date" defaultValue={todayInSaoPaulo()} required />
             <button>Salvar</button>
           </SimpleForm>
-        </details>
-      </aside>
+        </Dialog>
+      )}
     </section>
   </main>;
 }

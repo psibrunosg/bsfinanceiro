@@ -1,4 +1,4 @@
-﻿-- Migration: accounts.is_system flag for technical credit card accounts
+-- Migration: accounts.is_system flag for technical credit card accounts
 alter table public.accounts
   add column is_system boolean not null default false;
 

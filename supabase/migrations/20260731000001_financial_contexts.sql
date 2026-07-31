@@ -1,4 +1,4 @@
-﻿-- Migration: financial_contexts for Pessoal and Clinica
+-- Migration: financial_contexts for Pessoal and Clinica
 create type public.financial_context as enum ('pessoal','clinica');
 
 create table public.financial_contexts (

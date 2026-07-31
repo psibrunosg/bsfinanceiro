@@ -11,6 +11,10 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardPage } from "./DashboardPage";
 
+vi.mock("./components/Dialog", () => ({
+  Dialog: ({ children, open }: any) => open ? <div data-testid="dialog">{children}</div> : null
+}));
+
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   insert: vi.fn(),
@@ -89,7 +93,13 @@ afterEach(() => {
 describe("DashboardPage quick transaction integration", () => {
   it("keeps success after reload, then clears it before an invalid retry", async () => {
     render(<DashboardPage />);
-    fireEvent.change(screen.getByLabelText("Valor"), {
+    
+    fireEvent.click(screen.getByRole("button", { name: "+ Nova movimentação" }));
+    
+    // Wait for the Dialog to mount (since it's lazy loaded via import)
+    const valorInput = await screen.findByLabelText("Valor");
+
+    fireEvent.change(valorInput, {
       target: { value: "12,50" },
     });
     fireEvent.change(screen.getByLabelText("Descrição"), {
@@ -107,7 +117,10 @@ describe("DashboardPage quick transaction integration", () => {
     expect((await screen.findByRole("status")).textContent).toContain(
       "Movimentação registrada",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+    
+    fireEvent.click(screen.getByRole("button", { name: "+ Nova movimentação" }));
+    const retryButton = await screen.findByRole("button", { name: "Registrar" });
+    fireEvent.click(retryButton);
 
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Informe um valor maior que zero",

@@ -39,7 +39,7 @@ begin
 
   if v_workspace_id is null then
     insert into public.workspaces(owner_id, name, kind)
-    values (v_user_id, 'Minhas finanças', 'personal')
+    values (v_user_id, 'Minhas finanÃ§as', 'personal')
     returning id into v_workspace_id;
   end if;
 
@@ -51,13 +51,13 @@ begin
 
   insert into public.categories(workspace_id, owner_id, name, kind, color)
   values
-    (v_workspace_id, v_user_id, 'Salário', 'income', '#087f5b'),
+    (v_workspace_id, v_user_id, 'SalÃ¡rio', 'income', '#087f5b'),
     (v_workspace_id, v_user_id, 'Atendimentos', 'income', '#0f766e'),
     (v_workspace_id, v_user_id, 'Outras receitas', 'income', '#2563eb'),
     (v_workspace_id, v_user_id, 'Moradia', 'expense', '#c2410c'),
-    (v_workspace_id, v_user_id, 'Alimentação', 'expense', '#b45309'),
+    (v_workspace_id, v_user_id, 'AlimentaÃ§Ã£o', 'expense', '#b45309'),
     (v_workspace_id, v_user_id, 'Transporte', 'expense', '#7c3aed'),
-    (v_workspace_id, v_user_id, 'Saúde', 'expense', '#be123c'),
+    (v_workspace_id, v_user_id, 'SaÃºde', 'expense', '#be123c'),
     (v_workspace_id, v_user_id, 'Lazer', 'expense', '#0369a1'),
     (v_workspace_id, v_user_id, 'Contas', 'expense', '#475569'),
     (v_workspace_id, v_user_id, 'Outras despesas', 'expense', '#64748b')
@@ -75,7 +75,7 @@ begin
 
   select id into v_income_category_id
   from public.categories
-  where workspace_id = v_workspace_id and owner_id = v_user_id and name = 'Salário' and kind = 'income'
+  where workspace_id = v_workspace_id and owner_id = v_user_id and name = 'SalÃ¡rio' and kind = 'income'
   limit 1;
   if not exists (
     select 1 from public.transactions
