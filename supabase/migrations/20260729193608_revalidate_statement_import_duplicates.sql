@@ -9,7 +9,7 @@ set search_path = ''
 as $$
   select translate(
     regexp_replace(lower(btrim(p_description)), '\s+', ' ', 'g'),
-    'áàâãäåéèêëíìîïóòôõöúùûüçñ',
+    'Ã¡Ã Ã¢Ã£Ã¤Ã¥Ã©Ã¨ÃªÃ«Ã­Ã¬Ã®Ã¯Ã³Ã²Ã´ÃµÃ¶ÃºÃ¹Ã»Ã¼Ã§Ã±',
     'aaaaaaeeeeiiiiooooouuuucn'
   );
 $$;

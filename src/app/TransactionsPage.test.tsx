@@ -4,6 +4,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TransactionsPage } from "./TransactionsPage";
 
+vi.mock("./components/Dialog", () => ({
+  Dialog: ({ children, open }: any) => open ? <div data-testid="dialog">{children}</div> : null
+}));
+
 const navigationMocks = vi.hoisted(() => ({
   pathname: "/movimentacoes",
   useFinance: vi.fn(),
@@ -188,7 +192,7 @@ describe("TransactionsPage", () => {
     expect(screen.getByText("Página 2 de 2")).toBeTruthy();
   });
 
-  it("keeps secondary destinations and the full transfer form discoverable", () => {
+  it("keeps secondary destinations and the full transfer form discoverable", async () => {
     navigationMocks.pathname = "/categorias";
     render(<TransactionsPage />);
 
@@ -200,10 +204,11 @@ describe("TransactionsPage", () => {
     ).toBe("page");
     expect(screen.getByRole("link", { name: "Contas" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Cartões" })).toBeTruthy();
-    expect(
-      screen.getByText("Mais detalhes para registrar").closest("details"),
-    ).toBeTruthy();
-    const entryType = screen.getByLabelText<HTMLSelectElement>(
+
+    const newTransactionButton = screen.getByRole("button", { name: /Nova movimentação/i });
+    fireEvent.click(newTransactionButton);
+
+    const entryType = await screen.findByLabelText<HTMLSelectElement>(
       "Tipo de movimentação",
     );
     expect(

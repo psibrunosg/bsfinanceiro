@@ -1,7 +1,7 @@
-﻿-- Migration: expand workspace_preferences
+-- Migration: expand workspace_preferences
 alter table public.workspace_preferences
   add column if not exists default_context_id uuid references public.financial_contexts(id),
-  add column if not exists default_period text default 'current_month' check (default_period in (\'current_month\', \'last_month\', \'current_year\', \'all_time\')),
+  add column if not exists default_period text default 'current_month' check (default_period in ('current_month', 'last_month', 'current_year', 'all_time')),
   add column if not exists hide_values boolean not null default false,
   add column if not exists compact_mode boolean not null default false,
   add column if not exists personal_color text default '#087f5b' check (personal_color ~ '^#[0-9a-fA-F]{6}$'),

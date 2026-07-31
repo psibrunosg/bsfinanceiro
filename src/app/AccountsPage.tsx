@@ -8,13 +8,15 @@ import { SimpleForm } from "./components/SimpleForm";
 import { money, parseMoney } from "./components/Money";
 import { ACCOUNT_TYPE_LABEL } from "./components/types";
 import { createClient } from "@/lib/supabase/client";
-import { useMemo } from "react";
-import { Landmark } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Landmark, Wallet, Percent } from "lucide-react";
+import { Dialog } from "./components/Dialog";
 
 export function AccountsPage() {
-  const { workspace, accounts, loading, message, setMessage, reload } =
+  const { workspace, accounts, transactions, loading, message, setMessage, reload } =
     useFinance("accounts");
   const supabase = useMemo(() => createClient(), []);
+  const [openDialog, setOpenDialog] = useState(false);
 
   if (loading || !workspace)
     return (
@@ -22,6 +24,9 @@ export function AccountsPage() {
         <p className="muted">Carregando...</p>
       </main>
     );
+
+  const totalBalance = accounts.reduce((sum, a) => sum + Number(a.initial_balance), 0) + 
+    transactions.reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
 
   async function submitAccount(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
@@ -35,47 +40,75 @@ export function AccountsPage() {
     setMessage(
       error ? "Não foi possível adicionar a conta." : "Conta adicionada."
     );
+    if (!error) setOpenDialog(false);
     await reload();
   }
 
   return (
     <main className="management-page">
-      <PageHeader
-        title="Suas contas"
-        subtitle="Organize onde seu dinheiro está."
-        workspaceName={workspace.name}
-      />
       <Nav />
+      <PageHeader
+        title="Contas"
+        subtitle="Saldos, evolução e distribuição do patrimônio."
+        workspaceName={workspace.name}
+        action={{
+          label: "Adicionar conta",
+          onClick: () => setOpenDialog(true),
+        }}
+      />
       {message && <p className="form-success">{message}</p>}
-      <section className="management-grid">
-        <List title="Contas ativas">
-          {accounts.map((a) => (
-            <article className="account-row" key={a.id}>
-              <span><Landmark aria-hidden="true" /></span>
-              <div>
-                <strong>{a.name}</strong>
-                <small>{ACCOUNT_TYPE_LABEL[a.type] ?? a.type}</small>
-              </div>
-              <b>{money(a.initial_balance)}</b>
-            </article>
-          ))}
-        </List>
-        <aside className="form-card">
-          <h2>Adicionar conta</h2>
-          <SimpleForm onSubmit={submitAccount}>
-            <input name="name" placeholder="Nome da conta" required />
-            <select name="type" defaultValue="checking">
-              <option value="checking">Conta bancária</option>
-              <option value="cash">Dinheiro</option>
-              <option value="savings">Poupança</option>
-              <option value="credit_card">Cartão</option>
-              <option value="investment">Investimento</option>
-            </select>
-            <input name="initial_balance" defaultValue="0,00" required />
-            <button>Adicionar</button>
-          </SimpleForm>
-        </aside>
+      
+      <section className="hub-overview">
+        <article className="metric-card metric-card--positive">
+          <Wallet aria-hidden="true" />
+          <strong>{money(totalBalance)}</strong>
+          <span className="muted">Saldo total consolidado</span>
+        </article>
       </section>
+
+      <section className="management-grid" style={{ gridTemplateColumns: '1fr' }}>
+        <List title="Contas ativas">
+          {accounts.map((a) => {
+            const accountTx = transactions.filter(t => t.account_id === a.id);
+            const accountBalance = Number(a.initial_balance) + 
+              accountTx.reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
+            const participation = totalBalance > 0 ? (accountBalance / totalBalance) * 100 : 0;
+
+            return (
+              <article className="account-row" key={a.id}>
+                <span><Landmark aria-hidden="true" /></span>
+                <div>
+                  <strong>{a.name}</strong>
+                  <small>{ACCOUNT_TYPE_LABEL[a.type] ?? a.type}</small>
+                </div>
+                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                  <b>{money(accountBalance)}</b>
+                  <small style={{ display: 'flex', alignItems: 'center', gap: '4px' }} className="muted">
+                    <Percent aria-hidden="true" size={14} /> {participation.toFixed(1)}% do total
+                  </small>
+                </div>
+              </article>
+            );
+          })}
+          {accounts.length === 0 && (
+            <p className="dashboard-empty" style={{ margin: "2rem 0" }}>Nenhuma conta encontrada.</p>
+          )}
+        </List>
+      </section>
+
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title="Adicionar conta">
+        <SimpleForm onSubmit={submitAccount}>
+          <input name="name" placeholder="Nome da conta" required />
+          <select name="type" defaultValue="checking">
+            <option value="checking">Conta bancária</option>
+            <option value="cash">Dinheiro</option>
+            <option value="savings">Poupança</option>
+            <option value="investment">Investimento</option>
+          </select>
+          <input name="initial_balance" defaultValue="0,00" required />
+          <button>Adicionar conta</button>
+        </SimpleForm>
+      </Dialog>
     </main>
   );
 }

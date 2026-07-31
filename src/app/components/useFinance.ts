@@ -164,6 +164,7 @@ export function useFinance(
         .select("id,name,type,initial_balance")
         .eq("workspace_id", ws.id)
         .eq("active", true)
+        .eq("is_system", false)
         .order("created_at"),
       supabase
         .from("categories")

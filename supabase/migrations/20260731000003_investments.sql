@@ -1,11 +1,15 @@
-﻿-- Migration: investment_assets, investment_operations, investment_quotes
+-- Migration: investment_assets, investment_operations, investment_quotes
+drop table if exists public.investment_quotes cascade;
+drop table if exists public.investment_operations cascade;
+drop table if exists public.investment_assets cascade;
+
 create table public.investment_assets (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null,
   owner_id uuid not null references auth.users(id) on delete cascade,
   context_id uuid not null,
   name text not null check (char_length(name) between 1 and 120),
-  type text not null check (type in (\'stock\', \'reit\', \'fund\', \'fixed_income\', \'real_estate\')),
+  type text not null check (type in ('stock', 'reit', 'fund', 'fixed_income', 'real_estate')),
   exchange text,
   active boolean not null default true,
   created_at timestamptz not null default now(),
@@ -35,7 +39,7 @@ create table public.investment_operations (
   owner_id uuid not null references auth.users(id) on delete cascade,
   context_id uuid not null,
   asset_id uuid not null,
-  operation_type text not null check (operation_type in (\'buy\', \'sell\')),
+  operation_type text not null check (operation_type in ('buy', 'sell')),
   quantity numeric(20,8) not null check (quantity > 0),
   unit_price numeric(14,2) not null check (unit_price > 0),
   operation_date date not null,
@@ -74,7 +78,7 @@ create table public.investment_quotes (
   quote_date date not null,
   unit_price numeric(14,2) not null check (unit_price > 0),
   volume numeric(20,8) not null check (volume >= 0),
-  currency char(3) not null default \'BRL\',
+  currency char(3) not null default 'BRL',
   created_at timestamptz not null default now(),
   unique (id,workspace_id,owner_id),
   unique (asset_id,quote_date),

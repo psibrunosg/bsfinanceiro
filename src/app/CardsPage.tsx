@@ -6,6 +6,7 @@ import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
 import { List } from "./components/List";
 import { SimpleForm } from "./components/SimpleForm";
+import { Dialog } from "./components/Dialog";
 import { money, parseMoney, dateFmt } from "./components/Money";
 import { BrandLogo, CARD_BRANDS } from "./brand-logo";
 import { createClient } from "@/lib/supabase/client";
@@ -29,9 +30,9 @@ function CardsPageInner() {
   const [statementImportFeedback, setStatementImportFeedback] = useState("");
   const [statementImportFailed, setStatementImportFailed] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [openDialog, setOpenDialog] = useState(false);
   const {
     workspace,
-    accounts,
     categories,
     cards,
     invoices,
@@ -58,20 +59,23 @@ function CardsPageInner() {
 
   async function submitCard(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("credit_cards").insert({
-      workspace_id: workspace.id,
-      owner_id: userData.user?.id,
-      account_id: form.get("account_id"),
-      name: form.get("name"),
-      brand: form.get("brand") || null,
-      last_four: form.get("last_four") || null,
-      credit_limit: parseMoney(form.get("credit_limit")),
-      closing_day: Number(form.get("closing_day")),
-      due_day: Number(form.get("due_day")),
+    const { error } = await supabase.rpc("create_credit_card", {
+      p_workspace_id: workspace.id,
+      p_owner_id: userData.user?.id,
+      p_name: form.get("name"),
+      p_brand: form.get("brand") || null,
+      p_last_four: form.get("last_four") || null,
+      p_credit_limit: parseMoney(form.get("credit_limit")),
+      p_closing_day: Number(form.get("closing_day")),
+      p_due_day: Number(form.get("due_day")),
     });
     setMessage(
       error ? "Não foi possível adicionar o cartão." : "Cartão adicionado."
     );
+    if (!error) {
+      setEditingCardId(null);
+      setOpenDialog(false);
+    }
     await reload();
   }
 
@@ -80,7 +84,6 @@ function CardsPageInner() {
     const { error } = await supabase
       .from("credit_cards")
       .update({
-        account_id: form.get("account_id"),
         name: form.get("name"),
         brand: form.get("brand") || null,
         last_four: form.get("last_four") || null,
@@ -91,7 +94,10 @@ function CardsPageInner() {
       .eq("id", editingCardId)
       .eq("workspace_id", workspace.id);
     setMessage(error ? "Não foi possível editar o cartão." : "Cartão atualizado.");
-    if (!error) setEditingCardId(null);
+    if (!error) {
+      setEditingCardId(null);
+      setOpenDialog(false);
+    }
     await reload();
   }
 
@@ -166,55 +172,75 @@ function CardsPageInner() {
     }
   }
 
+  const openNewCard = () => {
+    setEditingCardId(null);
+    setOpenDialog(true);
+  };
+  const openEditCard = (id: string) => {
+    setEditingCardId(id);
+    setOpenDialog(true);
+  };
+
   return (
     <main className="management-page">
+      <Nav />
       <PageHeader
         title={selectedCard ? selectedCard.name : "Cartões"}
         subtitle={selectedCard ? "Faturas e compras." : "Limites e vencimentos em um só lugar."}
         workspaceName={workspace.name}
+        action={!selectedCardId ? {
+          label: "Cadastrar cartão",
+          onClick: openNewCard,
+        } : undefined}
       />
-      <Nav />
       {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
 
       {!selectedCardId && (
-        <section className="management-grid">
+        <section className="management-grid" style={{ gridTemplateColumns: '1fr' }}>
           <List title="Cartões ativos">
-            {cards.map((c) => (
-              <article className="account-row" key={c.id}>
-                <span className="brand-badge">
-                  <BrandLogo brand={c.brand} />
-                </span>
-                <div>
-                  <strong>
-                    {c.name}
-                    {c.last_four ? ` • ${c.last_four}` : ""}
-                  </strong>
-                  <small>
-                    {c.brand || "Cartão"} · fecha {c.closing_day} · vence{" "}
-                    {c.due_day}
-                  </small>
-                </div>
-                <b>{money(c.credit_limit)}</b>
-                <button type="button" onClick={() => setEditingCardId(c.id)}>
-                  Editar
-                </button>
-              </article>
-            ))}
+            {cards.map((c) => {
+              const cardInvoices = invoices.filter(inv => inv.credit_card_id === c.id);
+              const openInvoice = cardInvoices.find(inv => inv.status !== 'paid') || cardInvoices[0];
+              const openInvoiceTotal = openInvoice?.credit_card_installments?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
+              const usedLimit = cardInvoices.reduce((sum, inv) => 
+                inv.status !== 'paid' ? sum + (inv.credit_card_installments?.reduce((s, i) => s + Number(i.amount), 0) || 0) : sum, 0
+              );
+              const limitPercentage = c.credit_limit > 0 ? Math.min(100, (usedLimit / c.credit_limit) * 100) : 0;
+
+              return (
+                <article className="account-row" key={c.id}>
+                  <span className="brand-badge">
+                    <BrandLogo brand={c.brand} />
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <strong>
+                        {c.name}
+                        {c.last_four ? ` • ${c.last_four}` : ""}
+                      </strong>
+                      <b>{money(c.credit_limit)}</b>
+                    </div>
+                    <small style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Fatura atual: <strong>{money(openInvoiceTotal)}</strong></span>
+                      <span>Disponível: {money(c.credit_limit - usedLimit)}</span>
+                    </small>
+                    <div className="progress-bar" style={{ marginTop: '8px', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${limitPercentage}%`, height: '100%', background: limitPercentage > 90 ? 'var(--danger-color)' : 'var(--primary-color)' }} />
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => openEditCard(c.id)}>
+                    Editar
+                  </button>
+                </article>
+              );
+            })}
+            {cards.length === 0 && (
+              <p className="dashboard-empty" style={{ margin: "2rem 0" }}>Nenhum cartão cadastrado.</p>
+            )}
           </List>
-          <aside className="form-card">
-            <h2>{editingCard ? "Editar cartão" : "Adicionar cartão"}</h2>
+          
+          <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title={editingCard ? "Editar cartão" : "Adicionar cartão"}>
             <SimpleForm key={editingCard?.id ?? "new"} onSubmit={editingCard ? updateCard : submitCard}>
-              <label htmlFor="card-account">Conta vinculada</label>
-              <select id="card-account" name="account_id" defaultValue={editingCard?.account_id ?? ""} required>
-                <option value="">Conta vinculada</option>
-                {accounts
-                  .filter((a) => a.type === "credit_card")
-                  .map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-              </select>
               <label htmlFor="card-name">Nome do cartão</label>
               <input id="card-name" name="name" placeholder="Nome do cartão" defaultValue={editingCard?.name} required autoFocus={focusNewCard} />
               <label htmlFor="card-brand">Bandeira</label>
@@ -252,10 +278,9 @@ function CardsPageInner() {
                 defaultValue={editingCard?.due_day}
                 required
               />
-              <button>{editingCard ? "Salvar alterações" : "Adicionar"}</button>
-              {editingCard && <button type="button" onClick={() => setEditingCardId(null)}>Cancelar</button>}
+              <button>{editingCard ? "Salvar alterações" : "Cadastrar cartão"}</button>
             </SimpleForm>
-          </aside>
+          </Dialog>
         </section>
       )}
 

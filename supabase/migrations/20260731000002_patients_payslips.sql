@@ -1,4 +1,4 @@
-﻿-- Migration: patients, patient_earnings, payslips
+-- Migration: patients, patient_earnings, payslips
 create table public.patients (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null,

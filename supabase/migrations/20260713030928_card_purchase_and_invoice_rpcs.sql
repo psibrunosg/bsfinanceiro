@@ -164,7 +164,7 @@ begin
   insert into public.transactions
     (workspace_id,owner_id,account_id,type,status,description,amount,competence_date,paid_at,notes,idempotency_key)
   values
-    (v_invoice.workspace_id,v_user_id,p_account_id,'expense','paid','Pagamento de fatura do cartão',v_amount,v_invoice.due_date,p_paid_on,
+    (v_invoice.workspace_id,v_user_id,p_account_id,'expense','paid','Pagamento de fatura do cartÃ£o',v_amount,v_invoice.due_date,p_paid_on,
      'Pagamento gerado pela fatura ' || v_invoice.id::text,p_idempotency_key)
   returning id into v_transaction_id;
 
