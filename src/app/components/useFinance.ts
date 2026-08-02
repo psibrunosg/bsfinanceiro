@@ -53,6 +53,17 @@ export type UseFinanceOptions = {
   transactionPage?: number;
 };
 
+export type FinancialContext = {
+  id: string;
+  workspace_id: string;
+  owner_id: string;
+  kind: string;
+  name: string;
+  color: string;
+  active: boolean;
+  created_at: string;
+};
+
 export type FinanceData = {
   ownerId: string | null;
   workspace: Workspace;
@@ -70,6 +81,8 @@ export type FinanceData = {
   commitments: Commitment[];
   occurrences: Occurrence[];
   alertPrefs: AlertPreference | null;
+  workspacePrefs: WorkspacePreference | null;
+  contexts: FinancialContext[];
   statementImports: StatementImport[];
   transactionImportBatches: TransactionImportBatch[];
   defaultCashAccountId: string | null;
@@ -488,6 +501,8 @@ export function useFinance(
     commitments,
     occurrences,
     alertPrefs,
+    workspacePrefs: null,
+    contexts: [],
     statementImports,
     transactionImportBatches,
     defaultCashAccountId,

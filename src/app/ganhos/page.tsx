@@ -1,26 +1,32 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useFinance } from "../components/useFinance";
 import { Nav } from "../components/Nav";
 import { PageHeader } from "../components/PageHeader";
 import { Dialog } from "../components/Dialog";
 import { money } from "../components/Money";
+import { DashboardChart } from "../components/DashboardChart";
+import { aggregateIncomeBySource } from "@/lib/finance/aggregations";
 import { TrendingUp } from "lucide-react";
 
 type Tab = "overview" | "payslips" | "patients" | "other";
 
 export default function GanhosPage() {
-  const { workspace, transactions, loading } = useFinance("dashboard");
+  const { workspace, transactions, categories, loading } = useFinance("dashboard");
   const [tab, setTab] = useState<Tab>("overview");
   const [openDialog, setOpenDialog] = useState(false);
+
+  const incomeData = useMemo(() => {
+    const income = transactions.filter((t) => t.type === "income");
+    const totalIncome = income.reduce((sum, t) => sum + Number(t.amount), 0);
+    const bySource = aggregateIncomeBySource(transactions, categories);
+    return { income, totalIncome, bySource };
+  }, [transactions, categories]);
 
   if (loading || !workspace) {
     return <main className="management-page"><p className="muted">Carregando...</p></main>;
   }
-
-  const income = transactions.filter((t) => t.type === "income");
-  const totalIncome = income.reduce((sum, t) => sum + Number(t.amount), 0);
 
   return (
     <main className="management-page">
@@ -35,19 +41,33 @@ export default function GanhosPage() {
         }}
       />
       <nav className="hub-tabs" aria-label="Abas de ganhos">
-        <button type="button" aria-pressed={tab === "overview"} onClick={() => setTab("overview")} className={tab === "overview" ? "active" : ""}>Visao geral</button>
-        <button type="button" aria-pressed={tab === "payslips"} onClick={() => setTab("payslips")} className={tab === "payslips" ? "active" : ""}>Contracheques</button>
-        <button type="button" aria-pressed={tab === "patients"} onClick={() => setTab("patients")} className={tab === "patients" ? "active" : ""}>Pacientes</button>
-        <button type="button" aria-pressed={tab === "other"} onClick={() => setTab("other")} className={tab === "other" ? "active" : ""}>Outras receitas</button>
+        <button type="button" aria-current={tab === "overview" ? "page" : undefined} onClick={() => setTab("overview")} className={tab === "overview" ? "active" : ""}>Visao geral</button>
+        <button type="button" aria-current={tab === "payslips" ? "page" : undefined} onClick={() => setTab("payslips")} className={tab === "payslips" ? "active" : ""}>Contracheques</button>
+        <button type="button" aria-current={tab === "patients" ? "page" : undefined} onClick={() => setTab("patients")} className={tab === "patients" ? "active" : ""}>Pacientes</button>
+        <button type="button" aria-current={tab === "other" ? "page" : undefined} onClick={() => setTab("other")} className={tab === "other" ? "active" : ""}>Outras receitas</button>
      </nav>
 
       {tab === "overview" && (
         <section className="hub-overview">
           <article className="metric-card metric-card--positive">
             <TrendingUp aria-hidden="true" />
-            <strong>{money(totalIncome)}</strong>
+            <strong>{money(incomeData.totalIncome)}</strong>
             <span className="muted">Total recebido</span>
          </article>
+          {incomeData.bySource.labels.length > 0 && (
+            <article className="dashboard-card">
+              <h3>Composição dos ganhos</h3>
+              <div className="chart-wrap">
+                <DashboardChart
+                  type="bar"
+                  labels={incomeData.bySource.labels}
+                  values={incomeData.bySource.values}
+                  label="Receitas"
+                  color="var(--positive-color)"
+                />
+              </div>
+            </article>
+          )}
        </section>
       )}
 
@@ -65,11 +85,11 @@ export default function GanhosPage() {
 
       {tab === "other" && (
         <section>
-          {income.length === 0 ? (
+          {incomeData.income.length === 0 ? (
             <p className="muted">Nenhuma receita registrada ainda</p>
           ) : (
             <ul className="list">
-              {income.map((t) => (
+              {incomeData.income.map((t) => (
                 <li key={t.id}>
                   <span>{t.description}</span>
                   <strong>{money(t.amount)}</strong>
