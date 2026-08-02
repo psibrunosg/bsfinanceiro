@@ -10,6 +10,7 @@ import {
   type StatementCsvPreview,
   type StatementCsvValidItem,
 } from "@/lib/finance/statement-csv";
+import { parseOfxStatement } from "@/lib/finance/statement-ofx";
 import { money } from "./Money";
 import type { Account, TransactionImportBatch, TransactionImportItem } from "./types";
 
@@ -59,11 +60,19 @@ export function StatementImportPanel({
     setPendingAction("preparing");
     try {
       const text = csvText ?? await file.text();
-      const parsed = parseStatementCsv(text, mapping);
-      if (parsed.items.some((item) => "reason" in item && item.reason === "missing_mapping")) {
-        setCsvText(text);
-        setHeaders(parsed.headers);
-        return;
+      const isOfx = file.name.toLowerCase().endsWith(".ofx") || file.name.toLowerCase().endsWith(".qfx");
+
+      let parsed: StatementCsvPreview;
+      if (isOfx) {
+        const items = parseOfxStatement(text);
+        parsed = { headers: [], items, valid: items.length, invalid: 0 };
+      } else {
+        parsed = parseStatementCsv(text, mapping);
+        if (parsed.items.some((item) => "reason" in item && item.reason === "missing_mapping")) {
+          setCsvText(text);
+          setHeaders(parsed.headers);
+          return;
+        }
       }
       const existingTransactions = await loadExistingTransactions();
       const classified = classifyPreview(parsed, existingTransactions);
@@ -141,8 +150,8 @@ export function StatementImportPanel({
 
   return <section className="statement-import-panel" aria-labelledby="statement-import-title">
     <div>
-      <h2 id="statement-import-title">Importar extrato CSV</h2>
-      <p className="muted">Escolha uma conta de caixa e revise as linhas antes de confirmar.</p>
+      <h2 id="statement-import-title">Importar extrato</h2>
+      <p className="muted">Escolha uma conta de caixa e revise as linhas antes de confirmar. Aceita CSV e OFX.</p>
     </div>
     <form className="statement-import-form" onSubmit={preparePreview}>
       <div className="statement-import-field">
@@ -153,8 +162,8 @@ export function StatementImportPanel({
         </select>
       </div>
       <div className="statement-import-field">
-        <label htmlFor="statement-import-file">Arquivo CSV</label>
-        <input id="statement-import-file" type="file" accept=".csv,text/csv" onChange={(event) => {
+        <label htmlFor="statement-import-file">Arquivo CSV ou OFX</label>
+        <input id="statement-import-file" type="file" accept=".csv,text/csv,.ofx,.qfx,application/x-ofx" onChange={(event) => {
           setFile(event.target.files?.[0] ?? null);
           setCsvText(null);
           setHeaders([]);
