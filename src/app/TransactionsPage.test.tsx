@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TransactionsPage } from "./TransactionsPage";
 
 vi.mock("./components/Dialog", () => ({
-  Dialog: ({ children, open }: any) => open ? <div data-testid="dialog">{children}</div> : null
+  Dialog: ({ children, open }: { children: React.ReactNode; open: boolean }) => open ? <div data-testid="dialog">{children}</div> : null
 }));
 
 const navigationMocks = vi.hoisted(() => ({

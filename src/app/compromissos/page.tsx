@@ -1,2 +1,5 @@
-import { CommitmentsPage } from "../pages";
-export default function Page() { return <CommitmentsPage />; }
+import { redirect } from "next/navigation";
+
+export default function CompromissosPage() {
+  redirect("/gastos?tab=recurrent");
+}
