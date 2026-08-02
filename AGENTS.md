@@ -14,6 +14,8 @@ This is a single-context repository: use root `CONTEXT.md` and `docs/adr/` when 
 
 ### Planos de desenvolvimento
 
+O **workflow operacional** (ciclo completo, roles, gates, deploy, handoffs) está em `docs/dev-workflow.md` e é referenciado por `CLAUDE.md` (raiz). Os artefatos de plano/spec vão para `docs/superpowers/plans/` e `docs/superpowers/specs/`.
+
 Sempre que o usuário pedir um plano de desenvolvimento:
 
 1. Investigue primeiro o repositório, o domínio, as migrations, as alterações locais e a documentação existente.
