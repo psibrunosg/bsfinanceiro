@@ -3,7 +3,7 @@ const brl = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
 });
 
-export function money(value: unknown) {
+export function money(value: string | number | null | undefined) {
   return brl.format(Number(value || 0));
 }
 
