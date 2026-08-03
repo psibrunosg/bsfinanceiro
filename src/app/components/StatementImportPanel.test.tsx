@@ -103,7 +103,7 @@ describe("StatementImportPanel", () => {
 
     expect(screen.queryByRole("option", { name: "Cartão" })).toBeNull();
     fireEvent.change(screen.getByLabelText("Conta do extrato"), { target: { value: "account-1" } });
-    fireEvent.change(screen.getByLabelText("Arquivo CSV"), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText("Arquivo CSV ou OFX"), { target: { files: [file] } });
     const prepare = screen.getByRole<HTMLButtonElement>("button", { name: "Preparar prévia" });
     expect(prepare.disabled).toBe(false);
     fireEvent.submit(prepare.closest("form")!);
@@ -154,7 +154,7 @@ describe("StatementImportPanel", () => {
     const file = new File([csv], "mapeado.csv", { type: "text/csv" });
     Object.defineProperty(file, "text", { value: vi.fn().mockResolvedValue(csv) });
     fireEvent.change(screen.getByLabelText("Conta do extrato"), { target: { value: "account-1" } });
-    fireEvent.change(screen.getByLabelText("Arquivo CSV"), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText("Arquivo CSV ou OFX"), { target: { files: [file] } });
     fireEvent.submit(screen.getByRole("button", { name: "Preparar prévia" }).closest("form")!);
 
     await screen.findByText("Mapeie as colunas do CSV");
@@ -188,7 +188,7 @@ describe("StatementImportPanel", () => {
     const file = new File(["data,descricao,valor\n29/07/2026,Salário,1000"], "falha.csv", { type: "text/csv" });
     Object.defineProperty(file, "text", { value: vi.fn().mockResolvedValue("data,descricao,valor\n29/07/2026,Salário,1000") });
     fireEvent.change(screen.getByLabelText("Conta do extrato"), { target: { value: "account-1" } });
-    fireEvent.change(screen.getByLabelText("Arquivo CSV"), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText("Arquivo CSV ou OFX"), { target: { files: [file] } });
     fireEvent.submit(screen.getByRole("button", { name: "Preparar prévia" }).closest("form")!);
 
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith(
@@ -205,7 +205,7 @@ describe("StatementImportPanel", () => {
     const file = new File([csv], "longo.csv", { type: "text/csv" });
     Object.defineProperty(file, "text", { value: vi.fn().mockResolvedValue(csv) });
     fireEvent.change(screen.getByLabelText("Conta do extrato"), { target: { value: "account-1" } });
-    fireEvent.change(screen.getByLabelText("Arquivo CSV"), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText("Arquivo CSV ou OFX"), { target: { files: [file] } });
     fireEvent.submit(screen.getByRole("button", { name: "Preparar prévia" }).closest("form")!);
 
     await screen.findByText("Prévia de longo.csv");
