@@ -67,7 +67,7 @@ export function SettingsPage() {
   }
 
   const p = alertPrefs;
-  const wp = workspacePrefs;
+  const wp = workspacePrefs ?? ({} as NonNullable<typeof workspacePrefs>);
 
   return (
     <main className="management-page">

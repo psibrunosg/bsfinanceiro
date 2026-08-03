@@ -8,8 +8,8 @@ import { Nav } from "./components/Nav";
 import { money, monthStart } from "./components/Money";
 import { DashboardChart } from "./components/DashboardChart";
 import { QuickTransactionForm } from "./components/QuickTransactionForm";
-
-const monthName = new Intl.DateTimeFormat("pt-BR", { month: "short" });
+import { aggregateExpensesByCategory, computeEvolution, computeMonthlyFlow, lastNMonths } from "@/lib/finance/aggregations";
+import { generateInsights } from "@/lib/finance/insights";
 
 export function DashboardPage() {
   const { ownerId, workspace, accounts, cards, transactions, categories, budgets = [], goals, monthSpent = {}, commitments = [], occurrences = [], invoices = [], defaultCashAccountId, loading, reload } = useFinance("dashboard");
@@ -23,15 +23,16 @@ export function DashboardPage() {
     const income = transactions.filter((t) => t.type === "income");
     const monthIncome = income.filter((t) => t.competence_date >= currentMonth).reduce((sum, t) => sum + Number(t.amount), 0);
     const monthExpense = expenses.filter((t) => t.competence_date >= currentMonth).reduce((sum, t) => sum + Number(t.amount), 0);
-    const balance = accounts.reduce((sum, item) => sum + Number(item.initial_balance), 0) + income.reduce((sum, t) => sum + Number(t.amount), 0) - expenses.reduce((sum, t) => sum + Number(t.amount), 0);
-    const months = Array.from({ length: 6 }, (_, index) => { const date = new Date(); date.setMonth(date.getMonth() - (5 - index)); return date; });
-    
-    const flowIn = months.map(month => transactions.filter(t => t.type === 'income' && t.competence_date >= `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-01` && t.competence_date <= `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-31`).reduce((sum, t) => sum + Number(t.amount), 0));
-    const flowOut = months.map(month => transactions.filter(t => t.type === 'expense' && t.competence_date >= `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-01` && t.competence_date <= `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-31`).reduce((sum, t) => sum + Number(t.amount), 0));
+    const initialBalance = accounts.reduce((sum, item) => sum + Number(item.initial_balance), 0);
+    const balance = initialBalance + income.reduce((sum, t) => sum + Number(t.amount), 0) - expenses.reduce((sum, t) => sum + Number(t.amount), 0);
 
-    const evolution = months.map((month) => transactions.filter((t) => t.competence_date <= `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-31`).reduce((sum, t) => sum + (t.type === "income" ? Number(t.amount) : t.type === "expense" ? -Number(t.amount) : 0), accounts.reduce((sum, item) => sum + Number(item.initial_balance), 0)));
-    const expensesByCategory = categories.filter((category) => category.kind === "expense").map((category) => ({ label: category.name, value: expenses.filter((t) => t.competence_date >= currentMonth && t.category_id === category.id).reduce((sum, t) => sum + Number(t.amount), 0) })).filter((item) => item.value > 0).sort((a, b) => b.value - a.value).slice(0, 5);
-    return { balance, monthIncome, monthExpense, months: months.map(monthName.format), evolution, expensesByCategory, flowIn, flowOut };
+    const { months, labels } = lastNMonths(6);
+    const { flowIn, flowOut } = computeMonthlyFlow(transactions, months);
+    const evolution = computeEvolution(transactions, initialBalance, months);
+    const expensesByCategory = aggregateExpensesByCategory(transactions, categories, currentMonth, 5);
+    const insights = generateInsights(transactions, categories, accounts, currentMonth);
+
+    return { balance, monthIncome, monthExpense, months: labels, evolution, expensesByCategory, flowIn, flowOut, insights };
   }, [accounts, categories, transactions]);
 
   if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
@@ -76,7 +77,7 @@ export function DashboardPage() {
       <div className="dashboard-columns">
         <article className="dashboard-card"><h3>Gastos por categoria</h3><div className="chart-wrap">{metrics.expensesByCategory.length ? <DashboardChart type="doughnut" label="Gastos" labels={metrics.expensesByCategory.map((item) => item.label)} values={metrics.expensesByCategory.map((item) => item.value)} color="var(--accent)" /> : <p className="dashboard-empty">Registre despesas para ver categorias.</p>}</div></article>
         <article className="dashboard-card"><h3>Fluxo de caixa</h3><div className="chart-wrap"><DashboardChart type="bar" label="Entradas" labels={metrics.months} values={metrics.flowIn} color="var(--positive-color)" /></div></article>
-        <article className="dashboard-card"><h3><CircleAlert aria-hidden="true" /> Atenção agora</h3><div className="insight-list">{alerts.length ? alerts.map((alert) => <Link className="insight-link" href={alert.href} key={`${alert.href}-${alert.title}`}><span>{alert.title}<small>{alert.text}</small></span><ChevronDown aria-hidden="true" /></Link>) : <p className="dashboard-empty">Nenhuma pendência urgente.</p>}</div></article>
+        <article className="dashboard-card"><h3><CircleAlert aria-hidden="true" /> Insights automáticos</h3><div className="insight-list">{metrics.insights.length ? metrics.insights.map((insight) => <div className="insight-link" key={insight.id}><span>{insight.icon} {insight.text}</span></div>) : alerts.length ? alerts.map((alert) => <Link className="insight-link" href={alert.href} key={`${alert.href}-${alert.title}`}><span>{alert.title}<small>{alert.text}</small></span><ChevronDown aria-hidden="true" /></Link>) : <p className="dashboard-empty">Nenhuma pendência urgente.</p>}</div></article>
       </div>
     </div></details>
     <details className="dashboard-section"><summary><div><p className="eyebrow">PATRIMÔNIO</p><strong>{accounts.length} contas e {cards.length} cartões</strong></div><ChevronDown aria-hidden="true" /></summary><div className="dashboard-section__body"><div className="metric-grid"><article className="metric"><span>Saldo real</span><strong>{money(metrics.balance)}</strong></article><article className="metric"><span>Limite de cartões</span><strong>{money(cards.reduce((sum, card) => sum + Number(card.credit_limit), 0))}</strong></article><article className="metric"><span>Faturas abertas</span><strong>{money(invoicesTotal)}</strong></article></div><article className="dashboard-card"><h3>Evolução do saldo</h3><div className="chart-wrap"><DashboardChart type="line" label="Saldo" labels={metrics.months} values={metrics.evolution} color="#087f5b" /></div><p className="chart-summary">Evolução calculada com contas e lançamentos registrados.</p></article></div></details>

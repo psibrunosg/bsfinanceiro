@@ -12,7 +12,7 @@ import { BrandLogo, CARD_BRANDS } from "./brand-logo";
 import { createClient } from "@/lib/supabase/client";
 import { useMemo, Suspense, useState } from "react";
 
-function statementImportErrorMessage(errorCode: unknown) {
+function statementImportErrorMessage(errorCode: string | null) {
   switch (errorCode) {
     case "unsupported_format": return "Formato não suportado; nenhuma compra foi criada.";
     case "checksum_mismatch": return "O arquivo enviado não corresponde ao arquivo validado. Envie-o novamente.";

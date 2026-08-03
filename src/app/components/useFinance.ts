@@ -53,6 +53,17 @@ export type UseFinanceOptions = {
   transactionPage?: number;
 };
 
+export type FinancialContext = {
+  id: string;
+  workspace_id: string;
+  owner_id: string;
+  kind: string;
+  name: string;
+  color: string;
+  active: boolean;
+  created_at: string;
+};
+
 export type FinanceData = {
   ownerId: string | null;
   workspace: Workspace;
@@ -70,11 +81,11 @@ export type FinanceData = {
   commitments: Commitment[];
   occurrences: Occurrence[];
   alertPrefs: AlertPreference | null;
+  workspacePrefs: WorkspacePreference | null;
+  contexts: FinancialContext[];
   statementImports: StatementImport[];
   transactionImportBatches: TransactionImportBatch[];
   defaultCashAccountId: string | null;
-  workspacePrefs?: WorkspacePreference | null;
-  contexts?: { id: string; name: string }[];
   cashPosition: {
     balanceCents: number;
     accountBalancesCents: Record<string, number>;
@@ -116,7 +127,7 @@ export function useFinance(
     TransactionImportBatch[]
   >([]);
   const [workspacePrefs, setWorkspacePrefs] = useState<WorkspacePreference | null>(null);
-  const [contexts, setContexts] = useState<{ id: string; name: string }[]>([]);
+  const [contexts, setContexts] = useState<FinancialContext[]>([]);
   const [defaultCashAccountId, setDefaultCashAccountId] = useState<string | null>(
     null,
   );
@@ -208,7 +219,7 @@ export function useFinance(
       route === "settings"
         ? supabase
             .from("financial_contexts")
-            .select("id,name")
+            .select("id,workspace_id,owner_id,kind,name,color,active,created_at")
             .eq("workspace_id", ws.id)
             .eq("active", true)
             .order("name")
@@ -361,12 +372,7 @@ export function useFinance(
     setAlertPrefs(preferenceRows || null);
     setTransactionImportBatches(importBatchRows);
     setWorkspacePrefs(workspacePreferenceRows || null);
-    setContexts(
-      (contextRows ?? []).map((c: { id: string; name: string }) => ({
-        id: c.id,
-        name: c.name,
-      }))
-    );
+    setContexts((contextRows ?? []) as FinancialContext[]);
 
     if (route === "dashboard" || route === "settings") {
       const workspacePreference =

@@ -1,3 +1,7 @@
+# Continuous development loop (arquivado)
+
+> **ARQUIVADO em 2026-08.** Superseded por `docs/dev-workflow.md`. Este loop era ancorado em GitHub Issues + gate de quota semanal do Codex desktop (`gpt-5.6-*`). O workflow atual é um ciclo recorrente (cron) no Claude Code, com as mesmas roles SOL/TERRA/LUA, sem gate de quota. Mantido aqui apenas por histórico.
+
 # Continuous development loop
 
 ## Purpose
