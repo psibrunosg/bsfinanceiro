@@ -73,6 +73,8 @@ export type FinanceData = {
   statementImports: StatementImport[];
   transactionImportBatches: TransactionImportBatch[];
   defaultCashAccountId: string | null;
+  workspacePrefs?: WorkspacePreference | null;
+  contexts?: { id: string; name: string }[];
   cashPosition: {
     balanceCents: number;
     accountBalancesCents: Record<string, number>;
@@ -113,6 +115,8 @@ export function useFinance(
   const [transactionImportBatches, setTransactionImportBatches] = useState<
     TransactionImportBatch[]
   >([]);
+  const [workspacePrefs, setWorkspacePrefs] = useState<WorkspacePreference | null>(null);
+  const [contexts, setContexts] = useState<{ id: string; name: string }[]>([]);
   const [defaultCashAccountId, setDefaultCashAccountId] = useState<string | null>(
     null,
   );
@@ -158,6 +162,7 @@ export function useFinance(
       { data: preferenceRows },
       { data: dashboardGoalRows },
       { data: workspacePreferenceRows },
+      { data: contextRows },
     ] = await Promise.all([
       supabase
         .from("accounts")
@@ -193,13 +198,21 @@ export function useFinance(
             .eq("status", "active")
             .order("created_at")
         : Promise.resolve({ data: [] }),
-      route === "dashboard"
+      route === "dashboard" || route === "settings"
         ? supabase
             .from("workspace_preferences")
-            .select("default_cash_account_id")
+            .select(route === "settings" ? "*" : "default_cash_account_id")
             .eq("workspace_id", ws.id)
             .maybeSingle()
         : Promise.resolve({ data: null }),
+      route === "settings"
+        ? supabase
+            .from("financial_contexts")
+            .select("id,name")
+            .eq("workspace_id", ws.id)
+            .eq("active", true)
+            .order("name")
+        : Promise.resolve({ data: [] }),
     ]);
 
     let visibleTransactionRows: Transaction[] = [];
@@ -347,7 +360,15 @@ export function useFinance(
     setTransactionTotal(historyTotal);
     setAlertPrefs(preferenceRows || null);
     setTransactionImportBatches(importBatchRows);
-    if (route === "dashboard") {
+    setWorkspacePrefs(workspacePreferenceRows || null);
+    setContexts(
+      (contextRows ?? []).map((c: { id: string; name: string }) => ({
+        id: c.id,
+        name: c.name,
+      }))
+    );
+
+    if (route === "dashboard" || route === "settings") {
       const workspacePreference =
         workspacePreferenceRows as WorkspacePreference | null;
       const preferredAccountId =
@@ -491,6 +512,8 @@ export function useFinance(
     statementImports,
     transactionImportBatches,
     defaultCashAccountId,
+    workspacePrefs,
+    contexts,
     cashPosition: dashboardMoneyModel.cashPosition,
     spendingPower: dashboardMoneyModel.spendingPower,
     loading,

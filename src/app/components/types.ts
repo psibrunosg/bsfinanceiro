@@ -1,6 +1,16 @@
 export type Workspace = { id: string; name: string };
 export type WorkspacePreference = {
   default_cash_account_id: string | null;
+  compact_mode?: boolean;
+  theme?: string;
+  personal_color?: string;
+  clinic_color?: string;
+  default_period?: string;
+  hide_values?: boolean;
+  default_context_id?: string | null;
+  default_category_id?: string | null;
+  default_appointment_value?: number;
+  default_billing_deadline_days?: number;
 };
 export type Account = {
   id: string;
