@@ -1,19 +1,221 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFinance } from "../components/useFinance";
 import { Nav } from "../components/Nav";
 import { PageHeader } from "../components/PageHeader";
 import { Dialog } from "../components/Dialog";
-import { useFinance } from "../components/useFinance";
+import { SimpleForm } from "../components/SimpleForm";
+import { List } from "../components/List";
+import { money, parseMoney, dateFmt } from "../components/Money";
+import { createClient } from "@/lib/supabase/client";
 import { WalletCards } from "lucide-react";
 
-export default function InvestimentosPage() {
-  const { workspace, loading } = useFinance("dashboard");
-  const [openDialog, setOpenDialog] = useState(false);
+const ASSET_TYPES: Record<string, string> = {
+  stock: "Ações",
+  reit: "FIIs",
+  fund: "Fundos",
+  fixed_income: "Renda fixa",
+  real_estate: "Imóveis",
+};
 
-  if (loading || !workspace) {
-    return <main className="management-page"><p className="muted">Carregando</p></main>;
+type Asset = {
+  id: string;
+  name: string;
+  type: string;
+  exchange: string | null;
+  created_at: string;
+};
+type Operation = {
+  id: string;
+  asset_id: string;
+  operation_type: "buy" | "sell";
+  quantity: number;
+  unit_price: number;
+  operation_date: string;
+  transaction_id: string | null;
+};
+type Quote = {
+  id: string;
+  asset_id: string;
+  quote_date: string;
+  unit_price: number;
+};
+type DialogState =
+  | { kind: "asset" }
+  | { kind: "buy"; assetId: string }
+  | { kind: "sell"; assetId: string }
+  | { kind: "quote"; assetId: string }
+  | null;
+
+export default function InvestimentosPage() {
+  const { workspace, accounts, defaultCashAccountId, loading } =
+    useFinance("dashboard");
+  const supabase = useMemo(() => createClient(), []);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [operations, setOperations] = useState<Operation[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [defaultContextId, setDefaultContextId] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogState>(null);
+  const [message, setMessage] = useState("");
+  const [hubLoading, setHubLoading] = useState(true);
+
+  const loadHub = useCallback(async () => {
+    if (!workspace) return;
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const ownerId = userData.user?.id;
+      if (!ownerId) return;
+      const [{ data: contextRows }, { data: assetRows }, { data: operationRows }, { data: quoteRows }] =
+        await Promise.all([
+          supabase
+            .from("financial_contexts")
+            .select("id")
+            .eq("workspace_id", workspace.id)
+            .eq("kind", "pessoal")
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from("investment_assets")
+            .select("id,name,type,exchange,created_at")
+            .eq("workspace_id", workspace.id)
+            .eq("active", true)
+            .order("name"),
+          supabase
+            .from("investment_operations")
+            .select("id,asset_id,operation_type,quantity,unit_price,operation_date,transaction_id")
+            .eq("workspace_id", workspace.id)
+            .order("operation_date", { ascending: false })
+            .limit(500),
+          supabase
+            .from("investment_quotes")
+            .select("id,asset_id,quote_date,unit_price")
+            .eq("workspace_id", workspace.id)
+            .order("quote_date", { ascending: false })
+            .limit(500),
+        ]);
+      setDefaultContextId(contextRows?.id ?? null);
+      setAssets(assetRows ?? []);
+      setOperations(operationRows ?? []);
+      setQuotes(quoteRows ?? []);
+    } finally {
+      setHubLoading(false);
+    }
+  }, [supabase, workspace]);
+
+  useEffect(() => {
+    void loadHub();
+  }, [loadHub]);
+
+  if (loading || !workspace || hubLoading) {
+    return <main className="management-page"><p className="muted">Carregando...</p></main>;
   }
+
+  // Posição por ativo: quantidade líquida, custo médio e custo total.
+  const positionByAsset: Record<string, { quantity: number; costCents: number; buys: number; sells: number }> = {};
+  for (const op of operations) {
+    const p = positionByAsset[op.asset_id] ?? { quantity: 0, costCents: 0, buys: 0, sells: 0 };
+    const q = Number(op.quantity);
+    const unit = Number(op.unit_price);
+    if (op.operation_type === "buy") {
+      p.quantity += q;
+      p.costCents += Math.round(q * unit * 100);
+      p.buys += 1;
+    } else {
+      p.quantity -= q;
+      p.sells += 1;
+    }
+    positionByAsset[op.asset_id] = p;
+  }
+
+  // Cotação mais recente por ativo.
+  const latestQuote: Record<string, number> = {};
+  for (const q of quotes) {
+    if (!(q.asset_id in latestQuote)) latestQuote[q.asset_id] = Number(q.unit_price);
+  }
+
+  const investedCents = assets.reduce((s, a) => s + (positionByAsset[a.id]?.costCents ?? 0), 0);
+  const currentCents = assets.reduce((s, a) => {
+    const pos = positionByAsset[a.id];
+    if (!pos) return s;
+    const price = latestQuote[a.id] ?? (pos.quantity > 0 ? pos.costCents / 100 / pos.quantity : 0);
+    return s + Math.round(pos.quantity * price * 100);
+  }, 0);
+  const gainCents = currentCents - investedCents;
+  const gainPct = investedCents > 0 ? (gainCents / investedCents) * 100 : 0;
+
+  const action =
+    dialog?.kind === "buy" || dialog?.kind === "sell" || dialog?.kind === "quote"
+      ? undefined
+      : { label: "Cadastrar ativo", onClick: () => setDialog({ kind: "asset" }) };
+
+  const dialogTitle =
+    dialog?.kind === "asset" ? "Cadastrar ativo"
+      : dialog?.kind === "buy" ? "Registrar compra"
+        : dialog?.kind === "sell" ? "Registrar venda"
+          : dialog?.kind === "quote" ? "Atualizar cotação" : "";
+
+  async function submitAsset(form: FormData) {
+    const { data: userData } = await supabase.auth.getUser();
+    const { error } = await supabase.from("investment_assets").insert({
+      workspace_id: workspace.id,
+      owner_id: userData.user?.id,
+      context_id: defaultContextId,
+      name: form.get("name"),
+      type: form.get("type"),
+      exchange: form.get("exchange") || null,
+    });
+    setMessage(error ? "Não foi possível cadastrar o ativo." : "Ativo cadastrado.");
+    if (!error) setDialog(null);
+    await loadHub();
+  }
+
+  async function submitOperation(assetId: string, kind: "buy" | "sell", form: FormData) {
+    const accountId = form.get("account_id");
+    if (!accountId) {
+      setMessage("Escolha uma conta para a operação.");
+      return;
+    }
+    const quantity = Number(String(form.get("quantity")).replace(",", "."));
+    const price = parseMoney(form.get("unit_price"));
+    const amount = Math.round(quantity * price * 100) / 100;
+    const { error } = await supabase.rpc("record_investment_operation", {
+      p_asset_id: assetId,
+      p_account_id: accountId,
+      p_type: kind,
+      p_quantity: quantity,
+      p_price: price,
+      p_amount: amount,
+      p_date: form.get("operation_date"),
+    });
+    setMessage(
+      error
+        ? `Não foi possível registrar a ${kind === "buy" ? "compra" : "venda"}.`
+        : `${kind === "buy" ? "Compra" : "Venda"} registrada.`
+    );
+    if (!error) setDialog(null);
+    await loadHub();
+  }
+
+  async function submitQuote(assetId: string, form: FormData) {
+    const { data: userData } = await supabase.auth.getUser();
+    const { error } = await supabase.from("investment_quotes").insert({
+      workspace_id: workspace.id,
+      owner_id: userData.user?.id,
+      context_id: defaultContextId,
+      asset_id: assetId,
+      quote_date: form.get("quote_date"),
+      unit_price: parseMoney(form.get("unit_price")),
+    });
+    setMessage(error ? "Não foi possível atualizar a cotação." : "Cotação atualizada.");
+    if (!error) setDialog(null);
+    await loadHub();
+  }
+
+  const buyDialog = dialog?.kind === "buy" ? dialog : null;
+  const sellDialog = dialog?.kind === "sell" ? dialog : null;
+  const quoteDialog = dialog?.kind === "quote" ? dialog : null;
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <main className="management-page">
@@ -22,23 +224,149 @@ export default function InvestimentosPage() {
         title="Investimentos"
         subtitle="Ativos, compras, vendas e cotações"
         workspaceName={workspace.name}
-        action={{
-          label: "Cadastrar ativo",
-          onClick: () => setOpenDialog(true),
-        }}
+        action={action}
       />
+      {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
 
       <section className="hub-overview">
-        <article className="metric-card">
+        <article className="metric-card metric-card--positive">
           <WalletCards aria-hidden="true" />
-          <strong>R$ 0,00</strong>
+          <strong>{money(currentCents / 100)}</strong>
           <span className="muted">Patrimônio investido</span>
-       </article>
-     </section>
+        </article>
+        <article className="metric-card">
+          <strong>{money(investedCents / 100)}</strong>
+          <span className="muted">Custo total</span>
+        </article>
+        <article className={`metric-card ${gainCents >= 0 ? "metric-card--positive" : "metric-card--negative"}`}>
+          <strong>{money(Math.abs(gainCents) / 100)} ({gainPct >= 0 ? "+" : ""}{gainPct.toFixed(1)}%)</strong>
+          <span className="muted">{gainCents >= 0 ? "Ganho" : "Perda"}</span>
+        </article>
+      </section>
 
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title="Cadastrar ativo">
-        <p className="muted">Formulário de cadastro de ativo será exibido aqui</p>
+      <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
+        <List title="Ativos">
+          {assets.length === 0 && (
+            <p className="dashboard-empty">Nenhum ativo cadastrado.{" "}
+              <button type="button" onClick={() => setDialog({ kind: "asset" })}>Cadastrar primeiro investimento</button>
+            </p>
+          )}
+          {assets.map((a) => {
+            const pos = positionByAsset[a.id];
+            const price = latestQuote[a.id] ?? null;
+            const current = pos && price ? pos.quantity * price : null;
+            return (
+              <article className="account-row" key={a.id} style={{ display: "grid", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                  <div>
+                    <strong>{a.name}</strong>
+                    <small>
+                      {ASSET_TYPES[a.type] ?? a.type}
+                      {a.exchange ? ` · ${a.exchange}` : ""}
+                    </small>
+                  </div>
+                  <div style={{ textAlign: "right", display: "grid", gap: 4 }}>
+                    <b>{current != null ? money(current) : money(pos?.costCents ? pos.costCents / 100 : 0)}</b>
+                    <small className="muted">
+                      {pos ? `${pos.quantity} · custo médio ${money(pos.quantity > 0 ? pos.costCents / 100 / pos.quantity : 0)}` : "Sem operações"}
+                    </small>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button type="button" onClick={() => setDialog({ kind: "buy", assetId: a.id })}>Comprar</button>
+                  <button type="button" onClick={() => setDialog({ kind: "sell", assetId: a.id })}>Vender</button>
+                  <button type="button" onClick={() => setDialog({ kind: "quote", assetId: a.id })}>Cotação</button>
+                </div>
+              </article>
+            );
+          })}
+        </List>
+      </section>
+
+      {operations.length > 0 && (
+        <section className="management-grid" style={{ gridTemplateColumns: "1fr", marginTop: 16 }}>
+          <List title="Operações recentes">
+            <ul className="list" style={{ display: "grid", gap: 6 }}>
+              {operations.slice(0, 30).map((op) => {
+                const asset = assets.find((x) => x.id === op.asset_id);
+                return (
+                  <li key={op.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                    <span>
+                      <b>{op.operation_type === "buy" ? "Compra" : "Venda"}</b> · {asset?.name ?? "Ativo"} ·{" "}
+                      {dateFmt.format(new Date(`${op.operation_date}T12:00:00`))}
+                    </span>
+                    <b>{money(op.quantity * op.unit_price)}</b>
+                  </li>
+                );
+              })}
+            </ul>
+          </List>
+        </section>
+      )}
+
+      <Dialog open={dialog !== null} onClose={() => setDialog(null)} title={dialogTitle}>
+        {dialog?.kind === "asset" && (
+          <SimpleForm key="asset" onSubmit={submitAsset}>
+            <label htmlFor="asset-name">Nome do ativo</label>
+            <input id="asset-name" name="name" maxLength={120} placeholder="Ex.: Tesouro Selic 2029" required autoFocus />
+            <label htmlFor="asset-type">Tipo</label>
+            <select id="asset-type" name="type" defaultValue="fixed_income" required>
+              {Object.entries(ASSET_TYPES).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            <label htmlFor="asset-exchange">Corretora</label>
+            <input id="asset-exchange" name="exchange" maxLength={60} placeholder="Corretora (opcional)" />
+            <button>Cadastrar ativo</button>
+          </SimpleForm>
+        )}
+        {buyDialog && (
+          <SimpleForm key="buy" onSubmit={(form) => submitOperation(buyDialog.assetId, "buy", form)}>
+            <label htmlFor="buy-account">Conta de saída</label>
+            <select id="buy-account" name="account_id" defaultValue={defaultCashAccountId ?? ""} required>
+              <option value="">Escolha uma conta</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            <label htmlFor="buy-quantity">Quantidade</label>
+            <input id="buy-quantity" name="quantity" placeholder="0,00" inputMode="decimal" required />
+            <label htmlFor="buy-price">Preço unitário</label>
+            <input id="buy-price" name="unit_price" placeholder="0,00" required />
+            <label htmlFor="buy-date">Data da operação</label>
+            <input id="buy-date" name="operation_date" type="date" defaultValue={today} required />
+            <button>Registrar compra</button>
+          </SimpleForm>
+        )}
+        {sellDialog && (
+          <SimpleForm key="sell" onSubmit={(form) => submitOperation(sellDialog.assetId, "sell", form)}>
+            <label htmlFor="sell-account">Conta de entrada</label>
+            <select id="sell-account" name="account_id" defaultValue={defaultCashAccountId ?? ""} required>
+              <option value="">Escolha uma conta</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            <label htmlFor="sell-quantity">Quantidade</label>
+            <input id="sell-quantity" name="quantity" placeholder="0,00" inputMode="decimal" required />
+            <label htmlFor="sell-price">Preço unitário</label>
+            <input id="sell-price" name="unit_price" placeholder="0,00" required />
+            <label htmlFor="sell-date">Data da operação</label>
+            <input id="sell-date" name="operation_date" type="date" defaultValue={today} required />
+            <button>Registrar venda</button>
+          </SimpleForm>
+        )}
+        {quoteDialog && (
+          <SimpleForm key="quote" onSubmit={(form) => submitQuote(quoteDialog.assetId, form)}>
+            <p className="muted">Atualizar a cotação manualmente. Cotação desatualizada dispara alerta.</p>
+            <label htmlFor="quote-date">Data da cotação</label>
+            <input id="quote-date" name="quote_date" type="date" defaultValue={today} required />
+            <label htmlFor="quote-price">Preço unitário</label>
+            <input id="quote-price" name="unit_price" placeholder="0,00" required />
+            <button>Atualizar cotação</button>
+          </SimpleForm>
+        )}
       </Dialog>
-   </main>
+    </main>
   );
 }

@@ -6,10 +6,12 @@ import { PageHeader } from "./components/PageHeader";
 import { createClient } from "@/lib/supabase/client";
 import { appPath } from "@/lib/app-path";
 import { useMemo, useState } from "react";
+import { useThemePreference } from "./components/ThemeProvider";
 
 export function SettingsPage() {
-  const { workspace, alertPrefs, workspacePrefs, contexts = [], loading, message, setMessage, reload } = useFinance("settings");
+  const { workspace, alertPrefs, workspacePrefs, contexts = [], categories, loading, message, setMessage, reload } = useFinance("settings");
   const supabase = useMemo(() => createClient(), []);
+  const { preference, updateThemePreference } = useThemePreference();
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("Aparência");
 
@@ -43,11 +45,13 @@ export function SettingsPage() {
         owner_id: userData.user?.id,
       };
       if (form.has("compact_mode")) p.compact_mode = form.get("compact_mode") === "true";
-      if (form.has("theme")) p.theme = form.get("theme");
       if (form.has("personal_color")) p.personal_color = form.get("personal_color");
       if (form.has("default_period")) p.default_period = form.get("default_period");
       if (form.has("hide_values")) p.hide_values = form.get("hide_values") === "true";
       if (form.has("default_context_id")) p.default_context_id = form.get("default_context_id") || null;
+      if (form.has("default_appointment_value")) p.default_appointment_value = parseFloat(String(form.get("default_appointment_value")).replace(/\./g, "").replace(",", ".")) || 0;
+      if (form.has("default_billing_deadline_days")) p.default_billing_deadline_days = Number(form.get("default_billing_deadline_days")) || 30;
+      if (form.has("default_category_id")) p.default_category_id = form.get("default_category_id") || null;
       
       const { error } = await supabase.from("workspace_preferences").upsert(p, { onConflict: "workspace_id,owner_id" });
       setMessage(error ? "Não foi possível salvar preferências." : "Preferências salvas.");
@@ -63,7 +67,7 @@ export function SettingsPage() {
   }
 
   const p = alertPrefs;
-  const wp = workspacePrefs || {};
+  const wp = workspacePrefs;
 
   return (
     <main className="management-page">
@@ -135,7 +139,11 @@ export function SettingsPage() {
             <div className="preferences-form">
               <div className="settings-grid">
                 <label>Tema
-                  <select name="theme" defaultValue={wp?.theme ?? "system"}>
+                  <select
+                    name="theme"
+                    value={preference}
+                    onChange={(e) => void updateThemePreference(e.target.value as "system" | "light" | "dark")}
+                  >
                     <option value="system">Sistema</option>
                     <option value="light">Claro</option>
                     <option value="dark">Escuro</option>
@@ -201,9 +209,51 @@ export function SettingsPage() {
             </div>
           )}
 
-          {(activeTab === "Ganhos" || activeTab === "Gastos" || activeTab === "Dados") && (
+          {activeTab === "Ganhos" && (
             <div className="preferences-form">
-              <p className="muted">As configurações desta seção estão sendo implementadas.</p>
+              <div className="settings-grid">
+                <label>Valor padrão por atendimento (R$)
+                  <input
+                    type="number"
+                    name="default_appointment_value"
+                    min="0"
+                    step="0.01"
+                    defaultValue={wp?.default_appointment_value ?? 0}
+                  />
+                </label>
+                <label>Prazo de cobrança (dias)
+                  <input
+                    type="number"
+                    name="default_billing_deadline_days"
+                    min="1"
+                    max="365"
+                    defaultValue={wp?.default_billing_deadline_days ?? 30}
+                  />
+                </label>
+              </div>
+              <button disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
+            </div>
+          )}
+
+          {activeTab === "Gastos" && (
+            <div className="preferences-form">
+              <div className="settings-grid">
+                <label>Categoria de gasto padrão
+                  <select name="default_category_id" defaultValue={wp?.default_category_id ?? ""}>
+                    <option value="">Sem padrão</option>
+                    {categories.filter((c) => c.kind === "expense").map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <button disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
+            </div>
+          )}
+
+          {activeTab === "Dados" && (
+            <div className="preferences-form">
+              <p className="muted">Exportar ou limpar seus dados. A exportação em CSV estará disponível em breve.</p>
             </div>
           )}
         </form>
