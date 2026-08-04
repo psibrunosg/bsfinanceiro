@@ -5,11 +5,13 @@ import {
   computeEvolution,
   computeMonthlyFlow,
   lastNMonths,
+  calculateNetCashFlowExcludingTransfers,
 } from "./aggregations";
 
+let txIdCounter = 1;
 const tx = (overrides: Partial<Parameters<typeof aggregateExpensesByCategory>[0][number]>) =>
   ({
-    id: "tx-1",
+    id: `tx-${txIdCounter++}`,
     type: "expense" as const,
     amount: "100",
     competence_date: "2026-07-15",
@@ -54,6 +56,7 @@ describe("aggregateExpensesByCategory", () => {
       tx({ type: "expense", amount: "100" }),
       tx({ type: "income", amount: "500", category_id: null }),
       tx({ type: "transfer", amount: "300", category_id: null }),
+      tx({ type: "expense", amount: "400", is_transfer: true }),
     ];
     const categories = [cat({})];
 
@@ -83,10 +86,12 @@ describe("aggregateExpensesByCategory", () => {
 });
 
 describe("computeMonthlyFlow", () => {
-  test("calcula entradas e saídas por mês", () => {
+  test("calcula entradas e saídas por mês ignorando transferências por padrão", () => {
     const transactions = [
-      tx({ type: "income", amount: "3000", competence_date: "2026-07-10" }),
-      tx({ type: "expense", amount: "1500", competence_date: "2026-07-15" }),
+      tx({ id: "m1", type: "income", amount: "3000", competence_date: "2026-07-10" }),
+      tx({ id: "m2", type: "expense", amount: "1500", competence_date: "2026-07-15" }),
+      tx({ id: "m3", type: "expense", amount: "5000", competence_date: "2026-07-20", is_transfer: true }),
+      tx({ id: "m4", type: "income", amount: "5000", competence_date: "2026-07-20", is_transfer: true }),
     ];
     const months = [new Date(2026, 6, 1)]; // July 2026
 
@@ -132,10 +137,11 @@ describe("lastNMonths", () => {
 });
 
 describe("aggregateIncomeBySource", () => {
-  test("agrupa receitas por categoria", () => {
+  test("agrupa receitas por categoria e ignora transferências", () => {
     const transactions = [
       tx({ type: "income", amount: "5000", category_id: "inc-1" }),
       tx({ type: "income", amount: "2000", category_id: "inc-2" }),
+      tx({ type: "income", amount: "4000", category_id: "inc-1", is_transfer: true }),
     ];
     const categories = [
       cat({ id: "inc-1", name: "Contracheques", kind: "income" }),
@@ -162,5 +168,22 @@ describe("aggregateIncomeBySource", () => {
     const result = aggregateIncomeBySource([], []);
     expect(result.labels).toEqual([]);
     expect(result.values).toEqual([]);
+  });
+});
+
+describe("calculateNetCashFlowExcludingTransfers", () => {
+  test("calcula fluxo de caixa líquido neutralizando transferências intercontas", () => {
+    const transactions = [
+      tx({ id: "flow-1", type: "income", amount: "12000", competence_date: "2026-07-01", description: "Faturamento clinica" }),
+      tx({ id: "flow-2", type: "expense", amount: "4000", competence_date: "2026-07-05", description: "Fornecedores" }),
+      tx({ id: "flow-3", type: "expense", amount: "5000", competence_date: "2026-07-10", description: "Transferencia para PF", is_transfer: true }),
+    ];
+
+    const summary = calculateNetCashFlowExcludingTransfers(transactions);
+
+    expect(summary.totalIncome).toBe(12000);
+    expect(summary.totalExpense).toBe(4000);
+    expect(summary.netCashFlow).toBe(8000);
+    expect(summary.transferVolume).toBe(5000);
   });
 });
