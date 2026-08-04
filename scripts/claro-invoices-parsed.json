@@ -1,0 +1,222 @@
+[
+  {
+    "filename": "Cliente-Vendas (2).pdf",
+    "isClaro": false,
+    "service": "Outro",
+    "contrato": null,
+    "vencimento": null,
+    "vencimentoIso": null,
+    "competencia": null,
+    "valorBase": null,
+    "valorTotal": null
+  },
+  {
+    "filename": "Cliente-Vendas (1).pdf",
+    "isClaro": false,
+    "service": "Outro",
+    "contrato": null,
+    "vencimento": null,
+    "vencimentoIso": null,
+    "competencia": null,
+    "valorBase": null,
+    "valorTotal": null
+  },
+  {
+    "filename": "IMG_5788.PNG",
+    "isClaro": false,
+    "service": "Outro",
+    "contrato": null,
+    "vencimento": null,
+    "vencimentoIso": null,
+    "competencia": null,
+    "valorBase": null,
+    "valorTotal": null
+  },
+  {
+    "filename": "IMG_5787.PNG",
+    "isClaro": false,
+    "service": "Outro",
+    "contrato": null,
+    "vencimento": null,
+    "vencimentoIso": null,
+    "competencia": null,
+    "valorBase": null,
+    "valorTotal": null
+  },
+  {
+    "filename": "IMG_5785.PNG",
+    "isClaro": false,
+    "service": "Outro",
+    "contrato": null,
+    "vencimento": null,
+    "vencimentoIso": null,
+    "competencia": null,
+    "valorBase": null,
+    "valorTotal": null
+  },
+  {
+    "filename": "IMG_5786.PNG",
+    "isClaro": false,
+    "service": "Outro",
+    "contrato": null,
+    "vencimento": null,
+    "vencimentoIso": null,
+    "competencia": null,
+    "valorBase": null,
+    "valorTotal": null
+  },
+  {
+    "filename": "minha-claro-fatura.pdf",
+    "isClaro": true,
+    "service": "Claro Internet Clínica",
+    "contrato": "NET 691/398972107",
+    "vencimento": "20/07/2026",
+    "vencimentoIso": "2026-07-20",
+    "competencia": "2026-07-01",
+    "valorBase": 84.11,
+    "valorTotal": 84.11
+  },
+  {
+    "filename": "minha-claro-fatura (8).pdf",
+    "isClaro": true,
+    "service": "Claro Telefone Móvel",
+    "contrato": "53 99189 8309",
+    "vencimento": "20/08/2026",
+    "vencimentoIso": "2026-08-20",
+    "competencia": "2026-08-01",
+    "valorBase": 59.9,
+    "valorTotal": 59.9
+  },
+  {
+    "filename": "Fatura de agosto (2).pdf",
+    "isClaro": true,
+    "service": "Claro Telefone Móvel",
+    "contrato": "53 99189 8309",
+    "vencimento": "20/08/2026",
+    "vencimentoIso": "2026-08-20",
+    "competencia": "2026-08-01",
+    "valorBase": 59.9,
+    "valorTotal": 59.9
+  },
+  {
+    "filename": "Fatura de agosto (1).pdf",
+    "isClaro": true,
+    "service": "Claro Telefone Móvel",
+    "contrato": "53 99189 8309",
+    "vencimento": "20/08/2026",
+    "vencimentoIso": "2026-08-20",
+    "competencia": "2026-08-01",
+    "valorBase": 59.9,
+    "valorTotal": 59.9
+  },
+  {
+    "filename": "Fatura de junho.pdf",
+    "isClaro": true,
+    "service": "Claro Telefone Móvel",
+    "contrato": "53 99189 8309",
+    "vencimento": "20/06/2026",
+    "vencimentoIso": "2026-06-20",
+    "competencia": "2026-06-01",
+    "valorBase": 47.91,
+    "valorTotal": 49.67
+  },
+  {
+    "filename": "Fatura de julho.pdf",
+    "isClaro": true,
+    "service": "Claro Telefone Móvel",
+    "contrato": "53 99189 8309",
+    "vencimento": "20/07/2026",
+    "vencimentoIso": "2026-07-20",
+    "competencia": "2026-07-01",
+    "valorBase": 19.3,
+    "valorTotal": 21.64
+  },
+  {
+    "filename": "Fatura de maio.pdf",
+    "isClaro": true,
+    "service": "Claro Telefone Móvel",
+    "contrato": "53 99189 8309",
+    "vencimento": "20/05/2026",
+    "vencimentoIso": "2026-05-20",
+    "competencia": "2026-05-01",
+    "valorBase": 59.9,
+    "valorTotal": 61.84
+  },
+  {
+    "filename": "Fatura de abril.pdf",
+    "isClaro": true,
+    "service": "Claro Telefone Móvel",
+    "contrato": "53 99189 8309",
+    "vencimento": "20/04/2026",
+    "vencimentoIso": "2026-04-20",
+    "competencia": "2026-04-01",
+    "valorBase": 34.2,
+    "valorTotal": 34.82
+  },
+  {
+    "filename": "Fatura de março.pdf",
+    "isClaro": true,
+    "service": "Claro Telefone Móvel",
+    "contrato": "53 99189 8309",
+    "vencimento": "12/03/2026",
+    "vencimentoIso": "2026-03-12",
+    "competencia": "2026-03-01",
+    "valorBase": 57.95,
+    "valorTotal": 59.93
+  },
+  {
+    "filename": "Fatura de fevereiro.pdf",
+    "isClaro": true,
+    "service": "Claro Telefone Móvel",
+    "contrato": "53 99189 8309",
+    "vencimento": "12/02/2026",
+    "vencimentoIso": "2026-02-12",
+    "competencia": "2026-02-01",
+    "valorBase": 59.9,
+    "valorTotal": 61
+  },
+  {
+    "filename": "minha-claro-fatura (7).pdf",
+    "isClaro": true,
+    "service": "Claro Internet Clínica",
+    "contrato": "NET 691/398972107",
+    "vencimento": "20/07/2026",
+    "vencimentoIso": "2026-07-20",
+    "competencia": "2026-07-01",
+    "valorBase": 84.11,
+    "valorTotal": 84.11
+  },
+  {
+    "filename": "minha-claro-fatura (6).pdf",
+    "isClaro": true,
+    "service": "Claro Internet Clínica",
+    "contrato": "NET 691/398972107",
+    "vencimento": "20/06/2026",
+    "vencimentoIso": "2026-06-20",
+    "competencia": "2026-06-01",
+    "valorBase": 49.67,
+    "valorTotal": 49.67
+  },
+  {
+    "filename": "minha-claro-fatura (4).pdf",
+    "isClaro": true,
+    "service": "Claro Internet Clínica",
+    "contrato": "NET 691/398972107",
+    "vencimento": "20/06/2026",
+    "vencimentoIso": "2026-06-20",
+    "competencia": "2026-06-01",
+    "valorBase": 63.13,
+    "valorTotal": 63.13
+  },
+  {
+    "filename": "minha-claro-fatura (9).pdf",
+    "isClaro": true,
+    "service": "Claro Internet Clínica",
+    "contrato": "NET 691/398972107",
+    "vencimento": "20/05/2026",
+    "vencimentoIso": "2026-05-20",
+    "competencia": "2026-05-01",
+    "valorBase": 61.84,
+    "valorTotal": 61.84
+  }
+]
