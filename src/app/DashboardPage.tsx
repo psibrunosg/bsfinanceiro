@@ -5,7 +5,7 @@ import { ChevronDown, CircleAlert, Target, WalletCards } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
-import { money, monthStart } from "./components/Money";
+import { money, monthStart, nextMonthStart } from "./components/Money";
 import { DashboardChart } from "./components/DashboardChart";
 import { QuickTransactionForm } from "./components/QuickTransactionForm";
 import { aggregateExpensesByCategory, computeEvolution, computeMonthlyFlow, lastNMonths } from "@/lib/finance/aggregations";
@@ -19,17 +19,21 @@ export function DashboardPage() {
 
   const metrics = useMemo(() => {
     const currentMonth = monthStart();
+    const nextMonth = nextMonthStart();
     const expenses = transactions.filter((t) => t.type === "expense");
     const income = transactions.filter((t) => t.type === "income");
-    const monthIncome = income.filter((t) => t.competence_date >= currentMonth).reduce((sum, t) => sum + Number(t.amount), 0);
-    const monthExpense = expenses.filter((t) => t.competence_date >= currentMonth).reduce((sum, t) => sum + Number(t.amount), 0);
+    const monthIncome = income.filter((t) => t.competence_date >= currentMonth && t.competence_date < nextMonth).reduce((sum, t) => sum + Number(t.amount), 0);
+    const monthExpense = expenses.filter((t) => t.competence_date >= currentMonth && t.competence_date < nextMonth).reduce((sum, t) => sum + Number(t.amount), 0);
     const initialBalance = accounts.reduce((sum, item) => sum + Number(item.initial_balance), 0);
-    const balance = initialBalance + income.reduce((sum, t) => sum + Number(t.amount), 0) - expenses.reduce((sum, t) => sum + Number(t.amount), 0);
+    const paidIncome = income.filter((t) => t.status === "paid" || t.competence_date < currentMonth).reduce((sum, t) => sum + Number(t.amount), 0);
+    const paidExpenses = expenses.filter((t) => t.status === "paid" || t.competence_date < currentMonth).reduce((sum, t) => sum + Number(t.amount), 0);
+    const balance = initialBalance + paidIncome - paidExpenses;
 
     const { months, labels } = lastNMonths(6);
     const { flowIn, flowOut } = computeMonthlyFlow(transactions, months);
     const evolution = computeEvolution(transactions, initialBalance, months);
-    const expensesByCategory = aggregateExpensesByCategory(transactions, categories, currentMonth, 5);
+    const monthTransactions = transactions.filter((t) => t.competence_date >= currentMonth && t.competence_date < nextMonth);
+    const expensesByCategory = aggregateExpensesByCategory(monthTransactions, categories, currentMonth, 5);
     const insights = generateInsights(transactions, categories, accounts, currentMonth);
 
     return { balance, monthIncome, monthExpense, months: labels, evolution, expensesByCategory, flowIn, flowOut, insights };
