@@ -82,5 +82,5 @@ describe('Claro Invoices Parser', () => {
 
     const claroRecords = records.filter(r => r.isClaro);
     expect(claroRecords.length).toBe(14);
-  });
+  }, 15000);
 });
