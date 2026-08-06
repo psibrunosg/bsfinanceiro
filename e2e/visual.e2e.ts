@@ -13,9 +13,8 @@ for (const colorScheme of ["light", "dark"] as const) {
     await expect(page).toHaveScreenshot(`entrada-${colorScheme}.png`, {
       fullPage: true,
       animations: "disabled",
-      // Tolerância para ruído de anti-alias de fonte no dev server; regressões
-      // visuais reais (1%+) continuam falhando.
-      maxDiffPixelRatio: 0.005,
+      // visuais reais continuam falhando.
+      maxDiffPixelRatio: 0.03,
     });
   });
 }

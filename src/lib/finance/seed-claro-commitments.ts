@@ -1,5 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-
 export interface ParsedInvoiceRecord {
   filename: string;
   isClaro: boolean;
@@ -130,6 +128,7 @@ export interface SeedResult {
 }
 
 export async function seedClaroCommitments(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   invoices: ParsedInvoiceRecord[],
   options?: {
@@ -258,7 +257,7 @@ export async function seedClaroCommitments(
 
     let occId: string;
 
-    const occPayload: any = {
+    const occPayload: Record<string, unknown> = {
       due_date: occ.due_date,
       description: occ.description,
       amount: occ.amount,

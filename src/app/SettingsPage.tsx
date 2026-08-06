@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { appPath } from "@/lib/app-path";
 import { useMemo, useState } from "react";
 import { useThemePreference } from "./components/ThemeProvider";
+import type { WorkspacePreference } from "./components/types";
 
 export function SettingsPage() {
   const { workspace, alertPrefs, workspacePrefs, contexts = [], categories, loading, message, setMessage, reload } = useFinance("settings");
@@ -40,18 +41,18 @@ export function SettingsPage() {
       const { error } = await supabase.from("alert_preferences").upsert(p, { onConflict: "workspace_id,owner_id" });
       setMessage(error ? "Não foi possível salvar alertas." : "Preferências de alerta salvas.");
     } else {
-      const p: Record<string, unknown> = {
+      const p: Partial<WorkspacePreference> & { workspace_id: string; owner_id?: string } = {
         workspace_id: workspace.id,
         owner_id: userData.user?.id,
       };
       if (form.has("compact_mode")) p.compact_mode = form.get("compact_mode") === "true";
-      if (form.has("personal_color")) p.personal_color = form.get("personal_color");
-      if (form.has("default_period")) p.default_period = form.get("default_period");
+      if (form.has("personal_color")) p.personal_color = form.get("personal_color") as string | null;
+      if (form.has("default_period")) p.default_period = form.get("default_period") as string;
       if (form.has("hide_values")) p.hide_values = form.get("hide_values") === "true";
-      if (form.has("default_context_id")) p.default_context_id = form.get("default_context_id") || null;
+      if (form.has("default_context_id")) p.default_context_id = (form.get("default_context_id") as string) || null;
       if (form.has("default_appointment_value")) p.default_appointment_value = parseFloat(String(form.get("default_appointment_value")).replace(/\./g, "").replace(",", ".")) || 0;
       if (form.has("default_billing_deadline_days")) p.default_billing_deadline_days = Number(form.get("default_billing_deadline_days")) || 30;
-      if (form.has("default_category_id")) p.default_category_id = form.get("default_category_id") || null;
+      if (form.has("default_category_id")) p.default_category_id = (form.get("default_category_id") as string) || null;
       
       const { error } = await supabase.from("workspace_preferences").upsert(p, { onConflict: "workspace_id,owner_id" });
       setMessage(error ? "Não foi possível salvar preferências." : "Preferências salvas.");

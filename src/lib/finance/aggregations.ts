@@ -167,3 +167,52 @@ export function aggregateIncomeBySource(
     values: byCategory.map((item) => item.value),
   };
 }
+
+export type DailyDecisionResult = {
+  daysRemaining: number;
+  dailyLimit: number;
+  trajectory: { day: number; date?: string; remaining: number }[];
+  status: "safe" | "warning" | "critical";
+};
+
+/**
+ * Compute recommended daily spend limit and trajectory (Decisão Diária)
+ * based on remaining available funds and target days (or date cutoff).
+ */
+export function computeDailyDecision(
+  availableAmount: number,
+  daysRemaining = 30,
+  startDate?: string
+): DailyDecisionResult {
+  const validDays = Math.max(1, Math.round(daysRemaining));
+  const dailyLimit = availableAmount > 0 ? availableAmount / validDays : 0;
+
+  let status: "safe" | "warning" | "critical" = "safe";
+  if (availableAmount <= 0) {
+    status = "critical";
+  } else if (dailyLimit < 30) {
+    status = "warning";
+  }
+
+  const trajectory = Array.from({ length: validDays }, (_, i) => {
+    let dateStr: string | undefined = undefined;
+    if (startDate) {
+      const d = new Date(`${startDate}T12:00:00.000Z`);
+      d.setUTCDate(d.getUTCDate() + i);
+      dateStr = d.toISOString().slice(0, 10);
+    }
+    const remaining = Math.max(0, availableAmount - dailyLimit * i);
+    return {
+      day: i + 1,
+      date: dateStr,
+      remaining: Math.round(remaining * 100) / 100,
+    };
+  });
+
+  return {
+    daysRemaining: validDays,
+    dailyLimit: Math.round(dailyLimit * 100) / 100,
+    trajectory,
+    status,
+  };
+}

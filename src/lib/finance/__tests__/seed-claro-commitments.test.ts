@@ -1,10 +1,9 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import {
   extractOccurrencesFromParsedInvoices,
   seedClaroCommitments,
-  CLARO_COMMITMENT_SPECS,
   DEFAULT_WORKSPACE_ID,
   DEFAULT_OWNER_ID,
   DEFAULT_CATEGORY_ID,
@@ -137,6 +136,7 @@ describe('Seed Claro Commitments', () => {
   });
 
   describe('seedClaroCommitments', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     function createMockSupabase(existingCommitments: any[] = [], existingOccurrences: any[] = []) {
       const commitmentsState = [...existingCommitments];
       const occurrencesState = [...existingOccurrences];
@@ -147,8 +147,10 @@ describe('Seed Claro Commitments', () => {
             let filterWorkspace: string | null = null;
             let filterDesc: string | null = null;
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const chain: any = {
               select: () => chain,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               eq: (col: string, val: any) => {
                 if (col === 'workspace_id') filterWorkspace = val;
                 if (col === 'description') filterDesc = val;
@@ -162,7 +164,9 @@ describe('Seed Claro Commitments', () => {
                 }
                 return chain;
               },
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               update: (updatePayload: any) => ({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 eq: (col: string, val: any) => {
                   const idx = commitmentsState.findIndex((c) => c.id === val);
                   if (idx >= 0) {
@@ -171,6 +175,7 @@ describe('Seed Claro Commitments', () => {
                   return Promise.resolve({ error: null });
                 },
               }),
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               insert: (insertPayload: any) => ({
                 select: () => ({
                   single: () => {
@@ -180,6 +185,7 @@ describe('Seed Claro Commitments', () => {
                   },
                 }),
               }),
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               then: (resolve: any) => {
                 const matches = commitmentsState.filter((c) => {
                   if (filterWorkspace && c.workspace_id !== filterWorkspace) return false;
@@ -196,14 +202,18 @@ describe('Seed Claro Commitments', () => {
             let filterCommitmentId: string | null = null;
             let filterMonth: string | null = null;
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const chain: any = {
               select: () => chain,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               eq: (col: string, val: any) => {
                 if (col === 'fixed_commitment_id') filterCommitmentId = val;
                 if (col === 'occurrence_month') filterMonth = val;
                 return chain;
               },
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               update: (updatePayload: any) => ({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 eq: (col: string, val: any) => {
                   const idx = occurrencesState.findIndex((o) => o.id === val);
                   if (idx >= 0) {
@@ -212,6 +222,7 @@ describe('Seed Claro Commitments', () => {
                   return Promise.resolve({ error: null });
                 },
               }),
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               insert: (insertPayload: any) => ({
                 select: () => ({
                   single: () => {
@@ -221,6 +232,7 @@ describe('Seed Claro Commitments', () => {
                   },
                 }),
               }),
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               then: (resolve: any) => {
                 const matches = occurrencesState.filter((o) => {
                   if (filterCommitmentId && o.fixed_commitment_id !== filterCommitmentId) return false;

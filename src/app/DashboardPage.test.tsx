@@ -109,7 +109,8 @@ describe("DashboardPage quick transaction integration", () => {
     fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
 
     await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText("Carregando...")).toBeTruthy();
+    const loadingText = await screen.findByText("Carregando...");
+    expect(loadingText.nodeName).toBe("P");
     expect(screen.queryByRole("button", { name: "Registrar" })).toBeNull();
 
     act(() => mocks.resolveReload?.());

@@ -159,9 +159,9 @@ describe("TransactionsPage", () => {
       target: { value: "2026-07-31" },
     });
 
-    expect(screen.getByText("Mercado na abertura")).toBeTruthy();
-    expect(screen.getByText("Mercado Central")).toBeTruthy();
-    expect(screen.getByText("Mercado no fechamento")).toBeTruthy();
+    expect(screen.getByText("Mercado na abertura").textContent).toBe("Mercado na abertura");
+    expect(screen.getByText("Mercado Central").textContent).toBe("Mercado Central");
+    expect(screen.getByText("Mercado no fechamento").textContent).toBe("Mercado no fechamento");
     expect(screen.queryByText("Mercado do bairro")).toBeNull();
     expect(screen.queryByText("Salário")).toBeNull();
     expect(navigationMocks.useFinance).toHaveBeenLastCalledWith(

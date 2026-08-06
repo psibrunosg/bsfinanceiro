@@ -6,6 +6,7 @@ import {
   computeMonthlyFlow,
   lastNMonths,
   calculateNetCashFlowExcludingTransfers,
+  computeDailyDecision,
 } from "./aggregations";
 
 let txIdCounter = 1;
@@ -185,5 +186,44 @@ describe("calculateNetCashFlowExcludingTransfers", () => {
     expect(summary.totalExpense).toBe(4000);
     expect(summary.netCashFlow).toBe(8000);
     expect(summary.transferVolume).toBe(5000);
+  });
+});
+
+describe("computeDailyDecision", () => {
+  test("calcula teto diário e trajetória remanescente com saldo positivo em status safe", () => {
+    const res = computeDailyDecision(1500, 30);
+    expect(res.dailyLimit).toBe(50);
+    expect(res.status).toBe("safe");
+    expect(res.daysRemaining).toBe(30);
+    expect(res.trajectory).toHaveLength(30);
+    expect(res.trajectory[0].remaining).toBe(1500);
+    expect(res.trajectory[29].remaining).toBe(50);
+  });
+
+  test("aciona status warning quando teto diário é inferior a 30 reais", () => {
+    const res = computeDailyDecision(600, 30);
+    expect(res.dailyLimit).toBe(20);
+    expect(res.status).toBe("warning");
+  });
+
+  test("aciona status critical quando saldo disponível é zero ou negativo", () => {
+    const res = computeDailyDecision(-100, 10);
+    expect(res.dailyLimit).toBe(0);
+    expect(res.status).toBe("critical");
+  });
+
+  test("gera datas ISO sequenciais na trajetória quando startDate é fornecido", () => {
+    const res = computeDailyDecision(300, 3, "2026-08-01");
+    expect(res.trajectory.map((t) => t.date)).toEqual([
+      "2026-08-01",
+      "2026-08-02",
+      "2026-08-03",
+    ]);
+  });
+
+  test("protege contra intervalo nulo ou negativo definindo mínimo de 1 dia", () => {
+    const res = computeDailyDecision(100, 0);
+    expect(res.daysRemaining).toBe(1);
+    expect(res.dailyLimit).toBe(100);
   });
 });

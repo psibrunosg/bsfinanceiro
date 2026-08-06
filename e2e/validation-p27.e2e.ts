@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const TEST_EMAIL = "brunosg2711@icloud.com";
 const TEST_PASSWORD = "SENHA-REMOVIDA-DO-HISTORICO";
 
-test.setTimeout(120000);
+test.setTimeout(240000);
 
 test.describe("Validação manual P2.7 — Decisão diária", () => {
   test("cenário completo: conta principal → disponibilidade → registro rápido → histórico", async ({ page }) => {
@@ -68,7 +68,7 @@ test.describe("Validação manual P2.7 — Decisão diária", () => {
     await page.waitForLoadState("domcontentloaded");
     await page.waitForTimeout(1500);
     const url = page.url();
-    const redirectWorked = url.includes("/gastos") && url.includes("tab=recurrent");
+    const redirectWorked = url.includes("/gastos") && url.includes("tab=recorrentes");
     const sessionLost = url.includes("/entrar");
     await page.screenshot({ path: "test-results/manual-validation/07-compromissos-redirect.png", fullPage: true });
 

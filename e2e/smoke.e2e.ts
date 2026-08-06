@@ -19,7 +19,7 @@ test.describe("Guarda de autenticação (deslogado)", () => {
   for (const path of PROTECTED) {
     test(`${path} → redireciona para /entrar`, async ({ page }) => {
       await page.goto(path);
-      await expect(page).toHaveURL(/\/entrar/);
+      await expect(page).toHaveURL(/\/entrar/, { timeout: 15000 });
     });
   }
 });

@@ -8,7 +8,7 @@ import { Nav } from "./components/Nav";
 import { money, monthStart, nextMonthStart } from "./components/Money";
 import { DashboardChart } from "./components/DashboardChart";
 import { QuickTransactionForm } from "./components/QuickTransactionForm";
-import { aggregateExpensesByCategory, computeEvolution, computeMonthlyFlow, lastNMonths } from "@/lib/finance/aggregations";
+import { aggregateExpensesByCategory, computeEvolution, computeMonthlyFlow, lastNMonths, computeDailyDecision } from "@/lib/finance/aggregations";
 import { generateInsights } from "@/lib/finance/insights";
 
 export function DashboardPage() {
@@ -38,6 +38,10 @@ export function DashboardPage() {
 
     return { balance, monthIncome, monthExpense, months: labels, evolution, expensesByCategory, flowIn, flowOut, insights };
   }, [accounts, categories, transactions]);
+
+  const dailyDecision = useMemo(() => {
+    return computeDailyDecision(metrics.balance, 30);
+  }, [metrics.balance]);
 
   if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
 
@@ -75,6 +79,19 @@ export function DashboardPage() {
         <QuickTransactionForm workspaceId={workspace.id} ownerId={ownerId} defaultCashAccountId={defaultCashAccountId} accounts={accounts} categories={categories} onSubmitStart={() => setQuickTransactionStatus("")} onSaved={reloadAfterQuickTransaction} />
       </Dialog>
     ) : null}
+
+    <div className="dashboard-columns" style={{ marginBottom: "24px" }}>
+      <article className="dashboard-card" style={{ borderLeft: `4px solid ${dailyDecision.status === "critical" ? "#e53e3e" : dailyDecision.status === "warning" ? "#d97706" : "#087f5b"}` }}>
+        <div>
+          <p className="eyebrow" style={{ color: "#60716c" }}>DECISÃO DIÁRIA · TETO DE GASTOS</p>
+          <h2 style={{ fontSize: "1.75rem", margin: "4px 0" }}>{money(dailyDecision.dailyLimit)} <small style={{ fontSize: "0.9rem", fontWeight: "normal", color: "#60716c" }}>/ dia recomendável</small></h2>
+          <p className="muted">Projeção remanescente para manter seu saldo positivo nos próximos {dailyDecision.daysRemaining} dias com base no disponível de {money(metrics.balance)}.</p>
+        </div>
+        <div className="chart-wrap" style={{ height: "140px", marginTop: "16px" }}>
+          <DashboardChart type="line" label="Saldo Recomendado" labels={dailyDecision.trajectory.map((item) => `Dia ${item.day}`)} values={dailyDecision.trajectory.map((item) => item.remaining)} color={dailyDecision.status === "critical" ? "#e53e3e" : dailyDecision.status === "warning" ? "#d97706" : "#087f5b"} />
+        </div>
+      </article>
+    </div>
 
     <details className="dashboard-section" open><summary><div><p className="eyebrow">SAÚDE DO MÊS</p><strong>{money(metrics.balance)} disponível</strong></div><ChevronDown aria-hidden="true" /></summary><div className="dashboard-section__body">
       <div className="metric-grid"><article className="metric positive"><span>Entradas</span><strong>{money(metrics.monthIncome)}</strong></article><article className="metric"><span>Saídas</span><strong>{money(metrics.monthExpense)}</strong></article><article className="metric"><span>Saldo do mês</span><strong>{money(metrics.monthIncome - metrics.monthExpense)}</strong></article></div>

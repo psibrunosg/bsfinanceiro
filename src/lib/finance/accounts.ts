@@ -160,6 +160,7 @@ export interface SeedAccountsResult {
 }
 
 export async function seedBankAccounts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   options?: {
     workspaceId?: string;
@@ -184,7 +185,7 @@ export async function seedBankAccounts(
     throw fetchErr;
   }
 
-  const existingMap = new Map<string, any>();
+  const existingMap = new Map<string, { id: string; name: string; type: string; initial_balance: number; active: boolean; is_system?: boolean }>();
   if (existingAccounts) {
     for (const acc of existingAccounts) {
       existingMap.set(acc.name.trim().toLowerCase(), acc);
@@ -199,7 +200,7 @@ export async function seedBankAccounts(
 
     if (existing) {
       let needsUpdate = false;
-      const updates: Record<string, any> = {};
+      const updates: Partial<BankAccountSpec> = {};
 
       if (existing.type !== spec.type) {
         updates.type = spec.type;
@@ -229,10 +230,10 @@ export async function seedBankAccounts(
       resultAccounts.push({
         id: existing.id,
         name: existing.name,
-        type: updates.type ?? existing.type,
+        type: (updates.type ?? existing.type) as string,
         initial_balance: Number(existing.initial_balance),
-        active: updates.active ?? existing.active,
-        is_system: updates.is_system ?? existing.is_system ?? false,
+        active: (updates.active ?? existing.active) as boolean,
+        is_system: (updates.is_system ?? existing.is_system ?? false) as boolean,
         scope: classifyAccountScope(existing.name),
       });
     } else {

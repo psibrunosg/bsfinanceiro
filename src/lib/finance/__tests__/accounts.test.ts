@@ -8,10 +8,8 @@ import {
   formatAccountBalance,
   isCashAccountType,
   seedBankAccounts,
-  SEED_BANK_ACCOUNTS,
   DEFAULT_WORKSPACE_ID,
   DEFAULT_OWNER_ID,
-  BankAccountSpec,
 } from '../accounts';
 
 describe('Accounts Module (PJ / PF & Seeding)', () => {
@@ -83,7 +81,7 @@ describe('Accounts Module (PJ / PF & Seeding)', () => {
 
       const resultInvalidType = validateBankAccount({
         name: 'Conta',
-        type: 'crypto' as any,
+        type: 'crypto' as unknown as BankAccountType,
         initial_balance: 0,
       });
       expect(resultInvalidType.valid).toBe(false);
@@ -117,6 +115,7 @@ describe('Accounts Module (PJ / PF & Seeding)', () => {
   });
 
   describe('seedBankAccounts Seeder Logic (Idempotent)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     function createMockSupabase(initialDbAccounts: any[] = []) {
       const dbAccounts = [...initialDbAccounts];
 
@@ -128,13 +127,17 @@ describe('Accounts Module (PJ / PF & Seeding)', () => {
 
           let filterWorkspaceId: string | null = null;
 
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const chain: any = {
             select: () => chain,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             eq: (col: string, val: any) => {
               if (col === 'workspace_id') filterWorkspaceId = val;
               return chain;
             },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             update: (updates: any) => ({
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               eq: (col: string, val: any) => {
                 const idx = dbAccounts.findIndex((a) => a.id === val);
                 if (idx >= 0) {
@@ -143,6 +146,7 @@ describe('Accounts Module (PJ / PF & Seeding)', () => {
                 return Promise.resolve({ error: null });
               },
             }),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             insert: (payload: any) => ({
               select: () => ({
                 single: () => {
@@ -152,6 +156,7 @@ describe('Accounts Module (PJ / PF & Seeding)', () => {
                 },
               }),
             }),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             then: (resolve: any) => {
               const matched = dbAccounts.filter(
                 (a) => !filterWorkspaceId || a.workspace_id === filterWorkspaceId

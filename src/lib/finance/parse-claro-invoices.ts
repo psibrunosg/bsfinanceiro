@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 // Handle CJS pdf-parse module in ESM/TypeScript environment
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let PDFParseClass: any = null;
 function getPDFParse() {
   if (!PDFParseClass) {
