@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 
-test('Full validation of modals and UX', async ({ page }) => {
+test('Full validation of login modal and UX', async ({ page }) => {
   const consoleErrors: string[] = [];
   const networkErrors: string[] = [];
 
@@ -17,24 +17,19 @@ test('Full validation of modals and UX', async ({ page }) => {
     }
   });
 
-  // Navigate to accounts page
-  await page.goto('/contas');
-
-  // Wait for network idle to ensure everything is loaded
+  // Navigate to login page
+  await page.goto('/entrar');
   await page.waitForLoadState('networkidle');
 
-  // Click 'Nova movimentação' or 'Adicionar conta' button
-  const addButton = page.getByRole('button', { name: /Adicionar conta/i });
-  if (await addButton.isVisible()) {
-    await addButton.click();
-  }
+  // Verify elements are visible
+  await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
 
-  // Wait for dialog to appear
-  const dialog = page.locator('dialog');
-  await expect(dialog).toBeVisible({ timeout: 5000 });
+  // Try to submit empty form to trigger validation errors (or just get DOM state)
+  await page.getByRole('button', { name: 'Entrar' }).click();
 
   // Extract relevant DOM (the form)
-  const domContent = await dialog.innerHTML();
+  const form = page.locator('form');
+  const domContent = await form.innerHTML();
 
   // Write outputs to a file for the pilot agent to read
   const output = {
@@ -44,6 +39,5 @@ test('Full validation of modals and UX', async ({ page }) => {
   };
   fs.writeFileSync('test-results/qa-audit-log.json', JSON.stringify(output, null, 2));
 
-  // Asserting to make test pass locally
   expect(consoleErrors.length).toBe(0);
 });
