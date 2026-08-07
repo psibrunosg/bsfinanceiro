@@ -11,6 +11,8 @@ const PROTECTED = [
   "/categorias",
   "/configuracoes",
   "/movimentacoes",
+  "/relatorios",
+  "/saude",
 ];
 
 const AUTH_PAGES = ["/entrar", "/cadastro"];
