@@ -233,7 +233,7 @@ export function useFinance(
     let historyTotal = 0;
     let importBatchRows: TransactionImportBatch[] = [];
 
-    if (route === "dashboard") {
+    if (route === "dashboard" || route === "accounts") {
       const { data: nextIncomeData } = await supabase
         .from("transactions")
         .select(TRANSACTION_SELECT)

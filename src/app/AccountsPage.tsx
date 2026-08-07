@@ -13,7 +13,7 @@ import { Landmark, Wallet, Percent } from "lucide-react";
 import { Dialog } from "./components/Dialog";
 
 export function AccountsPage() {
-  const { workspace, accounts, transactions, loading, message, setMessage, reload } =
+  const { workspace, accounts, transactions, loading, message, setMessage, reload, cashPosition } =
     useFinance("accounts");
   const supabase = useMemo(() => createClient(), []);
   const [openDialog, setOpenDialog] = useState(false);
@@ -25,8 +25,7 @@ export function AccountsPage() {
       </main>
     );
 
-  const totalBalance = accounts.reduce((sum, a) => sum + Number(a.initial_balance), 0) + 
-    transactions.reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
+  const totalBalance = cashPosition.balanceCents / 100;
 
   async function submitAccount(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
@@ -69,10 +68,8 @@ export function AccountsPage() {
       <section className="management-grid" style={{ gridTemplateColumns: '1fr' }}>
         <List title="Contas ativas">
           {accounts.map((a) => {
-            const accountTx = transactions.filter(t => t.account_id === a.id);
-            const accountBalance = Number(a.initial_balance) + 
-              accountTx.reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
-            const participation = totalBalance > 0 ? (accountBalance / totalBalance) * 100 : 0;
+            const accountBalance = (cashPosition.accountBalancesCents[a.id] ?? (Number(a.initial_balance) * 100)) / 100;
+            const participation = totalBalance > 0 && accountBalance > 0 ? (accountBalance / totalBalance) * 100 : 0;
 
             return (
               <article className="account-row" key={a.id}>
