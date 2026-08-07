@@ -25,8 +25,18 @@ export function AccountsPage() {
       </main>
     );
 
-  const totalBalance = accounts.reduce((sum, a) => sum + Number(a.initial_balance), 0) + 
+  const totalBalance = accounts.reduce((sum, a) => sum + Number(a.initial_balance), 0) +
     transactions.reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
+
+  const balances = accounts.map((a) => ({
+    account: a,
+    balance: Number(a.initial_balance) + transactions
+      .filter((t) => t.account_id === a.id)
+      .reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0),
+  }));
+  // Participação é sobre o patrimônio positivo: usar o consolidado zerava tudo
+  // quando o saldo total ficava negativo.
+  const positiveTotal = balances.reduce((sum, b) => sum + Math.max(0, b.balance), 0);
 
   async function submitAccount(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
@@ -68,28 +78,28 @@ export function AccountsPage() {
 
       <section className="management-grid" style={{ gridTemplateColumns: '1fr' }}>
         <List title="Contas ativas">
-          {accounts.map((a) => {
-            const accountTx = transactions.filter(t => t.account_id === a.id);
-            const accountBalance = Number(a.initial_balance) + 
-              accountTx.reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
-            const participation = totalBalance > 0 ? (accountBalance / totalBalance) * 100 : 0;
-
-            return (
-              <article className="account-row" key={a.id}>
-                <span><Landmark aria-hidden="true" /></span>
-                <div>
-                  <strong>{a.name}</strong>
-                  <small>{ACCOUNT_TYPE_LABEL[a.type] ?? a.type}</small>
-                </div>
-                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                  <b>{money(accountBalance)}</b>
-                  <small style={{ display: 'flex', alignItems: 'center', gap: '4px' }} className="muted">
-                    <Percent aria-hidden="true" size={14} /> {participation.toFixed(1)}% do total
-                  </small>
-                </div>
-              </article>
-            );
-          })}
+          {balances.map(({ account: a, balance: accountBalance }) => (
+            <article className="account-row" key={a.id}>
+              <span><Landmark aria-hidden="true" /></span>
+              <div>
+                <strong>{a.name}</strong>
+                <small>{ACCOUNT_TYPE_LABEL[a.type] ?? a.type}</small>
+              </div>
+              <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                <b>{money(accountBalance)}</b>
+                <small style={{ display: 'flex', alignItems: 'center', gap: '4px' }} className="muted">
+                  {accountBalance < 0 ? (
+                    <>saldo negativo de {money(Math.abs(accountBalance))}</>
+                  ) : (
+                    <>
+                      <Percent aria-hidden="true" size={14} />{" "}
+                      {(positiveTotal > 0 ? (accountBalance / positiveTotal) * 100 : 0).toFixed(1)}% do total
+                    </>
+                  )}
+                </small>
+              </div>
+            </article>
+          ))}
           {accounts.length === 0 && (
             <p className="dashboard-empty" style={{ margin: "2rem 0" }}>Nenhuma conta encontrada.</p>
           )}
@@ -98,14 +108,17 @@ export function AccountsPage() {
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title="Adicionar conta">
         <SimpleForm onSubmit={submitAccount}>
-          <input name="name" placeholder="Nome da conta" required />
-          <select name="type" defaultValue="checking">
+          <label htmlFor="account-name">Nome da conta</label>
+          <input id="account-name" name="name" placeholder="Nome da conta" required autoFocus />
+          <label htmlFor="account-type">Tipo</label>
+          <select id="account-type" name="type" defaultValue="checking">
             <option value="checking">Conta bancária</option>
             <option value="cash">Dinheiro</option>
             <option value="savings">Poupança</option>
             <option value="investment">Investimento</option>
           </select>
-          <input name="initial_balance" defaultValue="0,00" required />
+          <label htmlFor="account-initial-balance">Saldo inicial</label>
+          <input id="account-initial-balance" name="initial_balance" placeholder="0,00" defaultValue="0,00" required />
           <button>Adicionar conta</button>
         </SimpleForm>
       </Dialog>

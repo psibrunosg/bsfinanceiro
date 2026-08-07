@@ -4,6 +4,7 @@
  * compatibility with the existing useFinance hook which stores amounts as strings.
  */
 
+import { addMonths } from "./local-date";
 import {
   isTransferTransaction,
   filterOutTransfers,
@@ -21,8 +22,13 @@ export type Category = {
 
 export { calculateNetCashFlowExcludingTransfers };
 
+/** `Date` -> `YYYY-MM-01` (calendário local, igual ao resto do app). */
+const monthStartOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+
 /**
- * Aggregate expenses by category for a given month range.
+ * Aggregate expenses by category for a given month range `[currentMonth, nextMonth)`.
+ * `nextMonth` é opcional para não quebrar chamadores antigos — sem ele o intervalo
+ * fica aberto à direita (soma tudo a partir de `currentMonth`).
  * Neutralizes inter-account transfers from category expense calculations.
  * Returns the top N categories sorted by value descending.
  */
@@ -31,15 +37,17 @@ export function aggregateExpensesByCategory(
   categories: Category[],
   currentMonth: string,
   topN = 5,
+  nextMonth?: string,
 ): { label: string; value: number }[] {
   const filteredTxs = transactions.filter((t) => !isTransferTransaction(t, categories));
+  const inRange = (date: string) => date >= currentMonth && (!nextMonth || date < nextMonth);
 
   return categories
     .filter((c) => c.kind === "expense")
     .map((category) => ({
       label: category.name,
       value: filteredTxs
-        .filter((t) => t.type === "expense" && t.competence_date >= currentMonth && t.category_id === category.id)
+        .filter((t) => t.type === "expense" && inRange(t.competence_date) && t.category_id === category.id)
         .reduce((sum, t) => sum + Number(t.amount), 0),
     }))
     .filter((item) => item.value > 0)
@@ -61,34 +69,15 @@ export function computeMonthlyFlow(
   const categories = options.categories ?? [];
   const activeTxs = excludeTransfers ? filterOutTransfers(transactions, categories) : transactions;
 
-  const toKey = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-
-  const flowIn = months.map((month) => {
-    const key = toKey(month);
+  const sumIn = (type: "income" | "expense") => (month: Date) => {
+    const from = monthStartOf(month);
+    const toExclusive = addMonths(from, 1);
     return activeTxs
-      .filter(
-        (t) =>
-          t.type === "income" &&
-          t.competence_date >= `${key}-01` &&
-          t.competence_date <= `${key}-31`,
-      )
+      .filter((t) => t.type === type && t.competence_date >= from && t.competence_date < toExclusive)
       .reduce((sum, t) => sum + Number(t.amount), 0);
-  });
+  };
 
-  const flowOut = months.map((month) => {
-    const key = toKey(month);
-    return activeTxs
-      .filter(
-        (t) =>
-          t.type === "expense" &&
-          t.competence_date >= `${key}-01` &&
-          t.competence_date <= `${key}-31`,
-      )
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-  });
-
-  return { flowIn, flowOut };
+  return { flowIn: months.map(sumIn("income")), flowOut: months.map(sumIn("expense")) };
 }
 
 /**
@@ -104,7 +93,7 @@ export function computeEvolution(
   return months.map(
     (month) =>
       transactions
-        .filter((t) => t.competence_date <= `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-31`)
+        .filter((t) => t.competence_date < addMonths(monthStartOf(month), 1))
         .reduce(
           (sum, t) =>
             sum +

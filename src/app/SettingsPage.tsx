@@ -76,25 +76,19 @@ export function SettingsPage() {
       <Nav />
       {message && <p className="form-success">{message}</p>}
       
-      <div className="tabs-nav" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)', marginBottom: '24px' }}>
+      <nav className="hub-tabs" aria-label="Abas de configurações">
         {TABS.map(tab => (
-          <button 
-            key={tab} 
+          <button
+            key={tab}
+            type="button"
+            aria-pressed={activeTab === tab}
+            className={activeTab === tab ? "active" : ""}
             onClick={() => setActiveTab(tab)}
-            style={{ 
-              background: activeTab === tab ? 'var(--primary-color)' : 'transparent', 
-              color: activeTab === tab ? '#fff' : 'var(--text-color)',
-              border: 'none',
-              padding: '6px 16px',
-              borderRadius: '20px',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
           >
             {tab}
           </button>
         ))}
-      </div>
+      </nav>
 
       <section className="settings-page">
         <form className="settings-card" onSubmit={async (e) => { e.preventDefault(); await savePreferences(new FormData(e.currentTarget)); }}>

@@ -7,8 +7,10 @@ import { PageHeader } from "../components/PageHeader";
 import { Dialog } from "../components/Dialog";
 import { SimpleForm } from "../components/SimpleForm";
 import { List } from "../components/List";
-import { money, parseMoney, dateFmt, monthStart, nextMonthStart } from "../components/Money";
+import { money, parseMoney, dateFmt } from "../components/Money";
 import { DashboardChart } from "../components/DashboardChart";
+import { MonthPicker } from "../components/MonthPicker";
+import { useMonth } from "../components/MonthContext";
 import { createClient } from "@/lib/supabase/client";
 import { ReceiptText, Check } from "lucide-react";
 
@@ -46,6 +48,7 @@ export default function GastosPage() {
   const { workspace, accounts, categories, defaultCashAccountId, loading } =
     useFinance("dashboard");
   const supabase = useMemo(() => createClient(), []);
+  const { month, nextMonth, label: monthLabel } = useMonth();
   // Lido no cliente apenas para a aba inicial; evita useSearchParams para
   // manter a página estática sem suspense boundary.
   const [tab, setTab] = useState<Tab>(() =>
@@ -92,7 +95,7 @@ export default function GastosPage() {
             .order("due_day"),
           supabase.rpc("materialize_fixed_commitment_occurrences", {
             p_workspace_id: workspace.id,
-            p_month: monthStart(),
+            p_month: month,
           }),
         ]);
       setDefaultContextId((contextRows ?? []).find((c: { kind: string }) => c.kind === "pessoal")?.id ?? null);
@@ -102,7 +105,7 @@ export default function GastosPage() {
     } finally {
       setHubLoading(false);
     }
-  }, [supabase, workspace]);
+  }, [supabase, workspace, month]);
 
   useEffect(() => {
     void loadHub();
@@ -125,7 +128,7 @@ export default function GastosPage() {
         );
 
   const currentMonthExpenses = filteredExpenses.filter(
-    (t) => t.competence_date >= monthStart() && t.competence_date < nextMonthStart()
+    (t) => t.competence_date >= month && t.competence_date < nextMonth
   );
   const totalMonth = currentMonthExpenses.reduce((s, t) => s + Number(t.amount), 0);
   const totalRecurrent = commitments.reduce((s, c) => s + Number(c.amount), 0);
@@ -141,9 +144,10 @@ export default function GastosPage() {
     .sort((a, b) => b.value - a.value);
 
   const byMonth: { label: string; value: number }[] = [];
-  const now = new Date();
+  // Janela de 6 meses terminando no mês selecionado.
+  const anchor = new Date(`${month}T12:00:00`);
   for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const d = new Date(anchor.getFullYear(), anchor.getMonth() - i, 1);
     const start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 1).toISOString().slice(0, 10);
     const value = filteredExpenses
@@ -232,7 +236,8 @@ export default function GastosPage() {
         <button type="button" aria-pressed={tab === "recurrent"} onClick={() => setTab("recurrent")} className={tab === "recurrent" ? "active" : ""}>Recorrentes</button>
       </nav>
 
-      <div className="hub-filters" style={{ display: "flex", gap: 8, alignItems: "center", margin: "12px 0" }}>
+      <div className="hub-filters">
+        <MonthPicker />
         <label className="muted" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           Contexto
           <select
@@ -293,11 +298,11 @@ export default function GastosPage() {
                 <button type="button" onClick={() => setDialog({ kind: "expense" })}>Registrar primeiro gasto</button>
               </p>
             ) : (
-              <ul className="list" style={{ display: "grid", gap: 6 }}>
+              <ul className="list">
                 {filteredExpenses.map((t) => {
                   const cat = expenseCategories.find((c) => c.id === t.category_id);
                   return (
-                    <li key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                    <li key={t.id}>
                       <span>
                         {t.description} · {dateFmt.format(new Date(`${t.competence_date}T12:00:00`))}
                         {cat ? ` · ${cat.name}` : ""}
@@ -323,7 +328,7 @@ export default function GastosPage() {
             {commitments.map((c) => {
               const cat = expenseCategories.find((x) => x.id === c.category_id);
               return (
-                <article className="account-row" key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <article className="account-row" key={c.id}>
                   <div>
                     <strong>{c.description}</strong>
                     <small>vence dia {c.due_day}{cat ? ` · ${cat.name}` : ""}</small>
@@ -334,13 +339,13 @@ export default function GastosPage() {
             })}
           </List>
 
-          <List title={`Ocorrências · ${new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date())}`}>
+          <List title={`Ocorrências · ${monthLabel}`}>
             {occurrences.length === 0 && <p className="muted">Nenhuma ocorrência neste mês.</p>}
             {occurrences.map((o) => {
               const paid = o.status === "paid";
               const payable = o.status === "planned";
               return (
-                <article className="account-row" key={o.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <article className="account-row" key={o.id}>
                   <div>
                     <strong>{o.description}</strong>
                     <small>

@@ -9,6 +9,8 @@ import { SimpleForm } from "../components/SimpleForm";
 import { List } from "../components/List";
 import { money, parseMoney, dateFmt } from "../components/Money";
 import { DashboardChart } from "../components/DashboardChart";
+import { MonthPicker } from "../components/MonthPicker";
+import { useMonth } from "../components/MonthContext";
 import { createClient } from "@/lib/supabase/client";
 import { TrendingUp } from "lucide-react";
 
@@ -51,6 +53,7 @@ export default function GanhosPage() {
   const { workspace, accounts, categories, defaultCashAccountId, loading } =
     useFinance("dashboard");
   const supabase = useMemo(() => createClient(), []);
+  const { month, nextMonth, label: monthLabel } = useMonth();
   const [tab, setTab] = useState<Tab>("overview");
   const [dialog, setDialog] = useState<DialogState>(null);
   const [message, setMessage] = useState("");
@@ -153,11 +156,18 @@ export default function GanhosPage() {
     ? earnings.find((e) => e.id === receiveDialog.earningId)
     : null;
 
-  const payslipReceived = payslips.filter((p) => p.transaction_id);
-  const earningsReceived = earnings.filter((e) => e.status === "received");
+  // Agregados da visão geral seguem o mês global; as listas por aba continuam
+  // sendo o registro completo (pacientes, arquivo de contracheques).
+  const inMonth = (date: string | null) => !!date && date >= month && date < nextMonth;
+  const payslipReceived = payslips.filter((p) => p.transaction_id && inMonth(p.received_date));
+  // ponytail: patient_earnings não guarda data de recebimento; due_date é o eixo
+  // de caixa disponível. Trocar por received_date se a coluna for criada.
+  const earningsReceived = earnings.filter((e) => e.status === "received" && inMonth(e.due_date));
   const payslipTotal = payslipReceived.reduce((s, p) => s + Number(p.net_amount), 0);
   const patientTotal = earningsReceived.reduce((s, e) => s + Number(e.amount), 0);
-  const otherTotal = otherIncome.reduce((s, t) => s + Number(t.amount), 0);
+  const otherTotal = otherIncome
+    .filter((t) => inMonth(t.competence_date))
+    .reduce((s, t) => s + Number(t.amount), 0);
   const totalIncome = payslipTotal + patientTotal + otherTotal;
   const composition = [
     { label: "Contracheques", value: payslipTotal },
@@ -312,11 +322,15 @@ export default function GanhosPage() {
 
       {tab === "overview" && (
         <section>
+          <div className="hub-filters">
+            <MonthPicker />
+            <span className="muted">As abas de contracheques, pacientes e outras receitas mostram o histórico completo.</span>
+          </div>
           <section className="hub-overview">
             <article className="metric-card metric-card--positive">
               <TrendingUp aria-hidden="true" />
               <strong>{money(totalIncome)}</strong>
-              <span className="muted">Total recebido</span>
+              <span className="muted">Recebido em {monthLabel}</span>
             </article>
           </section>
           <section className="dashboard-columns" style={{ marginTop: 18 }}>
@@ -326,7 +340,7 @@ export default function GanhosPage() {
                 {totalIncome > 0 ? (
                   <DashboardChart type="doughnut" label="Ganhos" labels={composition.map((c) => c.label)} values={composition.map((c) => c.value)} color="var(--accent)" />
                 ) : (
-                  <p className="dashboard-empty">Nenhum ganho recebido ainda.{" "}
+                  <p className="dashboard-empty">Nenhum ganho recebido em {monthLabel}.{" "}
                     <button type="button" onClick={() => setDialog({ kind: "other" })}>Registrar primeiro ganho</button>
                   </p>
                 )}
@@ -334,9 +348,9 @@ export default function GanhosPage() {
             </article>
             <article className="dashboard-card">
               <h3>Fontes</h3>
-              <ul className="list" style={{ display: "grid", gap: 10 }}>
+              <ul className="list">
                 {composition.map((c) => (
-                  <li key={c.label} style={{ display: "flex", justifyContent: "space-between" }}>
+                  <li key={c.label}>
                     <span>{c.label}</span>
                     <b>{money(c.value)}</b>
                   </li>
@@ -356,7 +370,7 @@ export default function GanhosPage() {
               </p>
             )}
             {payslips.map((p) => (
-              <article className="account-row" key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <article className="account-row" key={p.id}>
                 <div>
                   <strong>{p.employer}</strong>
                   <small>
@@ -403,9 +417,9 @@ export default function GanhosPage() {
                     <button type="button" onClick={() => setDialog({ kind: "earning", patientId: p.id })}>Atendimento</button>
                   </div>
                   {pEarnings.length > 0 && (
-                    <ul className="list" style={{ display: "grid", gap: 6 }}>
+                    <ul className="list">
                       {pEarnings.map((e) => (
-                        <li key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                        <li key={e.id}>
                           <span>
                             {dateFmt.format(new Date(`${e.appointment_date}T12:00:00`))} · {money(e.amount)}
                             {e.notes ? ` · ${e.notes}` : ""}
@@ -436,9 +450,9 @@ export default function GanhosPage() {
                 <button type="button" onClick={() => setDialog({ kind: "other" })}>Registrar primeira receita</button>
               </p>
             ) : (
-              <ul className="list" style={{ display: "grid", gap: 6 }}>
+              <ul className="list">
                 {otherIncome.map((t) => (
-                  <li key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                  <li key={t.id}>
                     <span>
                       {t.description} · {dateFmt.format(new Date(`${t.competence_date}T12:00:00`))}
                     </span>

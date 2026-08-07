@@ -84,6 +84,28 @@ describe("aggregateExpensesByCategory", () => {
     const result = aggregateExpensesByCategory([], [], "2026-07-01");
     expect(result).toEqual([]);
   });
+
+  test("com fim exclusivo, inclui o dia 31 e exclui o dia 1 do mês seguinte", () => {
+    const transactions = [
+      tx({ competence_date: "2026-07-31", amount: "100" }),
+      tx({ competence_date: "2026-08-01", amount: "900" }),
+    ];
+
+    const result = aggregateExpensesByCategory(transactions, [cat({})], "2026-07-01", 5, "2026-08-01");
+
+    expect(result).toEqual([{ label: "Alimentação", value: 100 }]);
+  });
+
+  test("sem fim exclusivo o intervalo continua aberto (compatibilidade)", () => {
+    const transactions = [
+      tx({ competence_date: "2026-07-31", amount: "100" }),
+      tx({ competence_date: "2026-08-01", amount: "900" }),
+    ];
+
+    const result = aggregateExpensesByCategory(transactions, [cat({})], "2026-07-01");
+
+    expect(result).toEqual([{ label: "Alimentação", value: 1000 }]);
+  });
 });
 
 describe("computeMonthlyFlow", () => {
@@ -111,6 +133,17 @@ describe("computeMonthlyFlow", () => {
     expect(result.flowIn).toEqual([0, 1000]);
     expect(result.flowOut).toEqual([0, 0]);
   });
+
+  test("inclui o dia 31 e exclui o dia 1 do mês seguinte", () => {
+    const transactions = [
+      tx({ type: "income", amount: "100", competence_date: "2026-07-31" }),
+      tx({ type: "income", amount: "900", competence_date: "2026-08-01" }),
+    ];
+
+    const result = computeMonthlyFlow(transactions, [new Date(2026, 6, 1), new Date(2026, 7, 1)]);
+
+    expect(result.flowIn).toEqual([100, 900]);
+  });
 });
 
 describe("computeEvolution", () => {
@@ -124,6 +157,16 @@ describe("computeEvolution", () => {
     const result = computeEvolution(transactions, 500, months);
 
     expect(result).toEqual([1500, 1100]);
+  });
+
+  test("acumula o dia 31 no mês e só conta o dia 1 no mês seguinte", () => {
+    const transactions = [
+      tx({ type: "income", amount: "100", competence_date: "2026-07-31" }),
+      tx({ type: "income", amount: "900", competence_date: "2026-08-01" }),
+    ];
+    const months = [new Date(2026, 6, 1), new Date(2026, 7, 1)];
+
+    expect(computeEvolution(transactions, 0, months)).toEqual([100, 1000]);
   });
 });
 

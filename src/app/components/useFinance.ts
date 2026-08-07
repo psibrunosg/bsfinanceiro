@@ -37,7 +37,7 @@ import type {
 } from "./types";
 
 const TRANSACTION_SELECT =
-  "id,account_id,destination_account_id,type,status,description,amount,competence_date";
+  "id,account_id,destination_account_id,type,status,description,amount,competence_date,category_id";
 const DASHBOARD_QUERY_BATCH_SIZE = 500;
 export const TRANSACTION_HISTORY_PAGE_SIZE = 25;
 

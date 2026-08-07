@@ -11,7 +11,12 @@ import "./projection.css";
 import "./planning.css";
 import "./settings.css";
 import "./dashboard-extra.css";
+import "./dialog.css";
+import "./compromissos/commitments.css";
+import "./components.css";
+import "./reports.css";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { MonthProvider } from "./components/MonthContext";
 
 export const metadata: Metadata = {
   title: "BS Financeiro",
@@ -25,5 +30,5 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#173b35" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: "document.documentElement.dataset.theme=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'" }} /><script dangerouslySetInnerHTML={{ __html: "if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}" }} /></head><body><ThemeProvider>{children}</ThemeProvider></body></html>;
+  return <html lang="pt-BR" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: "document.documentElement.dataset.theme=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'" }} /><script dangerouslySetInnerHTML={{ __html: "if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}" }} /></head><body><ThemeProvider><MonthProvider>{children}</MonthProvider></ThemeProvider></body></html>;
 }

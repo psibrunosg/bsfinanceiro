@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { BarChart3, CirclePlus, CreditCard, Landmark, LogOut, Menu, Moon, ReceiptText, Sun, Target, TrendingUp, WalletCards } from "lucide-react";
+import { Activity, BarChart3, ChartColumn, CirclePlus, CreditCard, Landmark, LogOut, Menu, Moon, ReceiptText, Sun, Target, TrendingUp, WalletCards } from "lucide-react";
 import { appPath } from "@/lib/app-path";
 import { createClient } from "@/lib/supabase/client";
 import { useThemePreference } from "./ThemeProvider";
@@ -15,6 +15,8 @@ const desktopLinks = [
   { href: "/cartoes", label: "Cartões", icon: CreditCard },
   { href: "/investimentos", label: "Investimentos", icon: WalletCards },
   { href: "/planejamento", label: "Planejamento", icon: Target },
+  { href: "/relatorios", label: "Relatórios", icon: ChartColumn },
+  { href: "/saude", label: "Saúde financeira", icon: Activity },
   { href: "/categorias", label: "Categorias", icon: ReceiptText },
   { href: "/configuracoes", label: "Mais", icon: Menu },
 ];

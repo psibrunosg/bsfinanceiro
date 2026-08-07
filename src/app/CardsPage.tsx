@@ -224,8 +224,11 @@ function CardsPageInner() {
                       <span>Fatura atual: <strong>{money(openInvoiceTotal)}</strong></span>
                       <span>Disponível: {money(c.credit_limit - usedLimit)}</span>
                     </small>
-                    <div className="progress-bar" style={{ marginTop: '8px', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ width: `${limitPercentage}%`, height: '100%', background: limitPercentage > 90 ? 'var(--danger-color)' : 'var(--primary-color)' }} />
+                    <div
+                      className={`progress-bar${limitPercentage >= 90 ? " progress-bar--danger" : limitPercentage >= 70 ? " progress-bar--warning" : ""}`}
+                      style={{ marginTop: 8 }}
+                    >
+                      <span style={{ width: `${limitPercentage}%` }} />
                     </div>
                   </div>
                   <button type="button" onClick={() => openEditCard(c.id)}>
@@ -243,41 +246,49 @@ function CardsPageInner() {
             <SimpleForm key={editingCard?.id ?? "new"} onSubmit={editingCard ? updateCard : submitCard}>
               <label htmlFor="card-name">Nome do cartão</label>
               <input id="card-name" name="name" placeholder="Nome do cartão" defaultValue={editingCard?.name} required autoFocus={focusNewCard} />
-              <label htmlFor="card-brand">Bandeira</label>
-              <select id="card-brand" name="brand" defaultValue={editingCard?.brand ?? ""}>
-                <option value="">Bandeira</option>
-                {CARD_BRANDS.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
-              <label htmlFor="card-last-four">Final do cartão</label>
-              <input id="card-last-four" name="last_four" placeholder="Final" defaultValue={editingCard?.last_four ?? ""} />
+              <div className="form-pair">
+                <label htmlFor="card-brand">Bandeira
+                  <select id="card-brand" name="brand" defaultValue={editingCard?.brand ?? ""}>
+                    <option value="">Bandeira</option>
+                    {CARD_BRANDS.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label htmlFor="card-last-four">Final do cartão
+                  <input id="card-last-four" name="last_four" placeholder="Final" defaultValue={editingCard?.last_four ?? ""} />
+                </label>
+              </div>
               <label htmlFor="card-credit-limit">Limite de crédito</label>
               <input id="card-credit-limit" name="credit_limit" placeholder="0,00" defaultValue={editingCard ? String(editingCard.credit_limit).replace(".", ",") : ""} required />
-              <label htmlFor="card-closing-day">Dia de fechamento</label>
-              <input
-                id="card-closing-day"
-                name="closing_day"
-                type="number"
-                min="1"
-                max="31"
-                placeholder="Fecha dia"
-                defaultValue={editingCard?.closing_day}
-                required
-              />
-              <label htmlFor="card-due-day">Dia de vencimento</label>
-              <input
-                id="card-due-day"
-                name="due_day"
-                type="number"
-                min="1"
-                max="31"
-                placeholder="Vence dia"
-                defaultValue={editingCard?.due_day}
-                required
-              />
+              <div className="form-pair">
+                <label htmlFor="card-closing-day">Dia de fechamento
+                  <input
+                    id="card-closing-day"
+                    name="closing_day"
+                    type="number"
+                    min="1"
+                    max="31"
+                    placeholder="Fecha dia"
+                    defaultValue={editingCard?.closing_day}
+                    required
+                  />
+                </label>
+                <label htmlFor="card-due-day">Dia de vencimento
+                  <input
+                    id="card-due-day"
+                    name="due_day"
+                    type="number"
+                    min="1"
+                    max="31"
+                    placeholder="Vence dia"
+                    defaultValue={editingCard?.due_day}
+                    required
+                  />
+                </label>
+              </div>
               <button>{editingCard ? "Salvar alterações" : "Cadastrar cartão"}</button>
             </SimpleForm>
           </Dialog>

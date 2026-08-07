@@ -1,0 +1,64 @@
+/* Relatórios (/relatorios) e exame de saúde financeira (/saude). */
+
+.report-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.report-row:last-of-type { border-bottom: 0; }
+.report-row > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  cursor: pointer;
+}
+.report-row__figures {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.report-delta--up { color: var(--danger); }
+.report-delta--down { color: var(--positive); }
+.report-row__items {
+  margin: var(--space-sm) 0 0;
+  padding: 0 0 0 var(--space-md);
+  list-style: none;
+  font-size: .9rem;
+}
+.report-row__items li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 4px 0;
+  color: var(--muted);
+}
+
+.health-row {
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--border);
+}
+.health-row:last-of-type { border-bottom: 0; }
+.health-row p { margin: 6px 0 0; }
+.health-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-sm);
+}
+.health-row__value {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.health-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .85rem;
+  font-weight: 700;
+}

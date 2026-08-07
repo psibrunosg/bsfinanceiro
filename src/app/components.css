@@ -1,0 +1,197 @@
+/* Classes used across pages that had no rules anywhere. Mirrors the `.finance-nav`
+   pattern in transaction.css so tab strips look the same everywhere. */
+
+/* --- Tab strips (ganhos, gastos, configuracoes, relatorios, saude) --- */
+.hub-tabs,
+.tabs-nav {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 4px 0;
+  margin: 0 0 4px;
+  border-bottom: 1px solid var(--border);
+}
+.hub-tabs::-webkit-scrollbar,
+.tabs-nav::-webkit-scrollbar { display: none; }
+.hub-tabs button,
+.tabs-nav button {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 10px 10px 0 0;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+.hub-tabs button:hover,
+.tabs-nav button:hover { background: var(--surface-2); color: var(--primary); }
+.hub-tabs button.active,
+.tabs-nav button.active,
+.hub-tabs button[aria-pressed="true"],
+.tabs-nav button[aria-pressed="true"] {
+  border-color: var(--border);
+  border-bottom-color: var(--surface);
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+/* --- Filter rows --- */
+.hub-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+  margin: var(--space-md) 0;
+}
+.hub-filters select,
+.hub-filters input,
+.hub-filters > button {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+.hub-filters > button {
+  font-weight: 600;
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+.hub-filters > button:hover { background: var(--surface-2); color: var(--primary); }
+.hub-filters > button.active {
+  border-color: var(--accent);
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+/* --- Metric grids and cards --- */
+.hub-overview {
+  display: grid;
+  gap: var(--space-md);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin-bottom: var(--space-md);
+}
+.metric-card--positive { border-left: 4px solid var(--positive); }
+.metric-card--negative { border-left: 4px solid var(--danger); }
+
+/* --- Lists: kill the UA bullet + 40px indent that misaligned "Fontes" --- */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.account-row,
+.list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.list > li:last-child,
+.account-row:last-child { border-bottom: 0; }
+
+/* --- Forms inside dialogs --- */
+.simple-form {
+  display: grid;
+  gap: var(--space-md);
+}
+.simple-form fieldset {
+  display: grid;
+  gap: var(--space-md);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.simple-form label {
+  display: grid;
+  gap: 6px;
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.simple-form input,
+.simple-form select,
+.simple-form textarea {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 400;
+  transition: border-color 180ms ease;
+}
+.simple-form input:focus,
+.simple-form select:focus,
+.simple-form textarea:focus { border-color: var(--accent); }
+.simple-form button[type="submit"] {
+  min-height: 46px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 700;
+  transition: opacity 180ms ease;
+}
+.simple-form button[type="submit"]:hover { opacity: .9; }
+
+.form-card {
+  padding: var(--space-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* --- Progress bar (same shape as .budget-bar in planning.css) --- */
+.progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.progress-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 200ms ease;
+}
+.progress-bar--warning > span { background: var(--warning); }
+.progress-bar--danger > span { background: var(--danger); }
+
+/* --- Month picker --- */
+.month-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.month-picker button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  transition: background 180ms ease, color 180ms ease;
+}
+.month-picker button:hover { background: var(--surface-2); color: var(--primary); }
+.month-picker input {
+  min-height: 34px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+}
