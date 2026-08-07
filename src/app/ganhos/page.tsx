@@ -10,7 +10,7 @@ import { List } from "../components/List";
 import { money, parseMoney, dateFmt } from "../components/Money";
 import { DashboardChart } from "../components/DashboardChart";
 import { createClient } from "@/lib/supabase/client";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, Plus } from "lucide-react";
 
 type Tab = "overview" | "payslips" | "patients" | "other";
 
@@ -156,7 +156,7 @@ export default function GanhosPage() {
   const payslipReceived = payslips.filter((p) => p.transaction_id);
   const earningsReceived = earnings.filter((e) => e.status === "received");
   const payslipTotal = payslipReceived.reduce((s, p) => s + Number(p.net_amount), 0);
-  const patientTotal = earningsReceived.reduce((s, e) => s + Number(e.amount), 0);
+  const patientTotal = earnings.reduce((s, e) => s + Number(e.amount), 0);
   const otherTotal = otherIncome.reduce((s, t) => s + Number(t.amount), 0);
   const totalIncome = payslipTotal + patientTotal + otherTotal;
   const composition = [
@@ -327,7 +327,7 @@ export default function GanhosPage() {
                   <DashboardChart type="doughnut" label="Ganhos" labels={composition.map((c) => c.label)} values={composition.map((c) => c.value)} color="var(--accent)" />
                 ) : (
                   <p className="dashboard-empty">Nenhum ganho recebido ainda.{" "}
-                    <button type="button" onClick={() => setDialog({ kind: "other" })}>Registrar primeiro ganho</button>
+                    <button type="button" className="btn-primary" onClick={() => setDialog({ kind: "other" })}>Registrar primeiro ganho</button>
                   </p>
                 )}
               </div>
@@ -352,27 +352,43 @@ export default function GanhosPage() {
           <List title="Contracheques">
             {payslips.length === 0 && (
               <p className="dashboard-empty">Nenhum contracheque cadastrado.{" "}
-                <button type="button" onClick={() => setDialog({ kind: "payslip" })}>Cadastrar primeiro contracheque</button>
+                <button type="button" className="btn-primary" onClick={() => setDialog({ kind: "payslip" })}>Cadastrar primeiro contracheque</button>
               </p>
             )}
-            {payslips.map((p) => (
-              <article className="account-row" key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <div>
-                  <strong>{p.employer}</strong>
-                  <small>
-                    {dateFmt.format(new Date(`${p.competence}T12:00:00`))}
-                    {p.received_date ? ` · recebido ${dateFmt.format(new Date(`${p.received_date}T12:00:00`))}` : " · não recebido"}
-                    {p.notes ? ` · ${p.notes}` : ""}
-                  </small>
+            {Object.entries(
+              payslips.reduce((acc, p) => {
+                const month = p.competence.slice(0, 7);
+                if (!acc[month]) acc[month] = [];
+                acc[month].push(p);
+                return acc;
+              }, {} as Record<string, typeof payslips>)
+            ).sort((a, b) => b[0].localeCompare(a[0])).map(([month, ps]) => (
+              <div key={month} style={{ marginBottom: 24 }}>
+                <h4 style={{ margin: "0 0 12px", color: "var(--muted)" }}>
+                  {new Date(`${month}-01T12:00:00`).toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
+                </h4>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {ps.map((p) => (
+                    <article className="account-row" key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                      <div>
+                        <strong style={{ display: "block", marginBottom: 4 }}>{p.employer}</strong>
+                        <small>
+                          {dateFmt.format(new Date(`${p.competence}T12:00:00`))}
+                          {p.received_date ? ` · recebido ${dateFmt.format(new Date(`${p.received_date}T12:00:00`))}` : " · não recebido"}
+                          {p.notes ? ` · ${p.notes}` : ""}
+                        </small>
+                      </div>
+                      <div style={{ textAlign: "right", display: "grid", gap: 4 }}>
+                        <b>{money(p.net_amount)}</b>
+                        <small className="muted">bruto {money(p.gross_amount)} · desc. {money(p.discounts_amount)}</small>
+                      </div>
+                      {p.pdf_path && (
+                        <button type="button" className="btn-primary" style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => void openPayslipPdf(p.pdf_path!)}>PDF</button>
+                      )}
+                    </article>
+                  ))}
                 </div>
-                <div style={{ textAlign: "right", display: "grid", gap: 4 }}>
-                  <b>{money(p.net_amount)}</b>
-                  <small className="muted">bruto {money(p.gross_amount)} · descontos {money(p.discounts_amount)}</small>
-                </div>
-                {p.pdf_path && (
-                  <button type="button" onClick={() => void openPayslipPdf(p.pdf_path!)}>PDF</button>
-                )}
-              </article>
+              </div>
             ))}
           </List>
         </section>
@@ -383,7 +399,7 @@ export default function GanhosPage() {
           <List title="Pacientes">
             {patients.length === 0 && (
               <p className="dashboard-empty">Nenhum paciente cadastrado.{" "}
-                <button type="button" onClick={() => setDialog({ kind: "patient" })}>Cadastrar primeiro paciente</button>
+                <button type="button" className="btn-primary" onClick={() => setDialog({ kind: "patient" })}>Cadastrar primeiro paciente</button>
               </p>
             )}
             {patients.map((p) => {
@@ -400,7 +416,7 @@ export default function GanhosPage() {
                         {pending.length} pendente(s) · {money(pending.reduce((s, e) => s + Number(e.amount), 0))}
                       </small>
                     </div>
-                    <button type="button" onClick={() => setDialog({ kind: "earning", patientId: p.id })}>Atendimento</button>
+                    <button type="button" className="btn-circle" title="Registrar Atendimento" onClick={() => setDialog({ kind: "earning", patientId: p.id })}><Plus aria-hidden="true" /></button>
                   </div>
                   {pEarnings.length > 0 && (
                     <ul className="list" style={{ display: "grid", gap: 6 }}>
@@ -433,7 +449,7 @@ export default function GanhosPage() {
           <List title="Outras receitas">
             {otherIncome.length === 0 ? (
               <p className="dashboard-empty">Nenhuma receita manual registrada.{" "}
-                <button type="button" onClick={() => setDialog({ kind: "other" })}>Registrar primeira receita</button>
+                <button type="button" className="btn-primary" onClick={() => setDialog({ kind: "other" })}>Registrar primeira receita</button>
               </p>
             ) : (
               <ul className="list" style={{ display: "grid", gap: 6 }}>

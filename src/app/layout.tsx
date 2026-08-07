@@ -10,6 +10,7 @@ import "./invoice.css";
 import "./projection.css";
 import "./planning.css";
 import "./settings.css";
+import "./dialog.css";
 import "./dashboard-extra.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 

@@ -1,4 +1,4 @@
-﻿.management-header {
+.management-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -49,4 +49,44 @@
     width: 100%;
     justify-content: center;
   }
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: 0;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.btn-primary:hover {
+  filter: brightness(1.05);
+}
+.btn-primary svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: 0;
+  padding: 0;
+}
+.btn-circle:hover {
+  filter: brightness(1.05);
+}
+.btn-circle svg {
+  width: 18px;
+  height: 18px;
 }
