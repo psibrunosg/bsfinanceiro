@@ -11,6 +11,13 @@ import { money, parseMoney, dateFmt } from "./components/Money";
 import { BrandLogo, CARD_BRANDS } from "./brand-logo";
 import { createClient } from "@/lib/supabase/client";
 import { useMemo, Suspense, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
+
+/** O Postgres devolve 23503 quando a exclusão esbarra numa chave estrangeira
+ *  (ex.: lançamentos apontando para a conta técnica do cartão). */
+function isForeignKeyViolation(error: { code?: string; message?: string }) {
+  return error.code === "23503" || /foreign key|chave estrangeira/i.test(error.message ?? "");
+}
 
 function statementImportErrorMessage(errorCode: string | null) {
   switch (errorCode) {
@@ -30,6 +37,7 @@ function CardsPageInner() {
   const [statementImportFeedback, setStatementImportFeedback] = useState("");
   const [statementImportFailed, setStatementImportFailed] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
   const {
     workspace,
@@ -53,6 +61,7 @@ function CardsPageInner() {
 
   const selectedCard = selectedCardId ? cards.find((c) => c.id === selectedCardId) : null;
   const editingCard = cards.find((c) => c.id === editingCardId);
+  const deletingCard = cards.find((c) => c.id === deletingCardId);
   const statementImportDescribedBy = statementImportFeedback
     ? "statement-import-help statement-import-feedback"
     : "statement-import-help";
@@ -95,11 +104,48 @@ function CardsPageInner() {
       })
       .eq("id", editingCardId)
       .eq("workspace_id", workspace.id);
-    setMessage(error ? "Não foi possível editar o cartão." : "Cartão atualizado.");
+    setMessage(
+      error
+        ? `Não foi possível editar o cartão: ${error.message}`
+        : "Cartão atualizado."
+    );
     if (!error) {
       setEditingCardId(null);
       setOpenDialog(false);
     }
+    await reload();
+  }
+
+  async function confirmDeleteCard() {
+    const card = cards.find((c) => c.id === deletingCardId);
+    if (!card) return;
+    const { error } = await supabase
+      .from("credit_cards")
+      .delete()
+      .eq("id", card.id)
+      .eq("workspace_id", workspace.id);
+    if (error) {
+      setMessage(`Não foi possível excluir o cartão: ${error.message}`);
+      await reload();
+      return;
+    }
+    // A RPC create_credit_card cria uma conta técnica junto com o cartão; ela
+    // só pode ser removida depois do cartão, e pode ter lançamentos presos.
+    let technicalAccountNote = "";
+    if (card.account_id) {
+      const { error: accountError } = await supabase
+        .from("accounts")
+        .delete()
+        .eq("id", card.account_id)
+        .eq("workspace_id", workspace.id);
+      if (accountError) {
+        technicalAccountNote = isForeignKeyViolation(accountError)
+          ? " A conta técnica foi mantida por ter lançamentos vinculados."
+          : ` A conta técnica não pôde ser removida: ${accountError.message}`;
+      }
+    }
+    setMessage(`Cartão excluído.${technicalAccountNote}`);
+    setDeletingCardId(null);
     await reload();
   }
 
@@ -230,9 +276,14 @@ function CardsPageInner() {
                       <div style={{ width: `${limitPercentage}%`, height: '100%', background: limitPercentage > 90 ? 'var(--danger-color)' : 'var(--primary-color)' }} />
                     </div>
                   </div>
-                  <button type="button" onClick={() => openEditCard(c.id)}>
-                    Editar
-                  </button>
+                  <span className="row-actions">
+                    <button type="button" aria-label="Editar cartão" onClick={() => openEditCard(c.id)}>
+                      <Pencil aria-hidden="true" />
+                    </button>
+                    <button type="button" className="danger" aria-label="Excluir cartão" onClick={() => setDeletingCardId(c.id)}>
+                      <Trash2 aria-hidden="true" />
+                    </button>
+                  </span>
                 </article>
               );
             })}
@@ -241,7 +292,7 @@ function CardsPageInner() {
             )}
           </List>
           
-          <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title={editingCard ? "Editar cartão" : "Adicionar cartão"}>
+          <Dialog open={openDialog} onClose={() => { setOpenDialog(false); setEditingCardId(null); }} title={editingCard ? "Editar cartão" : "Adicionar cartão"}>
             <SimpleForm key={editingCard?.id ?? "new"} onSubmit={editingCard ? updateCard : submitCard}>
               <label htmlFor="card-name">Nome do cartão</label>
               <input id="card-name" name="name" placeholder="Nome do cartão" defaultValue={editingCard?.name} required autoFocus={focusNewCard} />
@@ -293,6 +344,24 @@ function CardsPageInner() {
               />
               <button>{editingCard ? "Salvar alterações" : "Cadastrar cartão"}</button>
             </SimpleForm>
+          </Dialog>
+
+          <Dialog open={deletingCardId !== null} onClose={() => setDeletingCardId(null)} title="Excluir cartão">
+            {deletingCard && (
+              <>
+                <p>
+                  Excluir o cartão <strong>{deletingCard.name}</strong>
+                  {deletingCard.last_four ? ` • ${deletingCard.last_four}` : ""}, com limite de{" "}
+                  <b>{money(deletingCard.credit_limit)}</b>? Esta ação não pode ser desfeita.
+                </p>
+                <SimpleForm onSubmit={confirmDeleteCard}>
+                  <button>Excluir cartão</button>
+                  <button type="button" onClick={() => setDeletingCardId(null)}>
+                    Cancelar
+                  </button>
+                </SimpleForm>
+              </>
+            )}
           </Dialog>
         </section>
       )}

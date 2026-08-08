@@ -5,6 +5,7 @@ out
 !.env.example
 coverage
 test-results
+e2e/.auth
 *.log
 .vercel
 *.tsbuildinfo

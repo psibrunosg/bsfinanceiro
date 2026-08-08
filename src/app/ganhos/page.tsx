@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useFinance } from "../components/useFinance";
+import { useWorkspaceBasics } from "../components/useWorkspaceBasics";
 import { Nav } from "../components/Nav";
 import { PageHeader } from "../components/PageHeader";
 import { Dialog } from "../components/Dialog";
@@ -9,8 +9,9 @@ import { SimpleForm } from "../components/SimpleForm";
 import { List } from "../components/List";
 import { money, parseMoney, dateFmt } from "../components/Money";
 import { DashboardChart } from "../components/DashboardChart";
+import { PeriodFilter, periodRange, type PeriodKey } from "../components/PeriodFilter";
 import { createClient } from "@/lib/supabase/client";
-import { TrendingUp, Plus } from "lucide-react";
+import { TrendingUp, Plus, Pencil, Trash2, Archive } from "lucide-react";
 
 type Tab = "overview" | "payslips" | "patients" | "other";
 
@@ -39,30 +40,48 @@ type Payslip = {
   notes: string | null;
   created_at: string;
 };
+type OtherIncome = {
+  id: string;
+  description: string;
+  amount: number;
+  competence_date: string;
+  category_id: string | null;
+};
 type DialogState =
   | { kind: "patient" }
   | { kind: "earning"; patientId: string }
   | { kind: "payslip" }
   | { kind: "receive"; earningId: string }
   | { kind: "other" }
+  | { kind: "edit-payslip"; payslip: Payslip }
+  | { kind: "edit-earning"; earning: PatientEarning }
+  | { kind: "edit-other"; income: OtherIncome }
+  | { kind: "delete-payslip"; payslip: Payslip }
+  | { kind: "delete-earning"; earning: PatientEarning }
+  | { kind: "delete-other"; income: OtherIncome }
+  | { kind: "deactivate-patient"; patient: Patient }
   | null;
+
+/** Valor monetário para o `defaultValue` dos formulários de edição. */
+const moneyInput = (value: number) => Number(value).toFixed(2).replace(".", ",");
 
 export default function GanhosPage() {
   const { workspace, accounts, categories, defaultCashAccountId, loading } =
-    useFinance("dashboard");
+    useWorkspaceBasics();
   const supabase = useMemo(() => createClient(), []);
   const [tab, setTab] = useState<Tab>("overview");
+  const [period, setPeriod] = useState<PeriodKey>("month");
   const [dialog, setDialog] = useState<DialogState>(null);
   const [message, setMessage] = useState("");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [earnings, setEarnings] = useState<PatientEarning[]>([]);
-  const [otherIncome, setOtherIncome] = useState<{ id: string; description: string; amount: number; competence_date: string; category_id: string | null }[]>([]);
+  const [otherIncome, setOtherIncome] = useState<OtherIncome[]>([]);
   const [defaultContextId, setDefaultContextId] = useState<string | null>(null);
   const [hubLoading, setHubLoading] = useState(true);
 
-  // Dados específicos do hub são carregados em consultas locais; o useFinance
-  // fica responsável apenas por workspace, contas e categorias base.
+  // Dados específicos do hub são carregados em consultas locais; o
+  // useWorkspaceBasics fica responsável apenas por workspace, contas e categorias.
   const loadHub = useCallback(async () => {
     if (!workspace) return;
     try {
@@ -142,6 +161,9 @@ export default function GanhosPage() {
     );
   }
 
+  // Capturado após o guard: funções declaradas não herdam o narrowing de `workspace`.
+  const activeWorkspace = workspace;
+
   const action =
     tab === "payslips"
       ? { label: "Cadastrar contracheque", onClick: () => setDialog({ kind: "payslip" }) }
@@ -156,20 +178,44 @@ export default function GanhosPage() {
       : dialog?.kind === "earning" ? "Registrar atendimento"
         : dialog?.kind === "payslip" ? "Cadastrar contracheque"
           : dialog?.kind === "receive" ? "Registrar recebimento"
-            : dialog?.kind === "other" ? "Registrar receita" : "";
+            : dialog?.kind === "other" ? "Registrar receita"
+              : dialog?.kind === "edit-payslip" ? "Editar contracheque"
+                : dialog?.kind === "edit-earning" ? "Editar atendimento"
+                  : dialog?.kind === "edit-other" ? "Editar receita"
+                    : dialog?.kind === "delete-payslip" ? "Excluir contracheque"
+                      : dialog?.kind === "delete-earning" ? "Excluir atendimento"
+                        : dialog?.kind === "delete-other" ? "Excluir receita"
+                          : dialog?.kind === "deactivate-patient" ? "Desativar paciente" : "";
 
   const earningDialog = dialog?.kind === "earning" ? dialog : null;
   const receiveDialog = dialog?.kind === "receive" ? dialog : null;
   const receiveEarning = receiveDialog
     ? earnings.find((e) => e.id === receiveDialog.earningId)
     : null;
+  const editPayslip = dialog?.kind === "edit-payslip" ? dialog.payslip : null;
+  const editEarning = dialog?.kind === "edit-earning" ? dialog.earning : null;
+  const editOther = dialog?.kind === "edit-other" ? dialog.income : null;
+  const deletePayslip = dialog?.kind === "delete-payslip" ? dialog.payslip : null;
+  const deleteEarning = dialog?.kind === "delete-earning" ? dialog.earning : null;
+  const deleteOther = dialog?.kind === "delete-other" ? dialog.income : null;
+  const deactivatePatient =
+    dialog?.kind === "deactivate-patient" ? dialog.patient : null;
 
-  const payslipReceived = payslips.filter((p) => p.transaction_id);
-  const earningsReceived = earnings.filter((e) => e.status === "received");
+  // Recorte de período: `start` inclusivo, `end` exclusivo; sem limites em "Todo o período".
+  const range = periodRange(period);
+  const inPeriod = (date: string) =>
+    (!range.start || date >= range.start) && (!range.end || date < range.end);
+
+  const periodPayslips = payslips.filter((p) => inPeriod(p.competence));
+  const periodEarnings = earnings.filter((e) => inPeriod(e.due_date));
+  const periodOtherIncome = otherIncome.filter((t) => inPeriod(t.competence_date));
+
+  const payslipReceived = periodPayslips.filter((p) => p.transaction_id);
+  const earningsReceived = periodEarnings.filter((e) => e.status === "received");
   const payslipTotal = payslipReceived.reduce((s, p) => s + Number(p.net_amount), 0);
   // "Total recebido" considera apenas atendimentos efetivamente recebidos.
   const patientTotal = earningsReceived.reduce((s, e) => s + Number(e.amount), 0);
-  const otherTotal = otherIncome.reduce((s, t) => s + Number(t.amount), 0);
+  const otherTotal = periodOtherIncome.reduce((s, t) => s + Number(t.amount), 0);
   const totalIncome = payslipTotal + patientTotal + otherTotal;
   const composition = [
     { label: "Contracheques", value: payslipTotal },
@@ -179,10 +225,35 @@ export default function GanhosPage() {
   const today = new Date().toISOString().slice(0, 10);
   const incomeCategories = categories.filter((c) => c.kind === "income");
 
+  // Pacientes com movimento no período vêm primeiro (maior valor primeiro);
+  // os demais ficam agrupados sob "Sem movimento", em ordem alfabética.
+  const patientRows = patients.map((patient) => {
+    const pEarnings = periodEarnings.filter((e) => e.patient_id === patient.id);
+    return {
+      patient,
+      pEarnings,
+      pending: pEarnings.filter((e) => e.status === "pending"),
+      received: pEarnings.filter((e) => e.status === "received"),
+      total: pEarnings.reduce((s, e) => s + Number(e.amount), 0),
+    };
+  });
+  const activePatients = patientRows
+    .filter((row) => row.pEarnings.length > 0)
+    .sort(
+      (a, b) =>
+        b.total - a.total ||
+        a.patient.full_name.localeCompare(b.patient.full_name, "pt-BR"),
+    );
+  const idlePatients = patientRows
+    .filter((row) => row.pEarnings.length === 0)
+    .sort((a, b) =>
+      a.patient.full_name.localeCompare(b.patient.full_name, "pt-BR"),
+    );
+
   async function submitPatient(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("patients").insert({
-      workspace_id: workspace.id,
+      workspace_id: activeWorkspace.id,
       owner_id: userData.user?.id,
       full_name: form.get("full_name"),
       context_id: defaultContextId,
@@ -195,7 +266,7 @@ export default function GanhosPage() {
   async function submitEarning(form: FormData, patientId: string) {
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("patient_earnings").insert({
-      workspace_id: workspace.id,
+      workspace_id: activeWorkspace.id,
       owner_id: userData.user?.id,
       patient_id: patientId,
       context_id: defaultContextId,
@@ -261,7 +332,7 @@ export default function GanhosPage() {
       }
     }
     const { error } = await supabase.rpc("register_payslip", {
-      p_workspace_id: workspace.id,
+      p_workspace_id: activeWorkspace.id,
       p_owner_id: ownerId,
       p_context_id: defaultContextId,
       p_employer: form.get("employer"),
@@ -287,7 +358,7 @@ export default function GanhosPage() {
   async function submitOtherIncome(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("transactions").insert({
-      workspace_id: workspace.id,
+      workspace_id: activeWorkspace.id,
       owner_id: userData.user?.id,
       account_id: form.get("account_id"),
       category_id: form.get("category_id") || null,
@@ -302,6 +373,144 @@ export default function GanhosPage() {
     setMessage(error ? "Não foi possível registrar a receita." : "Receita registrada.");
     if (!error) setDialog(null);
     await loadHub();
+  }
+
+  async function updatePayslip(id: string, form: FormData) {
+    const { error } = await supabase
+      .from("payslips")
+      .update({
+        employer: form.get("employer"),
+        competence: form.get("competence"),
+        gross_amount: parseMoney(form.get("gross_amount")),
+        discounts_amount: parseMoney(form.get("discounts_amount")),
+        net_amount: parseMoney(form.get("net_amount")),
+        notes: form.get("notes") || null,
+      })
+      .eq("id", id)
+      .eq("workspace_id", activeWorkspace.id);
+    setMessage(error ? `Não foi possível salvar: ${error.message}` : "Contracheque atualizado.");
+    if (!error) setDialog(null);
+    await loadHub();
+  }
+
+  async function updateEarning(id: string, form: FormData) {
+    const { error } = await supabase
+      .from("patient_earnings")
+      .update({
+        amount: parseMoney(form.get("amount")),
+        appointment_date: form.get("appointment_date"),
+        due_date: form.get("due_date"),
+        notes: form.get("notes") || null,
+      })
+      .eq("id", id)
+      .eq("workspace_id", activeWorkspace.id);
+    setMessage(error ? `Não foi possível salvar: ${error.message}` : "Atendimento atualizado.");
+    if (!error) setDialog(null);
+    await loadHub();
+  }
+
+  async function updateOtherIncome(id: string, form: FormData) {
+    const competenceDate = form.get("competence_date");
+    const { error } = await supabase
+      .from("transactions")
+      .update({
+        description: form.get("description"),
+        amount: parseMoney(form.get("amount")),
+        category_id: form.get("category_id") || null,
+        competence_date: competenceDate,
+        paid_at: competenceDate,
+      })
+      .eq("id", id)
+      .eq("workspace_id", activeWorkspace.id);
+    setMessage(error ? `Não foi possível salvar: ${error.message}` : "Receita atualizada.");
+    if (!error) setDialog(null);
+    await loadHub();
+  }
+
+  /**
+   * Documentos liquidados têm uma transação vinculada. Apagar só o documento
+   * deixaria a receita órfã no caixa, então a transação vai embora primeiro.
+   */
+  async function removeRecord(
+    table: "payslips" | "patient_earnings" | "transactions",
+    id: string,
+    transactionId: string | null,
+    successMessage: string,
+  ) {
+    if (transactionId) {
+      const { error: txError } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", transactionId);
+      if (txError) {
+        setMessage(`Não foi possível excluir: ${txError.message}`);
+        await loadHub();
+        return;
+      }
+    }
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .eq("id", id)
+      .eq("workspace_id", activeWorkspace.id);
+    setMessage(error ? `Não foi possível excluir: ${error.message}` : successMessage);
+    if (!error) setDialog(null);
+    await loadHub();
+  }
+
+  async function disablePatient(id: string) {
+    const { error } = await supabase
+      .from("patients")
+      .update({ active: false })
+      .eq("id", id)
+      .eq("workspace_id", activeWorkspace.id);
+    setMessage(error ? `Não foi possível desativar: ${error.message}` : "Paciente desativado.");
+    if (!error) setDialog(null);
+    await loadHub();
+  }
+
+  function renderPatient(row: (typeof patientRows)[number]) {
+    const { patient: p, pEarnings, pending, received } = row;
+    return (
+      <article className="account-row" key={p.id} style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <div>
+            <strong>{p.full_name}</strong>
+            <small>
+              {received.length} recebido(s) · {money(received.reduce((s, e) => s + Number(e.amount), 0))} ·{" "}
+              {pending.length} pendente(s) · {money(pending.reduce((s, e) => s + Number(e.amount), 0))}
+            </small>
+          </div>
+          <span className="row-actions">
+            <button type="button" className="btn-circle" title="Registrar Atendimento" aria-label="Registrar atendimento" onClick={() => setDialog({ kind: "earning", patientId: p.id })}><Plus aria-hidden="true" /></button>
+            <button type="button" aria-label="Desativar paciente" onClick={() => setDialog({ kind: "deactivate-patient", patient: p })}><Archive aria-hidden="true" /></button>
+          </span>
+        </div>
+        {pEarnings.length > 0 && (
+          <ul className="list" style={{ display: "grid", gap: 6 }}>
+            {pEarnings.map((e) => (
+              <li key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <span>
+                  {dateFmt.format(new Date(`${e.appointment_date}T12:00:00`))} · {money(e.amount)}
+                  {e.notes ? ` · ${e.notes}` : ""}
+                </span>
+                {e.status === "pending" ? (
+                  <button type="button" onClick={() => setDialog({ kind: "receive", earningId: e.id })}>Receber</button>
+                ) : (
+                  <b data-status={e.status} className={e.status === "received" ? "form-success" : "muted"}>
+                    {e.status === "received" ? "Recebido" : "Cancelado"}
+                  </b>
+                )}
+                <span className="row-actions">
+                  <button type="button" aria-label="Editar" onClick={() => setDialog({ kind: "edit-earning", earning: e })}><Pencil aria-hidden="true" /></button>
+                  <button type="button" className="danger" aria-label="Excluir" onClick={() => setDialog({ kind: "delete-earning", earning: e })}><Trash2 aria-hidden="true" /></button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </article>
+    );
   }
 
   return (
@@ -322,13 +531,15 @@ export default function GanhosPage() {
         <button type="button" aria-pressed={tab === "other"} onClick={() => setTab("other")} className={tab === "other" ? "active" : ""}>Outras receitas</button>
       </nav>
 
+      <PeriodFilter value={period} onChange={setPeriod} />
+
       {tab === "overview" && (
         <section>
           <section className="hub-overview">
             <article className="metric-card metric-card--positive">
               <TrendingUp aria-hidden="true" />
               <strong>{money(totalIncome)}</strong>
-              <span className="muted">Total recebido</span>
+              <span className="muted">{`Recebido · ${range.label}`}</span>
             </article>
           </section>
           <section className="dashboard-columns" style={{ marginTop: 18 }}>
@@ -363,20 +574,23 @@ export default function GanhosPage() {
       {tab === "payslips" && (
         <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
           <List title="Contracheques">
-            {payslips.length === 0 && (
+            {periodPayslips.length === 0 && (
               <p className="dashboard-empty">Nenhum contracheque cadastrado.{" "}
                 <button type="button" className="btn-primary" onClick={() => setDialog({ kind: "payslip" })}>Cadastrar primeiro contracheque</button>
               </p>
             )}
             {Object.entries(
-              Object.groupBy(payslips, (p) => p.competence.slice(0, 7))
+              Object.groupBy(periodPayslips, (p) => p.competence.slice(0, 7))
             ).sort((a, b) => b[0].localeCompare(a[0])).map(([month, ps = []]) => (
               <div key={month} style={{ marginBottom: 24 }}>
                 <h4 style={{ margin: "0 0 12px", color: "var(--muted)" }}>
                   {new Date(`${month}-01T12:00:00`).toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
                 </h4>
                 <div style={{ display: "grid", gap: 8 }}>
-                  {ps.map((p) => (
+                  {ps.map((p) => {
+                    // Capturado fora do JSX: o closure do onClick não herda o narrowing da prop.
+                    const pdfPath = p.pdf_path;
+                    return (
                     <article className="account-row" key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                       <div>
                         <strong style={{ display: "block", marginBottom: 4 }}>{p.employer}</strong>
@@ -390,11 +604,16 @@ export default function GanhosPage() {
                         <b>{money(p.net_amount)}</b>
                         <small className="muted">bruto {money(p.gross_amount)} · desc. {money(p.discounts_amount)}</small>
                       </div>
-                      {p.pdf_path && (
-                        <button type="button" className="btn-primary" style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => void openPayslipPdf(p.pdf_path!)}>PDF</button>
+                      {pdfPath && (
+                        <button type="button" className="btn-primary" style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => void openPayslipPdf(pdfPath)}>PDF</button>
                       )}
+                      <span className="row-actions">
+                        <button type="button" aria-label="Editar" onClick={() => setDialog({ kind: "edit-payslip", payslip: p })}><Pencil aria-hidden="true" /></button>
+                        <button type="button" className="danger" aria-label="Excluir" onClick={() => setDialog({ kind: "delete-payslip", payslip: p })}><Trash2 aria-hidden="true" /></button>
+                      </span>
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -410,44 +629,9 @@ export default function GanhosPage() {
                 <button type="button" className="btn-primary" onClick={() => setDialog({ kind: "patient" })}>Cadastrar primeiro paciente</button>
               </p>
             )}
-            {patients.map((p) => {
-              const pEarnings = earnings.filter((e) => e.patient_id === p.id);
-              const pending = pEarnings.filter((e) => e.status === "pending");
-              const received = pEarnings.filter((e) => e.status === "received");
-              return (
-                <article className="account-row" key={p.id} style={{ display: "grid", gap: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                    <div>
-                      <strong>{p.full_name}</strong>
-                      <small>
-                        {received.length} recebido(s) · {money(received.reduce((s, e) => s + Number(e.amount), 0))} ·{" "}
-                        {pending.length} pendente(s) · {money(pending.reduce((s, e) => s + Number(e.amount), 0))}
-                      </small>
-                    </div>
-                    <button type="button" className="btn-circle" title="Registrar Atendimento" onClick={() => setDialog({ kind: "earning", patientId: p.id })}><Plus aria-hidden="true" /></button>
-                  </div>
-                  {pEarnings.length > 0 && (
-                    <ul className="list" style={{ display: "grid", gap: 6 }}>
-                      {pEarnings.map((e) => (
-                        <li key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                          <span>
-                            {dateFmt.format(new Date(`${e.appointment_date}T12:00:00`))} · {money(e.amount)}
-                            {e.notes ? ` · ${e.notes}` : ""}
-                          </span>
-                          {e.status === "pending" ? (
-                            <button type="button" onClick={() => setDialog({ kind: "receive", earningId: e.id })}>Receber</button>
-                          ) : (
-                            <b data-status={e.status} className={e.status === "received" ? "form-success" : "muted"}>
-                              {e.status === "received" ? "Recebido" : "Cancelado"}
-                            </b>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </article>
-              );
-            })}
+            {activePatients.map(renderPatient)}
+            {idlePatients.length > 0 && <h4>Sem movimento</h4>}
+            {idlePatients.map(renderPatient)}
           </List>
         </section>
       )}
@@ -455,18 +639,22 @@ export default function GanhosPage() {
       {tab === "other" && (
         <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
           <List title="Outras receitas">
-            {otherIncome.length === 0 ? (
+            {periodOtherIncome.length === 0 ? (
               <p className="dashboard-empty">Nenhuma receita manual registrada.{" "}
                 <button type="button" className="btn-primary" onClick={() => setDialog({ kind: "other" })}>Registrar primeira receita</button>
               </p>
             ) : (
               <ul className="list" style={{ display: "grid", gap: 6 }}>
-                {otherIncome.map((t) => (
+                {periodOtherIncome.map((t) => (
                   <li key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                     <span>
                       {t.description} · {dateFmt.format(new Date(`${t.competence_date}T12:00:00`))}
                     </span>
                     <b>{money(t.amount)}</b>
+                    <span className="row-actions">
+                      <button type="button" aria-label="Editar" onClick={() => setDialog({ kind: "edit-other", income: t })}><Pencil aria-hidden="true" /></button>
+                      <button type="button" className="danger" aria-label="Excluir" onClick={() => setDialog({ kind: "delete-other", income: t })}><Trash2 aria-hidden="true" /></button>
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -563,6 +751,114 @@ export default function GanhosPage() {
             <label htmlFor="other-date">Data</label>
             <input id="other-date" name="competence_date" type="date" defaultValue={today} required />
             <button>Registrar receita</button>
+          </SimpleForm>
+        )}
+        {editPayslip && (
+          <SimpleForm key={`edit-payslip-${editPayslip.id}`} onSubmit={(form) => updatePayslip(editPayslip.id, form)}>
+            <label htmlFor="edit-payslip-employer">Empregador</label>
+            <input id="edit-payslip-employer" name="employer" maxLength={120} defaultValue={editPayslip.employer} required autoFocus />
+            <label htmlFor="edit-payslip-competence">Competência</label>
+            <input id="edit-payslip-competence" name="competence" type="date" defaultValue={editPayslip.competence} required />
+            <label htmlFor="edit-payslip-gross">Valor bruto</label>
+            <input id="edit-payslip-gross" name="gross_amount" defaultValue={moneyInput(editPayslip.gross_amount)} required />
+            <label htmlFor="edit-payslip-discounts">Descontos</label>
+            <input id="edit-payslip-discounts" name="discounts_amount" defaultValue={moneyInput(editPayslip.discounts_amount)} required />
+            <label htmlFor="edit-payslip-net">Valor líquido</label>
+            <input id="edit-payslip-net" name="net_amount" defaultValue={moneyInput(editPayslip.net_amount)} required />
+            <label htmlFor="edit-payslip-notes">Observação</label>
+            <input id="edit-payslip-notes" name="notes" defaultValue={editPayslip.notes ?? ""} placeholder="Observação" />
+            <button>Salvar contracheque</button>
+          </SimpleForm>
+        )}
+        {editEarning && (
+          <SimpleForm key={`edit-earning-${editEarning.id}`} onSubmit={(form) => updateEarning(editEarning.id, form)}>
+            <p className="muted">Registre apenas os dados financeiros do atendimento, sem informações clínicas.</p>
+            <label htmlFor="edit-earning-amount">Valor do atendimento</label>
+            <input id="edit-earning-amount" name="amount" defaultValue={moneyInput(editEarning.amount)} required autoFocus />
+            <label htmlFor="edit-earning-appointment-date">Data do atendimento</label>
+            <input id="edit-earning-appointment-date" name="appointment_date" type="date" defaultValue={editEarning.appointment_date} required />
+            <label htmlFor="edit-earning-due-date">Previsão de recebimento</label>
+            <input id="edit-earning-due-date" name="due_date" type="date" defaultValue={editEarning.due_date} required />
+            <label htmlFor="edit-earning-notes">Observação</label>
+            <input id="edit-earning-notes" name="notes" defaultValue={editEarning.notes ?? ""} placeholder="Observação" />
+            <button>Salvar atendimento</button>
+          </SimpleForm>
+        )}
+        {editOther && (
+          <SimpleForm key={`edit-other-${editOther.id}`} onSubmit={(form) => updateOtherIncome(editOther.id, form)}>
+            <label htmlFor="edit-other-description">Descrição</label>
+            <input id="edit-other-description" name="description" defaultValue={editOther.description} required autoFocus />
+            <label htmlFor="edit-other-amount">Valor</label>
+            <input id="edit-other-amount" name="amount" defaultValue={moneyInput(editOther.amount)} required />
+            <label htmlFor="edit-other-category">Categoria</label>
+            <select id="edit-other-category" name="category_id" defaultValue={editOther.category_id ?? ""}>
+              <option value="">Sem categoria</option>
+              {incomeCategories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <label htmlFor="edit-other-date">Data</label>
+            <input id="edit-other-date" name="competence_date" type="date" defaultValue={editOther.competence_date} required />
+            <button>Salvar receita</button>
+          </SimpleForm>
+        )}
+        {deletePayslip && (
+          <SimpleForm
+            key={`delete-payslip-${deletePayslip.id}`}
+            onSubmit={() => removeRecord("payslips", deletePayslip.id, deletePayslip.transaction_id, "Contracheque excluído.")}
+          >
+            <p>
+              Excluir o contracheque de {deletePayslip.employer} (competência{" "}
+              {dateFmt.format(new Date(`${deletePayslip.competence}T12:00:00`))}), no valor líquido de {money(deletePayslip.net_amount)}?
+            </p>
+            {deletePayslip.transaction_id && (
+              <p className="form-error">
+                Este contracheque está liquidado: a receita correspondente também será removida do caixa.
+              </p>
+            )}
+            <button>Excluir contracheque</button>
+          </SimpleForm>
+        )}
+        {deleteEarning && (
+          <SimpleForm
+            key={`delete-earning-${deleteEarning.id}`}
+            onSubmit={() => removeRecord("patient_earnings", deleteEarning.id, deleteEarning.transaction_id, "Atendimento excluído.")}
+          >
+            <p>
+              Excluir o atendimento de{" "}
+              {dateFmt.format(new Date(`${deleteEarning.appointment_date}T12:00:00`))}, no valor de {money(deleteEarning.amount)}?
+            </p>
+            {deleteEarning.transaction_id && (
+              <p className="form-error">
+                Este atendimento já foi recebido: a receita correspondente também será removida do caixa.
+              </p>
+            )}
+            <button>Excluir atendimento</button>
+          </SimpleForm>
+        )}
+        {deleteOther && (
+          <SimpleForm
+            key={`delete-other-${deleteOther.id}`}
+            onSubmit={() => removeRecord("transactions", deleteOther.id, null, "Receita excluída.")}
+          >
+            <p>
+              Excluir a receita &quot;{deleteOther.description}&quot; de{" "}
+              {dateFmt.format(new Date(`${deleteOther.competence_date}T12:00:00`))}, no valor de {money(deleteOther.amount)}?
+            </p>
+            <button>Excluir receita</button>
+          </SimpleForm>
+        )}
+        {deactivatePatient && (
+          <SimpleForm
+            key={`deactivate-${deactivatePatient.id}`}
+            onSubmit={() => disablePatient(deactivatePatient.id)}
+          >
+            <p>Desativar {deactivatePatient.full_name}?</p>
+            <p className="muted">
+              Desativar não exclui nada: o paciente sai da lista, mas todo o histórico de
+              atendimentos e recebimentos é preservado.
+            </p>
+            <button>Desativar paciente</button>
           </SimpleForm>
         )}
       </Dialog>

@@ -1,16 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useFinance } from "../components/useFinance";
+import { useWorkspaceBasics } from "../components/useWorkspaceBasics";
 import { Nav } from "../components/Nav";
 import { PageHeader } from "../components/PageHeader";
 import { Dialog } from "../components/Dialog";
 import { SimpleForm } from "../components/SimpleForm";
 import { List } from "../components/List";
-import { money, parseMoney, dateFmt, monthStart, nextMonthStart } from "../components/Money";
+import { money, parseMoney, dateFmt, monthStart } from "../components/Money";
+import { PeriodFilter, periodRange, type PeriodKey } from "../components/PeriodFilter";
 import { DashboardChart } from "../components/DashboardChart";
 import { createClient } from "@/lib/supabase/client";
-import { ReceiptText, Check } from "lucide-react";
+import { ReceiptText, Check, Pencil, Trash2 } from "lucide-react";
 
 type Tab = "overview" | "launches" | "recurrent";
 
@@ -19,6 +20,7 @@ type ExpenseTx = {
   description: string;
   amount: number;
   competence_date: string;
+  account_id: string | null;
   category_id: string | null;
   context_id: string | null;
   status: string;
@@ -40,11 +42,29 @@ type Occurrence = {
   status: string;
 };
 
-type DialogState = { kind: "expense" } | { kind: "recurrent" } | null;
+type DialogState =
+  | { kind: "expense" }
+  | { kind: "recurrent" }
+  | { kind: "edit"; tx: ExpenseTx }
+  | { kind: "delete"; tx: ExpenseTx }
+  | null;
+
+/** Valor em pt-BR sem símbolo, pronto para o input de edição. */
+const amountInput = new Intl.NumberFormat("pt-BR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const DIALOG_TITLES: Record<NonNullable<DialogState>["kind"], string> = {
+  expense: "Registrar gasto",
+  recurrent: "Novo compromisso",
+  edit: "Editar lançamento",
+  delete: "Excluir lançamento",
+};
 
 export default function GastosPage() {
   const { workspace, accounts, categories, defaultCashAccountId, loading } =
-    useFinance("dashboard");
+    useWorkspaceBasics();
   const supabase = useMemo(() => createClient(), []);
   // Lido no cliente apenas para a aba inicial; evita useSearchParams para
   // manter a página estática sem suspense boundary.
@@ -59,6 +79,7 @@ export default function GastosPage() {
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [defaultContextId, setDefaultContextId] = useState<string | null>(null);
   const [contextFilter, setContextFilter] = useState<"all" | "pessoal" | "clinica">("all");
+  const [period, setPeriod] = useState<PeriodKey>("month");
   const [dialog, setDialog] = useState<DialogState>(null);
   const [message, setMessage] = useState("");
   const [hubLoading, setHubLoading] = useState(true);
@@ -75,7 +96,7 @@ export default function GastosPage() {
             .eq("active", true),
           supabase
             .from("transactions")
-            .select("id,description,amount,competence_date,category_id,context_id,status")
+            .select("id,description,amount,competence_date,account_id,category_id,context_id,status")
             .eq("workspace_id", workspace.id)
             .eq("type", "expense")
             // Exclusão por texto de descrição removida: escondia gastos reais.
@@ -120,6 +141,8 @@ export default function GastosPage() {
     );
   }
 
+  // Capturado após o guard: funções declaradas não herdam o narrowing de `workspace`.
+  const activeWorkspace = workspace;
   const expenseCategories = categories.filter((c) => c.kind === "expense");
   const filteredExpenses =
     contextFilter === "all"
@@ -132,13 +155,17 @@ export default function GastosPage() {
               : contextFilter === "clinica"
         );
 
-  const currentMonthExpenses = filteredExpenses.filter(
-    (t) => t.competence_date >= monthStart() && t.competence_date < nextMonthStart()
+  // O período escolhido governa cards, gráfico por categoria e lançamentos.
+  const { start: periodStart, end: periodEnd, label: periodLabel } = periodRange(period);
+  const periodExpenses = filteredExpenses.filter(
+    (t) =>
+      (periodStart === null || t.competence_date >= periodStart) &&
+      (periodEnd === null || t.competence_date < periodEnd)
   );
-  // Realizado (pago) e previsto (pendente) do mês são somados separadamente.
-  const paidMonthExpenses = currentMonthExpenses.filter((t) => t.status === "paid");
-  const totalMonthPaid = paidMonthExpenses.reduce((s, t) => s + Number(t.amount), 0);
-  const totalMonthPending = currentMonthExpenses
+  // Realizado (pago) e previsto (pendente) do período são somados separadamente.
+  const paidPeriodExpenses = periodExpenses.filter((t) => t.status === "paid");
+  const totalMonthPaid = paidPeriodExpenses.reduce((s, t) => s + Number(t.amount), 0);
+  const totalMonthPending = periodExpenses
     .filter((t) => t.status !== "paid")
     .reduce((s, t) => s + Number(t.amount), 0);
   const totalRecurrent = commitments.reduce((s, c) => s + Number(c.amount), 0);
@@ -146,7 +173,7 @@ export default function GastosPage() {
   const byCategory = expenseCategories
     .map((c) => ({
       label: c.name,
-      value: paidMonthExpenses
+      value: paidPeriodExpenses
         .filter((t) => t.category_id === c.id)
         .reduce((s, t) => s + Number(t.amount), 0),
     }))
@@ -176,7 +203,7 @@ export default function GastosPage() {
   async function submitExpense(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("transactions").insert({
-      workspace_id: workspace.id,
+      workspace_id: activeWorkspace.id,
       owner_id: userData.user?.id,
       account_id: form.get("account_id"),
       category_id: form.get("category_id") || null,
@@ -194,10 +221,42 @@ export default function GastosPage() {
     await loadHub();
   }
 
+  async function submitEdit(tx: ExpenseTx, form: FormData) {
+    const competenceDate = form.get("competence_date") as string;
+    const { error } = await supabase
+      .from("transactions")
+      .update({
+        description: form.get("description"),
+        amount: parseMoney(form.get("amount")),
+        account_id: form.get("account_id"),
+        category_id: form.get("category_id") || null,
+        competence_date: competenceDate,
+        paid_at: tx.status === "paid" ? competenceDate : null,
+      })
+      .eq("id", tx.id)
+      .eq("workspace_id", activeWorkspace.id);
+    // O motivo real importa: a falha pode ser de permissão ou de restrição.
+    setMessage(error ? `Não foi possível salvar: ${error.message}` : "Lançamento atualizado.");
+    if (!error) setDialog(null);
+    await loadHub();
+  }
+
+  async function deleteExpense(tx: ExpenseTx) {
+    const { error } = await supabase
+      .from("transactions")
+      .delete()
+      .eq("id", tx.id)
+      .eq("workspace_id", activeWorkspace.id);
+    // Exclusões podem ser barradas por chave estrangeira; mostre o motivo.
+    setMessage(error ? `Não foi possível excluir: ${error.message}` : "Lançamento excluído.");
+    if (!error) setDialog(null);
+    await loadHub();
+  }
+
   async function submitRecurrent(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("fixed_commitments").insert({
-      workspace_id: workspace.id,
+      workspace_id: activeWorkspace.id,
       owner_id: userData.user?.id,
       description: form.get("description"),
       amount: parseMoney(form.get("amount")),
@@ -230,7 +289,7 @@ export default function GastosPage() {
 
   // Exibe primeiro o que já aconteceu (mais recente antes) e depois os futuros
   // (mais próximos antes), para a lista abrir perto de hoje.
-  const displayExpenses = [...filteredExpenses].sort((a, b) => {
+  const displayExpenses = [...periodExpenses].sort((a, b) => {
     const aFuture = a.competence_date > today;
     const bFuture = b.competence_date > today;
     if (aFuture !== bFuture) return aFuture ? 1 : -1;
@@ -269,6 +328,7 @@ export default function GastosPage() {
             <option value="clinica">Clínica</option>
           </select>
         </label>
+        <PeriodFilter value={period} onChange={setPeriod} />
       </div>
 
       {tab === "overview" && (
@@ -277,7 +337,7 @@ export default function GastosPage() {
             <article className="metric-card metric-card--negative">
               <ReceiptText aria-hidden="true" />
               <strong>{money(totalMonthPaid)}</strong>
-              <span className="muted">Gasto no mês</span>
+              <span className="muted">{`Gasto · ${periodLabel}`}</span>
             </article>
             <article className="metric-card">
               <strong>{money(totalRecurrent)}</strong>
@@ -286,14 +346,14 @@ export default function GastosPage() {
             {totalMonthPending > 0 && (
               <article className="metric-card">
                 <strong>{money(totalMonthPending)}</strong>
-                <span className="muted">Previsto no mês</span>
+                <span className="muted">{`Previsto · ${periodLabel}`}</span>
               </article>
             )}
           </section>
           <section className="dashboard-columns" style={{ marginTop: 18 }}>
             {byCategory.length > 0 && (
               <article className="dashboard-card">
-                <h3>Por categoria (mês)</h3>
+                <h3>{`Por categoria · ${periodLabel}`}</h3>
                 <div className="chart-wrap">
                   <DashboardChart type="doughnut" label="Gastos" labels={byCategory.map((x) => x.label)} values={byCategory.map((x) => x.value)} color="var(--accent)" />
                 </div>
@@ -318,7 +378,7 @@ export default function GastosPage() {
       {tab === "launches" && (
         <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
           <List title="Lançamentos">
-            {filteredExpenses.length === 0 ? (
+            {displayExpenses.length === 0 ? (
               <p className="dashboard-empty">Nenhum gasto registrado.{" "}
                 <button type="button" onClick={() => setDialog({ kind: "expense" })}>Registrar primeiro gasto</button>
               </p>
@@ -334,7 +394,17 @@ export default function GastosPage() {
                         {" · "}{dateFmt.format(new Date(`${t.competence_date}T12:00:00`))}
                         {cat ? ` · ${cat.name}` : ""}
                       </span>
-                      <b>{money(t.amount)}</b>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                        <b>{money(t.amount)}</b>
+                        <span className="row-actions">
+                          <button type="button" aria-label="Editar lançamento" onClick={() => setDialog({ kind: "edit", tx: t })}>
+                            <Pencil aria-hidden="true" />
+                          </button>
+                          <button type="button" className="danger" aria-label="Excluir lançamento" onClick={() => setDialog({ kind: "delete", tx: t })}>
+                            <Trash2 aria-hidden="true" />
+                          </button>
+                        </span>
+                      </span>
                     </li>
                   );
                 })}
@@ -408,7 +478,7 @@ export default function GastosPage() {
         </section>
       )}
 
-      <Dialog open={dialog !== null} onClose={() => setDialog(null)} title={dialog?.kind === "recurrent" ? "Novo compromisso" : "Registrar gasto"}>
+      <Dialog open={dialog !== null} onClose={() => setDialog(null)} title={dialog ? DIALOG_TITLES[dialog.kind] : "Registrar gasto"}>
         {dialog?.kind === "expense" && (
           <SimpleForm key="expense" onSubmit={submitExpense}>
             <label htmlFor="expense-description">Descrição</label>
@@ -433,6 +503,42 @@ export default function GastosPage() {
             <input id="expense-date" name="competence_date" type="date" defaultValue={today} required />
             <button>Registrar gasto</button>
           </SimpleForm>
+        )}
+        {dialog?.kind === "edit" && (
+          <SimpleForm key={`edit-${dialog.tx.id}`} onSubmit={(form) => submitEdit(dialog.tx, form)}>
+            <label htmlFor="edit-description">Descrição</label>
+            <input id="edit-description" name="description" maxLength={160} defaultValue={dialog.tx.description} required autoFocus />
+            <label htmlFor="edit-amount">Valor</label>
+            <input id="edit-amount" name="amount" defaultValue={amountInput.format(Number(dialog.tx.amount))} required />
+            <label htmlFor="edit-account">Conta</label>
+            <select id="edit-account" name="account_id" defaultValue={dialog.tx.account_id ?? defaultCashAccountId ?? ""} required>
+              <option value="">Escolha uma conta</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            <label htmlFor="edit-category">Categoria</label>
+            <select id="edit-category" name="category_id" defaultValue={dialog.tx.category_id ?? ""}>
+              <option value="">Sem categoria</option>
+              {expenseCategories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <label htmlFor="edit-date">Data</label>
+            <input id="edit-date" name="competence_date" type="date" defaultValue={dialog.tx.competence_date} required />
+            <button>Salvar</button>
+          </SimpleForm>
+        )}
+        {dialog?.kind === "delete" && (
+          <div className="simple-form">
+            <p>
+              Excluir <strong>{dialog.tx.description}</strong> de <b>{money(dialog.tx.amount)}</b>? Esta ação não pode ser desfeita.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" className="danger" onClick={() => { void deleteExpense(dialog.tx); }}>Excluir</button>
+              <button type="button" onClick={() => setDialog(null)}>Cancelar</button>
+            </div>
+          </div>
         )}
         {dialog?.kind === "recurrent" && (
           <SimpleForm key="recurrent" onSubmit={submitRecurrent}>
@@ -463,3 +569,4 @@ export default function GastosPage() {
     </main>
   );
 }
+

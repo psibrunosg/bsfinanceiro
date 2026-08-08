@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useFinance } from "../components/useFinance";
+import { useWorkspaceBasics } from "../components/useWorkspaceBasics";
 import { Nav } from "../components/Nav";
 import { PageHeader } from "../components/PageHeader";
 import { Dialog } from "../components/Dialog";
@@ -50,7 +50,7 @@ type DialogState =
 
 export default function InvestimentosPage() {
   const { workspace, accounts, defaultCashAccountId, loading } =
-    useFinance("dashboard");
+    useWorkspaceBasics();
   const supabase = useMemo(() => createClient(), []);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [operations, setOperations] = useState<Operation[]>([]);
@@ -155,7 +155,7 @@ export default function InvestimentosPage() {
         : dialog?.kind === "sell" ? "Registrar venda"
           : dialog?.kind === "quote" ? "Atualizar cotação" : "";
 
-  async function submitAsset(form: FormData) {
+  const submitAsset = async (form: FormData) => {
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("investment_assets").insert({
       workspace_id: workspace.id,
@@ -168,7 +168,7 @@ export default function InvestimentosPage() {
     setMessage(error ? "Não foi possível cadastrar o ativo." : "Ativo cadastrado.");
     if (!error) setDialog(null);
     await loadHub();
-  }
+  };
 
   async function submitOperation(assetId: string, kind: "buy" | "sell", form: FormData) {
     const accountId = form.get("account_id");
@@ -197,7 +197,7 @@ export default function InvestimentosPage() {
     await loadHub();
   }
 
-  async function submitQuote(assetId: string, form: FormData) {
+  const submitQuote = async (assetId: string, form: FormData) => {
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("investment_quotes").insert({
       workspace_id: workspace.id,
@@ -210,7 +210,7 @@ export default function InvestimentosPage() {
     setMessage(error ? "Não foi possível atualizar a cotação." : "Cotação atualizada.");
     if (!error) setDialog(null);
     await loadHub();
-  }
+  };
 
   const buyDialog = dialog?.kind === "buy" ? dialog : null;
   const sellDialog = dialog?.kind === "sell" ? dialog : null;
