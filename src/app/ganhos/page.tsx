@@ -15,7 +15,13 @@ import { TrendingUp, Plus, Pencil, Trash2, Archive } from "lucide-react";
 
 type Tab = "overview" | "payslips" | "patients" | "other";
 
-type Patient = { id: string; full_name: string; created_at: string };
+type Patient = {
+  id: string;
+  full_name: string;
+  context_id: string | null;
+  created_at: string;
+};
+type FinancialContext = { id: string; kind: string; name: string | null };
 type PatientEarning = {
   id: string;
   patient_id: string;
@@ -65,6 +71,10 @@ type DialogState =
 /** Valor monetário para o `defaultValue` dos formulários de edição. */
 const moneyInput = (value: number) => Number(value).toFixed(2).replace(".", ",");
 
+/** Rótulo do contexto: usa o nome cadastrado e cai para o `kind` quando vazio. */
+const contextLabel = (context: FinancialContext) =>
+  context.name?.trim() || (context.kind === "clinica" ? "Clínica" : "Pessoal");
+
 export default function GanhosPage() {
   const { workspace, accounts, categories, defaultCashAccountId, loading } =
     useWorkspaceBasics();
@@ -77,7 +87,7 @@ export default function GanhosPage() {
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [earnings, setEarnings] = useState<PatientEarning[]>([]);
   const [otherIncome, setOtherIncome] = useState<OtherIncome[]>([]);
-  const [defaultContextId, setDefaultContextId] = useState<string | null>(null);
+  const [contexts, setContexts] = useState<FinancialContext[]>([]);
   const [hubLoading, setHubLoading] = useState(true);
 
   // Dados específicos do hub são carregados em consultas locais; o
@@ -97,14 +107,12 @@ export default function GanhosPage() {
       ] = await Promise.all([
         supabase
           .from("financial_contexts")
-          .select("id")
+          .select("id,kind,name")
           .eq("workspace_id", workspace.id)
-          .eq("kind", "pessoal")
-          .limit(1)
-          .maybeSingle(),
+          .eq("active", true),
         supabase
           .from("patients")
-          .select("id,full_name,created_at")
+          .select("id,full_name,context_id,created_at")
           .eq("workspace_id", workspace.id)
           .eq("active", true)
           .order("full_name"),
@@ -132,7 +140,7 @@ export default function GanhosPage() {
           .order("competence_date", { ascending: false })
           .limit(100),
       ]);
-      setDefaultContextId(contextRows?.id ?? null);
+      setContexts(contextRows ?? []);
       setPatients(patientRows ?? []);
       setPayslips(payslipRows ?? []);
       setEarnings(earningRows ?? []);
@@ -145,6 +153,10 @@ export default function GanhosPage() {
   useEffect(() => {
     void loadHub();
   }, [loadHub]);
+
+  // Contexto padrão dos formulários: o pessoal, derivado da lista carregada.
+  const defaultContextId =
+    contexts.find((c) => c.kind === "pessoal")?.id ?? null;
 
   if (loading || !workspace || hubLoading) {
     // Mantém navegação e cabeçalho durante o carregamento para a interface não sumir.
@@ -256,7 +268,7 @@ export default function GanhosPage() {
       workspace_id: activeWorkspace.id,
       owner_id: userData.user?.id,
       full_name: form.get("full_name"),
-      context_id: defaultContextId,
+      context_id: form.get("context_id") || null,
     });
     setMessage(error ? "Não foi possível cadastrar o paciente." : "Paciente cadastrado.");
     if (!error) setDialog(null);
@@ -269,11 +281,11 @@ export default function GanhosPage() {
       workspace_id: activeWorkspace.id,
       owner_id: userData.user?.id,
       patient_id: patientId,
-      context_id: defaultContextId,
+      // O atendimento herda o contexto do paciente.
+      context_id: patients.find((p) => p.id === patientId)?.context_id ?? null,
       amount: parseMoney(form.get("amount")),
       appointment_date: form.get("appointment_date"),
       due_date: form.get("due_date"),
-      notes: form.get("notes") || null,
     });
     setMessage(error ? "Não foi possível registrar o atendimento." : "Atendimento registrado.");
     if (!error) setDialog(null);
@@ -362,6 +374,7 @@ export default function GanhosPage() {
       owner_id: userData.user?.id,
       account_id: form.get("account_id"),
       category_id: form.get("category_id") || null,
+      context_id: form.get("context_id") || null,
       type: "income",
       amount: parseMoney(form.get("amount")),
       description: form.get("description"),
@@ -400,7 +413,6 @@ export default function GanhosPage() {
         amount: parseMoney(form.get("amount")),
         appointment_date: form.get("appointment_date"),
         due_date: form.get("due_date"),
-        notes: form.get("notes") || null,
       })
       .eq("id", id)
       .eq("workspace_id", activeWorkspace.id);
@@ -492,7 +504,6 @@ export default function GanhosPage() {
               <li key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <span>
                   {dateFmt.format(new Date(`${e.appointment_date}T12:00:00`))} · {money(e.amount)}
-                  {e.notes ? ` · ${e.notes}` : ""}
                 </span>
                 {e.status === "pending" ? (
                   <button type="button" onClick={() => setDialog({ kind: "receive", earningId: e.id })}>Receber</button>
@@ -668,6 +679,13 @@ export default function GanhosPage() {
           <SimpleForm key="patient" onSubmit={submitPatient}>
             <label htmlFor="patient-name">Nome completo</label>
             <input id="patient-name" name="full_name" minLength={2} maxLength={120} placeholder="Nome completo do paciente" required autoFocus />
+            <label htmlFor="patient-context">Contexto</label>
+            <select id="patient-context" name="context_id" defaultValue={defaultContextId ?? ""}>
+              <option value="">Sem contexto</option>
+              {contexts.map((c) => (
+                <option key={c.id} value={c.id}>{contextLabel(c)}</option>
+              ))}
+            </select>
             <button>Cadastrar paciente</button>
           </SimpleForm>
         )}
@@ -680,8 +698,6 @@ export default function GanhosPage() {
             <input id="earning-appointment-date" name="appointment_date" type="date" defaultValue={today} required />
             <label htmlFor="earning-due-date">Previsão de recebimento</label>
             <input id="earning-due-date" name="due_date" type="date" defaultValue={today} required />
-            <label htmlFor="earning-notes">Observação</label>
-            <input id="earning-notes" name="notes" placeholder="Observação" />
             <button>Registrar atendimento</button>
           </SimpleForm>
         )}
@@ -748,6 +764,13 @@ export default function GanhosPage() {
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+            <label htmlFor="other-context">Contexto</label>
+            <select id="other-context" name="context_id" defaultValue={defaultContextId ?? ""}>
+              <option value="">Sem contexto</option>
+              {contexts.map((c) => (
+                <option key={c.id} value={c.id}>{contextLabel(c)}</option>
+              ))}
+            </select>
             <label htmlFor="other-date">Data</label>
             <input id="other-date" name="competence_date" type="date" defaultValue={today} required />
             <button>Registrar receita</button>
@@ -779,8 +802,6 @@ export default function GanhosPage() {
             <input id="edit-earning-appointment-date" name="appointment_date" type="date" defaultValue={editEarning.appointment_date} required />
             <label htmlFor="edit-earning-due-date">Previsão de recebimento</label>
             <input id="edit-earning-due-date" name="due_date" type="date" defaultValue={editEarning.due_date} required />
-            <label htmlFor="edit-earning-notes">Observação</label>
-            <input id="edit-earning-notes" name="notes" defaultValue={editEarning.notes ?? ""} placeholder="Observação" />
             <button>Salvar atendimento</button>
           </SimpleForm>
         )}

@@ -26,6 +26,12 @@ type ExpenseTx = {
   status: string;
 };
 
+type FinancialContext = {
+  id: string;
+  kind: string;
+  name: string | null;
+};
+
 type Commitment = {
   id: string;
   description: string;
@@ -62,6 +68,12 @@ const DIALOG_TITLES: Record<NonNullable<DialogState>["kind"], string> = {
   delete: "Excluir lançamento",
 };
 
+/** Rótulo do contexto: usa o nome cadastrado e cai para o tipo quando vazio. */
+function contextLabel(context: FinancialContext) {
+  if (context.name) return context.name;
+  return context.kind === "clinica" ? "Clínica" : "Pessoal";
+}
+
 export default function GastosPage() {
   const { workspace, accounts, categories, defaultCashAccountId, loading } =
     useWorkspaceBasics();
@@ -77,7 +89,7 @@ export default function GastosPage() {
   const [expenses, setExpenses] = useState<ExpenseTx[]>([]);
   const [commitments, setCommitments] = useState<Commitment[]>([]);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
-  const [defaultContextId, setDefaultContextId] = useState<string | null>(null);
+  const [contexts, setContexts] = useState<FinancialContext[]>([]);
   const [contextFilter, setContextFilter] = useState<"all" | "pessoal" | "clinica">("all");
   const [period, setPeriod] = useState<PeriodKey>("month");
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -91,7 +103,7 @@ export default function GastosPage() {
         await Promise.all([
           supabase
             .from("financial_contexts")
-            .select("id,kind")
+            .select("id,kind,name")
             .eq("workspace_id", workspace.id)
             .eq("active", true),
           supabase
@@ -113,7 +125,7 @@ export default function GastosPage() {
             p_month: monthStart(),
           }),
         ]);
-      setDefaultContextId((contextRows ?? []).find((c: { kind: string }) => c.kind === "pessoal")?.id ?? null);
+      setContexts((contextRows ?? []) as FinancialContext[]);
       setExpenses(expenseRows ?? []);
       setCommitments(commitmentRows ?? []);
       setOccurrences(occurrenceData ?? []);
@@ -144,15 +156,17 @@ export default function GastosPage() {
   // Capturado após o guard: funções declaradas não herdam o narrowing de `workspace`.
   const activeWorkspace = workspace;
   const expenseCategories = categories.filter((c) => c.kind === "expense");
+  const defaultContextId = contexts.find((c) => c.kind === "pessoal")?.id ?? null;
+  // Ids reais do contexto escolhido; lançamentos antigos sem contexto contam
+  // como pessoais para não sumirem do filtro.
+  const filterContextIds = contexts.filter((c) => c.kind === contextFilter).map((c) => c.id);
   const filteredExpenses =
     contextFilter === "all"
       ? expenses
       : expenses.filter((t) =>
           t.context_id === null
             ? contextFilter === "pessoal"
-            : t.context_id === defaultContextId
-              ? contextFilter === "pessoal"
-              : contextFilter === "clinica"
+            : filterContextIds.includes(t.context_id)
         );
 
   // O período escolhido governa cards, gráfico por categoria e lançamentos.
@@ -207,7 +221,7 @@ export default function GastosPage() {
       owner_id: userData.user?.id,
       account_id: form.get("account_id"),
       category_id: form.get("category_id") || null,
-      context_id: defaultContextId,
+      context_id: form.get("context_id") || null,
       type: "expense",
       amount: parseMoney(form.get("amount")),
       description: form.get("description"),
@@ -230,6 +244,7 @@ export default function GastosPage() {
         amount: parseMoney(form.get("amount")),
         account_id: form.get("account_id"),
         category_id: form.get("category_id") || null,
+        context_id: form.get("context_id") || null,
         competence_date: competenceDate,
         paid_at: tx.status === "paid" ? competenceDate : null,
       })
@@ -499,6 +514,12 @@ export default function GastosPage() {
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+            <label htmlFor="expense-context">Contexto</label>
+            <select id="expense-context" name="context_id" defaultValue={defaultContextId ?? ""}>
+              {contexts.map((c) => (
+                <option key={c.id} value={c.id}>{contextLabel(c)}</option>
+              ))}
+            </select>
             <label htmlFor="expense-date">Data</label>
             <input id="expense-date" name="competence_date" type="date" defaultValue={today} required />
             <button>Registrar gasto</button>
@@ -522,6 +543,12 @@ export default function GastosPage() {
               <option value="">Sem categoria</option>
               {expenseCategories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <label htmlFor="edit-context">Contexto</label>
+            <select id="edit-context" name="context_id" defaultValue={dialog.tx.context_id ?? defaultContextId ?? ""}>
+              {contexts.map((c) => (
+                <option key={c.id} value={c.id}>{contextLabel(c)}</option>
               ))}
             </select>
             <label htmlFor="edit-date">Data</label>
