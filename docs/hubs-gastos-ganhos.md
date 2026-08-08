@@ -473,6 +473,10 @@ alguém logar à mão a cada auditoria.
 
 ## 8. Backlog priorizado
 
+> **Estado em 2026-08-08, commit `1ad4fd3` (publicado).** Concluídos: 1, 2, 3, 4,
+> 5, 10, 12, 14, 15, 17, 18. Em aberto: 6, 7, 8, 9, 11, 13, 16, 19, 20 — sendo 9
+> e 20 decisões suas, não trabalho de implementação.
+
 | # | Item | Tipo | Esforço | Modelo sugerido |
 |---|---|---|---|---|
 | 1 | Consertar `useFinance.test.tsx` e os 2 warnings de lint | correção | P | Haiku |
