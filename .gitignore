@@ -10,3 +10,5 @@ test-results
 *.tsbuildinfo
 .DS_Store
 supabase/.temp/
+
+graphify-out

@@ -387,9 +387,18 @@ describe("useFinance transaction loading", () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    const transactionQuery = mocks.queries.find(
-      (query) => query.table === "transactions",
+    // A rota leve dispara antes a query de proxima receita (.limit(1)); a
+    // listagem recente e a que ordena por competence_date/id descendente.
+    const recentQuery = mocks.queries.find(
+      (query) =>
+        query.table === "transactions" &&
+        query.orders.length === 2 &&
+        query.orders.every(([, ascending]) => ascending === false),
     );
-    expect(transactionQuery?.limitValue).toBe(30);
+    expect(recentQuery?.orders).toEqual([
+      ["competence_date", false],
+      ["id", false],
+    ]);
+    expect(recentQuery?.limitValue).toBe(30);
   });
 });
