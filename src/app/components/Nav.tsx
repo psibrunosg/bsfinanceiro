@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { BarChart3, CirclePlus, CreditCard, Landmark, LogOut, Menu, Moon, ReceiptText, Sun, Target, TrendingUp, WalletCards } from "lucide-react";
@@ -19,9 +20,45 @@ const desktopLinks = [
   { href: "/configuracoes", label: "Mais", icon: Menu },
 ];
 
+function NavLinks({ pathname, isGastosRecorrentes }: { pathname: string | null; isGastosRecorrentes: boolean }) {
+  const isCompromissos = pathname === "/compromissos";
+
+  return (
+    <nav>
+      {desktopLinks.map(({ href, label, icon: Icon }) => (
+        <Link
+          key={href}
+          href={href}
+          className={(pathname === href || (isGastosRecorrentes && href === "/gastos")) ? "active" : ""}
+          aria-current={(pathname === href || (isGastosRecorrentes && href === "/gastos")) ? "page" : undefined}
+        >
+          <Icon aria-hidden="true" />
+          {label}
+        </Link>
+      ))}
+      {isCompromissos && (
+        <Link
+          href="/gastos?tab=recorrentes"
+          className="active"
+          aria-current="page"
+        >
+          <Target aria-hidden="true" />
+          Compromissos
+        </Link>
+      )}
+    </nav>
+  );
+}
+
+function NavLinksWithSearchParams({ pathname }: { pathname: string | null }) {
+  const searchParams = useSearchParams();
+  const isGastosRecorrentes = pathname === "/gastos" && searchParams?.get("tab") === "recorrentes";
+
+  return <NavLinks pathname={pathname} isGastosRecorrentes={isGastosRecorrentes} />;
+}
+
 export function Nav() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { preference, updateThemePreference } = useThemePreference();
   const nextTheme = preference === "dark" ? "light" : "dark";
 
@@ -30,35 +67,12 @@ export function Nav() {
     window.location.replace(appPath("/entrar"));
   }
 
-  const isCompromissos = pathname === "/compromissos";
-  const isGastosRecorrentes = pathname === "/gastos" && searchParams?.get("tab") === "recorrentes";
-
   return <>
     <aside className="app-nav" aria-label="Navegação principal">
       <Link className="nav-brand" href="/"><span>BS</span><strong>Financeiro</strong></Link>
-      <nav>
-        {desktopLinks.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={(pathname === href || (isGastosRecorrentes && href === "/gastos")) ? "active" : ""}
-            aria-current={(pathname === href || (isGastosRecorrentes && href === "/gastos")) ? "page" : undefined}
-          >
-            <Icon aria-hidden="true" />
-            {label}
-          </Link>
-        ))}
-        {isCompromissos && (
-          <Link
-            href="/gastos?tab=recorrentes"
-            className="active"
-            aria-current="page"
-          >
-            <Target aria-hidden="true" />
-            Compromissos
-          </Link>
-        )}
-      </nav>
+      <Suspense fallback={<NavLinks pathname={pathname} isGastosRecorrentes={false} />}>
+        <NavLinksWithSearchParams pathname={pathname} />
+      </Suspense>
       <div className="nav-bottom">
         <button aria-label="Alternar tema" onClick={() => void updateThemePreference(nextTheme)}>
           {preference === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}

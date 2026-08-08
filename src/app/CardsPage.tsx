@@ -70,7 +70,9 @@ function CardsPageInner() {
       p_due_day: Number(form.get("due_day")),
     });
     setMessage(
-      error ? "Não foi possível adicionar o cartão." : "Cartão adicionado."
+      error
+        ? `Não foi possível adicionar o cartão: ${error.message}`
+        : "Cartão adicionado."
     );
     if (!error) {
       setEditingCardId(null);
@@ -252,8 +254,19 @@ function CardsPageInner() {
                   </option>
                 ))}
               </select>
-              <label htmlFor="card-last-four">Final do cartão</label>
-              <input id="card-last-four" name="last_four" placeholder="Final" defaultValue={editingCard?.last_four ?? ""} />
+              <label htmlFor="card-last-four">Final do cartão (4 dígitos, opcional)</label>
+              {/* O banco exige ^[0-9]{4}$; sem estas restrições o cadastro
+                  falhava no CHECK e a tela só dizia "não foi possível". */}
+              <input
+                id="card-last-four"
+                name="last_four"
+                inputMode="numeric"
+                pattern="[0-9]{4}"
+                maxLength={4}
+                title="Informe exatamente 4 dígitos, ou deixe em branco."
+                placeholder="1234"
+                defaultValue={editingCard?.last_four ?? ""}
+              />
               <label htmlFor="card-credit-limit">Limite de crédito</label>
               <input id="card-credit-limit" name="credit_limit" placeholder="0,00" defaultValue={editingCard ? String(editingCard.credit_limit).replace(".", ",") : ""} required />
               <label htmlFor="card-closing-day">Dia de fechamento</label>

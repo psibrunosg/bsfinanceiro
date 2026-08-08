@@ -13,7 +13,7 @@ import { Landmark, Wallet, Percent } from "lucide-react";
 import { Dialog } from "./components/Dialog";
 
 export function AccountsPage() {
-  const { workspace, accounts, transactions, loading, message, setMessage, reload, cashPosition } =
+  const { workspace, accounts, loading, message, setMessage, reload, cashPosition } =
     useFinance("accounts");
   const supabase = useMemo(() => createClient(), []);
   const [openDialog, setOpenDialog] = useState(false);
@@ -55,7 +55,14 @@ export function AccountsPage() {
           onClick: () => setOpenDialog(true),
         }}
       />
-      {message && <p className="form-success">{message}</p>}
+      {message && (
+        <p
+          className={message.startsWith("Não") ? "form-error" : "form-success"}
+          role={message.startsWith("Não") ? "alert" : "status"}
+        >
+          {message}
+        </p>
+      )}
       
       <section className="hub-overview">
         <article className="metric-card metric-card--positive">
@@ -95,14 +102,32 @@ export function AccountsPage() {
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title="Adicionar conta">
         <SimpleForm onSubmit={submitAccount}>
-          <input name="name" placeholder="Nome da conta" required />
-          <select name="type" defaultValue="checking">
+          <label htmlFor="account-name">Nome da conta</label>
+          <input
+            id="account-name"
+            name="name"
+            minLength={2}
+            maxLength={60}
+            placeholder="Ex.: Nubank"
+            required
+            autoFocus
+          />
+          <label htmlFor="account-type">Tipo</label>
+          <select id="account-type" name="type" defaultValue="checking">
             <option value="checking">Conta bancária</option>
             <option value="cash">Dinheiro</option>
             <option value="savings">Poupança</option>
             <option value="investment">Investimento</option>
           </select>
-          <input name="initial_balance" defaultValue="0,00" required />
+          <label htmlFor="account-initial-balance">Saldo inicial</label>
+          <input
+            id="account-initial-balance"
+            name="initial_balance"
+            inputMode="decimal"
+            placeholder="0,00"
+            defaultValue="0,00"
+            required
+          />
           <button>Adicionar conta</button>
         </SimpleForm>
       </Dialog>

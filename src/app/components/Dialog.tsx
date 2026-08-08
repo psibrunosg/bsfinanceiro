@@ -8,10 +8,9 @@ type DialogProps = {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  variant?: "desktop" | "bottom-sheet";
 };
 
-export function Dialog({ open, onClose, title, children, variant = "desktop" }: DialogProps) {
+export function Dialog({ open, onClose, title, children }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -32,10 +31,8 @@ export function Dialog({ open, onClose, title, children, variant = "desktop" }: 
     return () => node.removeEventListener("close", handleClose);
   }, [onClose]);
 
-  const isSheet = variant === "bottom-sheet";
-
   return (
-    <dialog ref={ref} className={isSheet ? "dialog dialog--sheet" : "dialog"} aria-label={title}>
+    <dialog ref={ref} className="dialog" aria-label={title}>
       <header className="dialog__header">
         <h2>{title}</h2>
         <button type="button" onClick={onClose} aria-label="Fechar">

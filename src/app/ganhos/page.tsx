@@ -128,7 +128,18 @@ export default function GanhosPage() {
   }, [loadHub]);
 
   if (loading || !workspace || hubLoading) {
-    return <main className="management-page"><p className="muted">Carregando...</p></main>;
+    // Mantém navegação e cabeçalho durante o carregamento para a interface não sumir.
+    return (
+      <main className="management-page">
+        <Nav />
+        <PageHeader
+          title="Ganhos"
+          subtitle="Contracheques, pacientes e outras receitas"
+          workspaceName=""
+        />
+        <p className="muted">Carregando...</p>
+      </main>
+    );
   }
 
   const action =
@@ -156,7 +167,8 @@ export default function GanhosPage() {
   const payslipReceived = payslips.filter((p) => p.transaction_id);
   const earningsReceived = earnings.filter((e) => e.status === "received");
   const payslipTotal = payslipReceived.reduce((s, p) => s + Number(p.net_amount), 0);
-  const patientTotal = earnings.reduce((s, e) => s + Number(e.amount), 0);
+  // "Total recebido" considera apenas atendimentos efetivamente recebidos.
+  const patientTotal = earningsReceived.reduce((s, e) => s + Number(e.amount), 0);
   const otherTotal = otherIncome.reduce((s, t) => s + Number(t.amount), 0);
   const totalIncome = payslipTotal + patientTotal + otherTotal;
   const composition = [
@@ -323,8 +335,9 @@ export default function GanhosPage() {
             <article className="dashboard-card">
               <h3>Composição dos ganhos</h3>
               <div className="chart-wrap">
+                {/* Fontes zeradas viram legenda sem fatia; só entram no gráfico as com valor. */}
                 {totalIncome > 0 ? (
-                  <DashboardChart type="doughnut" label="Ganhos" labels={composition.map((c) => c.label)} values={composition.map((c) => c.value)} color="var(--accent)" />
+                  <DashboardChart type="doughnut" label="Ganhos" labels={composition.filter((c) => c.value > 0).map((c) => c.label)} values={composition.filter((c) => c.value > 0).map((c) => c.value)} color="var(--accent)" />
                 ) : (
                   <p className="dashboard-empty">Nenhum ganho recebido ainda.{" "}
                     <button type="button" className="btn-primary" onClick={() => setDialog({ kind: "other" })}>Registrar primeiro ganho</button>
@@ -356,13 +369,8 @@ export default function GanhosPage() {
               </p>
             )}
             {Object.entries(
-              payslips.reduce((acc, p) => {
-                const month = p.competence.slice(0, 7);
-                if (!acc[month]) acc[month] = [];
-                acc[month].push(p);
-                return acc;
-              }, {} as Record<string, typeof payslips>)
-            ).sort((a, b) => b[0].localeCompare(a[0])).map(([month, ps]) => (
+              Object.groupBy(payslips, (p) => p.competence.slice(0, 7))
+            ).sort((a, b) => b[0].localeCompare(a[0])).map(([month, ps = []]) => (
               <div key={month} style={{ marginBottom: 24 }}>
                 <h4 style={{ margin: "0 0 12px", color: "var(--muted)" }}>
                   {new Date(`${month}-01T12:00:00`).toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}

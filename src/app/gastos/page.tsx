@@ -78,10 +78,7 @@ export default function GastosPage() {
             .select("id,description,amount,competence_date,category_id,context_id,status")
             .eq("workspace_id", workspace.id)
             .eq("type", "expense")
-            // Pagamentos de fatura saem da composição por categoria para evitar
-            // dupla contagem com as parcelas do cartão.
-            .not("description", "ilike", "Pagamento de fatura%")
-            .not("description", "ilike", "Fatura %")
+            // Exclusão por texto de descrição removida: escondia gastos reais.
             .order("competence_date", { ascending: false })
             .limit(500),
           supabase
@@ -109,7 +106,18 @@ export default function GastosPage() {
   }, [loadHub]);
 
   if (loading || !workspace || hubLoading) {
-    return <main className="management-page"><p className="muted">Carregando...</p></main>;
+    // Mantém a navegação e o cabeçalho visíveis durante o carregamento.
+    return (
+      <main className="management-page">
+        <Nav />
+        <PageHeader
+          title="Gastos"
+          subtitle="Visão geral, lançamentos e recorrentes"
+          workspaceName=""
+        />
+        <p className="muted">Carregando...</p>
+      </main>
+    );
   }
 
   const expenseCategories = categories.filter((c) => c.kind === "expense");
@@ -127,13 +135,18 @@ export default function GastosPage() {
   const currentMonthExpenses = filteredExpenses.filter(
     (t) => t.competence_date >= monthStart() && t.competence_date < nextMonthStart()
   );
-  const totalMonth = currentMonthExpenses.reduce((s, t) => s + Number(t.amount), 0);
+  // Realizado (pago) e previsto (pendente) do mês são somados separadamente.
+  const paidMonthExpenses = currentMonthExpenses.filter((t) => t.status === "paid");
+  const totalMonthPaid = paidMonthExpenses.reduce((s, t) => s + Number(t.amount), 0);
+  const totalMonthPending = currentMonthExpenses
+    .filter((t) => t.status !== "paid")
+    .reduce((s, t) => s + Number(t.amount), 0);
   const totalRecurrent = commitments.reduce((s, c) => s + Number(c.amount), 0);
 
   const byCategory = expenseCategories
     .map((c) => ({
       label: c.name,
-      value: currentMonthExpenses
+      value: paidMonthExpenses
         .filter((t) => t.category_id === c.id)
         .reduce((s, t) => s + Number(t.amount), 0),
     }))
@@ -215,6 +228,17 @@ export default function GastosPage() {
 
   const today = new Date().toISOString().slice(0, 10);
 
+  // Exibe primeiro o que já aconteceu (mais recente antes) e depois os futuros
+  // (mais próximos antes), para a lista abrir perto de hoje.
+  const displayExpenses = [...filteredExpenses].sort((a, b) => {
+    const aFuture = a.competence_date > today;
+    const bFuture = b.competence_date > today;
+    if (aFuture !== bFuture) return aFuture ? 1 : -1;
+    return aFuture
+      ? a.competence_date.localeCompare(b.competence_date)
+      : b.competence_date.localeCompare(a.competence_date);
+  });
+
   return (
     <main className="management-page">
       <Nav />
@@ -252,13 +276,19 @@ export default function GastosPage() {
           <section className="hub-overview">
             <article className="metric-card metric-card--negative">
               <ReceiptText aria-hidden="true" />
-              <strong>{money(totalMonth)}</strong>
+              <strong>{money(totalMonthPaid)}</strong>
               <span className="muted">Gasto no mês</span>
             </article>
             <article className="metric-card">
               <strong>{money(totalRecurrent)}</strong>
               <span className="muted">Compromissos fixos/mês</span>
             </article>
+            {totalMonthPending > 0 && (
+              <article className="metric-card">
+                <strong>{money(totalMonthPending)}</strong>
+                <span className="muted">Previsto no mês</span>
+              </article>
+            )}
           </section>
           <section className="dashboard-columns" style={{ marginTop: 18 }}>
             {byCategory.length > 0 && (
@@ -294,12 +324,14 @@ export default function GastosPage() {
               </p>
             ) : (
               <ul className="list" style={{ display: "grid", gap: 6 }}>
-                {filteredExpenses.map((t) => {
+                {displayExpenses.map((t) => {
                   const cat = expenseCategories.find((c) => c.id === t.category_id);
                   return (
                     <li key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                       <span>
-                        {t.description} · {dateFmt.format(new Date(`${t.competence_date}T12:00:00`))}
+                        {t.description}
+                        {t.status !== "paid" && <span className="chip chip--pending">Previsto</span>}
+                        {" · "}{dateFmt.format(new Date(`${t.competence_date}T12:00:00`))}
                         {cat ? ` · ${cat.name}` : ""}
                       </span>
                       <b>{money(t.amount)}</b>
