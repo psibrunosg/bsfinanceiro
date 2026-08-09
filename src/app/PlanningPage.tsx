@@ -7,6 +7,7 @@ import { List } from "./components/List";
 import { SimpleForm } from "./components/SimpleForm";
 import { money, parseMoney, cents, dateFmt, monthStart } from "./components/Money";
 import { calculateBudgetConsumption, calculateGoalProgress } from "@/lib/finance/budget";
+import { useToast } from "./components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { Suspense, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
@@ -15,7 +16,8 @@ function PlanningPageInner() {
   const searchParams = useSearchParams();
   const focus = searchParams.get("focus");
   const goalId = searchParams.get("goalId");
-  const { workspace, categories, budgets, goals, monthSpent, loading, message, setMessage, reload } = useFinance("planning");
+  const { workspace, categories, budgets, goals, monthSpent, loading, reload } = useFinance("planning");
+  const { toast } = useToast();
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
@@ -30,7 +32,8 @@ function PlanningPageInner() {
   async function submitBudget(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("monthly_budgets").upsert({ workspace_id: workspace.id, owner_id: userData.user?.id, category_id: form.get("category_id"), category_kind: "expense", month: monthStart(), amount: parseMoney(form.get("amount")) }, { onConflict: "workspace_id,owner_id,category_id,month" });
-    setMessage(error ? "Não foi possível salvar o orçamento." : "Orçamento salvo.");
+    if (error) toast("Não foi possível salvar o orçamento.", "error");
+    else toast("Orçamento salvo.");
     await reload();
   }
 
@@ -38,23 +41,24 @@ function PlanningPageInner() {
     const { data: userData } = await supabase.auth.getUser();
     const initial = parseMoney(form.get("current_amount"));
     const { data: goal, error } = await supabase.from("financial_goals").insert({ workspace_id: workspace.id, owner_id: userData.user?.id, name: form.get("name"), target_amount: parseMoney(form.get("target_amount")), current_amount: 0, deadline: form.get("deadline") || null, status: "active" }).select("id").single();
-    if (error || !goal) { setMessage("Não foi possível criar a meta."); return; }
+    if (error || !goal) { toast("Não foi possível criar a meta.", "error"); return; }
     if (initial > 0) {
       const { error: contributionError } = await supabase.from("goal_contributions").insert({ workspace_id: workspace.id, owner_id: userData.user?.id, financial_goal_id: goal.id, amount: initial, note: "Saldo inicial", idempotency_key: crypto.randomUUID() });
       if (contributionError) {
-        setMessage("Não foi possível registrar o saldo inicial da meta.");
+        toast("Não foi possível registrar o saldo inicial da meta.", "error");
         await reload();
         return;
       }
     }
-    setMessage("Meta criada.");
+    toast("Meta criada.");
     await reload();
   }
 
   async function submitContribution(goalId: string, form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("goal_contributions").insert({ workspace_id: workspace.id, owner_id: userData.user?.id, financial_goal_id: goalId, amount: parseMoney(form.get("amount")), idempotency_key: crypto.randomUUID() });
-    setMessage(error ? "Não foi possível registrar o aporte." : "Aporte registrado.");
+    if (error) toast("Não foi possível registrar o aporte.", "error");
+    else toast("Aporte registrado.");
     await reload();
   }
 
@@ -62,7 +66,6 @@ function PlanningPageInner() {
     <main className="management-page">
       <PageHeader title="Planejamento" subtitle="Orçamento do mês e metas financeiras." workspaceName={workspace.name} />
       <Nav />
-      {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
       {focus === "choose-goal" && goals.length > 1 && <p className="form-success" role="status">Escolha uma meta abaixo para registrar o aporte.</p>}
       <section className="management-grid">
         <List title="Orçamento do mês">

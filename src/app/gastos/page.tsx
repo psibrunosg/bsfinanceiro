@@ -10,6 +10,7 @@ import { List } from "../components/List";
 import { money, parseMoney, dateFmt, monthStart } from "../components/Money";
 import { PeriodFilter, periodRange, type PeriodKey } from "../components/PeriodFilter";
 import { DashboardChart } from "../components/DashboardChart";
+import { useToast } from "../components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { ReceiptText, Check, Pencil, Trash2 } from "lucide-react";
 
@@ -94,8 +95,8 @@ export default function GastosPage() {
   const [contextFilter, setContextFilter] = useState<"all" | "pessoal" | "clinica">("all");
   const [period, setPeriod] = useState<PeriodKey>("month");
   const [dialog, setDialog] = useState<DialogState>(null);
-  const [message, setMessage] = useState("");
   const [hubLoading, setHubLoading] = useState(true);
+  const { toast } = useToast();
 
   const loadHub = useCallback(async () => {
     if (!workspace) return;
@@ -236,8 +237,12 @@ export default function GastosPage() {
       status: "paid",
       idempotency_key: crypto.randomUUID(),
     });
-    setMessage(error ? "Não foi possível registrar o gasto." : "Gasto registrado.");
-    if (!error) setDialog(null);
+    if (error) {
+      toast("Não foi possível registrar o gasto.", "error");
+    } else {
+      toast("Gasto registrado.");
+      setDialog(null);
+    }
     await loadHub();
   }
 
@@ -257,8 +262,12 @@ export default function GastosPage() {
       .eq("id", tx.id)
       .eq("workspace_id", activeWorkspace.id);
     // O motivo real importa: a falha pode ser de permissão ou de restrição.
-    setMessage(error ? `Não foi possível salvar: ${error.message}` : "Lançamento atualizado.");
-    if (!error) setDialog(null);
+    if (error) {
+      toast(`Não foi possível salvar: ${error.message}`, "error");
+    } else {
+      toast("Lançamento atualizado.");
+      setDialog(null);
+    }
     await loadHub();
   }
 
@@ -269,8 +278,12 @@ export default function GastosPage() {
       .eq("id", tx.id)
       .eq("workspace_id", activeWorkspace.id);
     // Exclusões podem ser barradas por chave estrangeira; mostre o motivo.
-    setMessage(error ? `Não foi possível excluir: ${error.message}` : "Lançamento excluído.");
-    if (!error) setDialog(null);
+    if (error) {
+      toast(`Não foi possível excluir: ${error.message}`, "error");
+    } else {
+      toast("Lançamento excluído.");
+      setDialog(null);
+    }
     await loadHub();
   }
 
@@ -286,15 +299,19 @@ export default function GastosPage() {
       category_id: form.get("category_id") || null,
       context_id: form.get("context_id") || null,
     });
-    setMessage(error ? "Não foi possível criar o compromisso." : "Compromisso criado.");
-    if (!error) setDialog(null);
+    if (error) {
+      toast("Não foi possível criar o compromisso.", "error");
+    } else {
+      toast("Compromisso criado.");
+      setDialog(null);
+    }
     await loadHub();
   }
 
   async function payOccurrence(occurrenceId: string, form: FormData) {
     const accountId = form.get("account_id");
     if (!accountId) {
-      setMessage("Escolha uma conta para pagar.");
+      toast("Escolha uma conta para pagar.", "error");
       return;
     }
     const { error } = await supabase.rpc("pay_fixed_commitment_occurrence", {
@@ -303,7 +320,8 @@ export default function GastosPage() {
       p_paid_on: new Date().toISOString().slice(0, 10),
       p_idempotency_key: crypto.randomUUID(),
     });
-    setMessage(error ? "Não foi possível pagar o compromisso." : "Compromisso pago.");
+    if (error) toast("Não foi possível pagar o compromisso.", "error");
+    else toast("Compromisso pago.");
     await loadHub();
   }
 
@@ -329,7 +347,6 @@ export default function GastosPage() {
         workspaceName={workspace.name}
         action={action}
       />
-      {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
 
       <nav className="hub-tabs" aria-label="Abas de gastos">
         <button type="button" aria-pressed={tab === "overview"} onClick={() => setTab("overview")} className={tab === "overview" ? "active" : ""}>Visão geral</button>
@@ -419,10 +436,10 @@ export default function GastosPage() {
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                         <b>{money(t.amount)}</b>
                         <span className="row-actions">
-                          <button type="button" aria-label="Editar lançamento" onClick={() => setDialog({ kind: "edit", tx: t })}>
+                          <button type="button" aria-label="Editar lançamento" title="Editar lançamento" onClick={() => setDialog({ kind: "edit", tx: t })}>
                             <Pencil aria-hidden="true" />
                           </button>
-                          <button type="button" className="danger" aria-label="Excluir lançamento" onClick={() => setDialog({ kind: "delete", tx: t })}>
+                          <button type="button" className="danger" aria-label="Excluir lançamento" title="Excluir lançamento" onClick={() => setDialog({ kind: "delete", tx: t })}>
                             <Trash2 aria-hidden="true" />
                           </button>
                         </span>

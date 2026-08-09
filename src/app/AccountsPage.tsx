@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useMemo, useState } from "react";
 import { Landmark, Wallet, Percent, Pencil, Trash2 } from "lucide-react";
 import { Dialog } from "./components/Dialog";
+import { useToast } from "./components/Toast";
 
 /** O Postgres devolve 23503 quando a exclusão esbarra numa chave estrangeira
  *  (ex.: lançamentos apontando para a conta). */
@@ -19,8 +20,9 @@ function isForeignKeyViolation(error: { code?: string; message?: string }) {
 }
 
 export function AccountsPage() {
-  const { workspace, accounts, loading, message, setMessage, reload, cashPosition } =
+  const { workspace, accounts, loading, reload, cashPosition } =
     useFinance("accounts");
+  const { toast } = useToast();
   const supabase = useMemo(() => createClient(), []);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -65,12 +67,10 @@ export function AccountsPage() {
         .update(values)
         .eq("id", editingAccount.id)
         .eq("workspace_id", workspace.id);
-      setMessage(
-        error
-          ? `Não foi possível editar a conta: ${error.message}`
-          : "Conta atualizada."
-      );
-      if (!error) {
+      if (error) {
+        toast(`Não foi possível editar a conta: ${error.message}`, "error");
+      } else {
+        toast("Conta atualizada.");
         setEditingAccount(null);
         setOpenDialog(false);
       }
@@ -84,12 +84,12 @@ export function AccountsPage() {
       owner_id: userData.user?.id,
       ...values,
     });
-    setMessage(
-      error
-        ? `Não foi possível adicionar a conta: ${error.message}`
-        : "Conta adicionada."
-    );
-    if (!error) setOpenDialog(false);
+    if (error) {
+      toast(`Não foi possível adicionar a conta: ${error.message}`, "error");
+    } else {
+      toast("Conta adicionada.");
+      setOpenDialog(false);
+    }
     await reload();
   }
 
@@ -101,13 +101,14 @@ export function AccountsPage() {
       .eq("id", deletingAccount.id)
       .eq("workspace_id", workspace.id);
     if (error) {
-      setMessage(
+      toast(
         isForeignKeyViolation(error)
           ? "Não foi possível excluir: esta conta tem lançamentos vinculados e não pode ser excluída. Remova ou mova os lançamentos primeiro."
-          : `Não foi possível excluir a conta: ${error.message}`
+          : `Não foi possível excluir a conta: ${error.message}`,
+        "error"
       );
     } else {
-      setMessage("Conta excluída.");
+      toast("Conta excluída.");
       setDeletingAccount(null);
     }
     await reload();
@@ -125,15 +126,7 @@ export function AccountsPage() {
           onClick: openNewAccount,
         }}
       />
-      {message && (
-        <p
-          className={message.startsWith("Não") ? "form-error" : "form-success"}
-          role={message.startsWith("Não") ? "alert" : "status"}
-        >
-          {message}
-        </p>
-      )}
-      
+
       <section className="hub-overview">
         <article className="metric-card metric-card--positive">
           <Wallet aria-hidden="true" />
@@ -161,10 +154,10 @@ export function AccountsPage() {
                     <Percent aria-hidden="true" size={14} /> {participation.toFixed(1)}% do total
                   </small>
                   <span className="row-actions">
-                    <button type="button" aria-label="Editar conta" onClick={() => openEditAccount(a)}>
+                    <button type="button" aria-label="Editar conta" title="Editar conta" onClick={() => openEditAccount(a)}>
                       <Pencil aria-hidden="true" />
                     </button>
-                    <button type="button" className="danger" aria-label="Excluir conta" onClick={() => setDeletingAccount(a)}>
+                    <button type="button" className="danger" aria-label="Excluir conta" title="Excluir conta" onClick={() => setDeletingAccount(a)}>
                       <Trash2 aria-hidden="true" />
                     </button>
                   </span>

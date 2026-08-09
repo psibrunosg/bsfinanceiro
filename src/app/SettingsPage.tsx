@@ -7,9 +7,11 @@ import { createClient } from "@/lib/supabase/client";
 import { appPath } from "@/lib/app-path";
 import { useMemo, useState } from "react";
 import { useThemePreference } from "./components/ThemeProvider";
+import { useToast } from "./components/Toast";
 
 export function SettingsPage() {
-  const { workspace, alertPrefs, workspacePrefs, contexts = [], categories, loading, message, setMessage, reload } = useFinance("settings");
+  const { workspace, alertPrefs, workspacePrefs, contexts = [], categories, loading, reload } = useFinance("settings");
+  const { toast } = useToast();
   const supabase = useMemo(() => createClient(), []);
   const { preference, updateThemePreference } = useThemePreference();
   const [saving, setSaving] = useState(false);
@@ -38,7 +40,8 @@ export function SettingsPage() {
         weekly_digest_day: Number(form.get("weekly_digest_day") || 1),
       };
       const { error } = await supabase.from("alert_preferences").upsert(p, { onConflict: "workspace_id,owner_id" });
-      setMessage(error ? "Não foi possível salvar alertas." : "Preferências de alerta salvas.");
+      if (error) toast("Não foi possível salvar alertas.", "error");
+      else toast("Preferências de alerta salvas.");
     } else {
       const p: Record<string, unknown> = {
         workspace_id: workspace.id,
@@ -54,7 +57,8 @@ export function SettingsPage() {
       if (form.has("default_category_id")) p.default_category_id = form.get("default_category_id") || null;
       
       const { error } = await supabase.from("workspace_preferences").upsert(p, { onConflict: "workspace_id,owner_id" });
-      setMessage(error ? "Não foi possível salvar preferências." : "Preferências salvas.");
+      if (error) toast("Não foi possível salvar preferências.", "error");
+      else toast("Preferências salvas.");
     }
     
     setSaving(false);
@@ -73,8 +77,6 @@ export function SettingsPage() {
     <main className="management-page">
       <PageHeader title="Configurações" subtitle="Preferências e alertas." workspaceName={workspace.name} />
       <Nav />
-      {message && <p className="form-success">{message}</p>}
-      
       <div className="tabs-nav" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)', marginBottom: '24px' }}>
         {TABS.map(tab => (
           <button 

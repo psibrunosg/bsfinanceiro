@@ -965,27 +965,213 @@
   padding: 20px;
 }
 @media (max-width: 700px) {
-  .dialog--sheet {
+  .dialog {
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: auto 0 0 0;
     margin: 0;
+    width: 100%;
     max-width: none;
-    width: 100vw;
-    border-radius: 22px 22px 0 0;
+    max-height: 90dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: var(--radius) var(--radius) 0 0;
     border-bottom: 0;
-    animation: sheet-up 220ms ease-out;
   }
-  .dialog--sheet::backdrop {
+  .dialog::backdrop {
     background: rgba(12, 23, 20, 0.4);
   }
-  @keyframes sheet-up {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
+  .dialog__header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    flex: 0 0 auto;
+    background: var(--surface);
+    padding-top: var(--space-5);
+  }
+  .dialog__header::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border);
+  }
+  .dialog__body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .dialog[open] {
+      animation: dialog-sheet-up 200ms ease-out;
+    }
+    @keyframes dialog-sheet-up {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
   }
 }
 
 /* === dashboard-extra === */
 .dashboard-shell{display:grid;gap:22px}.dashboard-hero{padding:clamp(24px,4vw,42px);border-radius:24px;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:var(--bg);display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.dashboard-hero .eyebrow{color:var(--gold)}.dashboard-hero h1{margin-bottom:0}.dashboard-hero .muted{color:color-mix(in srgb,var(--bg) 78%,transparent)}.dashboard-section{border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);overflow:hidden;animation:section-enter .28s ease both;animation-timeline:view();animation-range:entry 5% cover 20%}.dashboard-section summary{list-style:none;min-height:76px;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer}.dashboard-section summary::-webkit-details-marker{display:none}.dashboard-section summary svg{transition:transform .2s ease}.dashboard-section[open] summary svg{transform:rotate(180deg)}.dashboard-section__body{padding:0 22px 22px;display:grid;gap:18px}.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.metric{padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2);display:grid;gap:4px}.metric span{font-size:.875rem;color:var(--muted)}.metric strong{font:700 clamp(1.2rem,2.5vw,1.75rem)/1.2 Lexend,sans-serif;font-variant-numeric:tabular-nums}.metric.positive strong{color:var(--positive)}.dashboard-columns{display:grid;grid-template-columns:1.35fr .65fr;gap:18px}.dashboard-card{border:1px solid var(--border);border-radius:14px;padding:18px;background:var(--surface)}.dashboard-card h3{font-size:1rem;margin:0 0 14px}.chart-wrap{height:240px;position:relative}.insight-list{display:grid;gap:10px}.insight-link{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border-radius:10px;background:var(--surface-2);text-decoration:none;font-weight:600}.insight-link:hover{background:color-mix(in srgb,var(--accent) 14%,var(--surface-2))}.insight-link small{display:block;color:var(--muted);font-weight:400}.dashboard-empty{padding:16px;border:1px dashed var(--border);border-radius:12px;color:var(--muted)}.chart-summary{font-size:.875rem;color:var(--muted)}@keyframes section-enter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:760px){.dashboard-hero{display:grid}.metric-grid,.dashboard-columns{grid-template-columns:1fr}.dashboard-section summary,.dashboard-section__body{padding-left:16px;padding-right:16px}.chart-wrap{height:210px}}
+
+/* === install-prompt === */
+.install-prompt {
+  position: fixed;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.install-prompt svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+.install-prompt p {
+  margin: 0;
+  flex: 1;
+  min-width: 140px;
+  font-size: 0.9rem;
+}
+.install-prompt__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.install-prompt__install,
+.install-prompt__dismiss {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.install-prompt__install {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: 0;
+}
+.install-prompt__dismiss {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+@media (min-width: 901px) {
+  .install-prompt {
+    bottom: var(--space-4);
+    left: auto;
+    max-width: 420px;
+  }
+}
+
+/* === toast === */
+.toast-viewport {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 50;
+  display: grid;
+  gap: var(--space-2);
+  width: min(380px, calc(100vw - var(--space-5)));
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--positive);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+.toast--error {
+  border-left-color: var(--danger);
+}
+.toast > svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--positive);
+}
+.toast--error > svg {
+  color: var(--danger);
+}
+.toast p {
+  margin: 0;
+  flex: 1;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+.toast__close {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.toast__close:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.toast__close svg {
+  width: 16px;
+  height: 16px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .toast {
+    animation: toast-enter 0.2s ease both;
+  }
+}
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* O banner de instalação da PWA também mora no rodapé; os avisos sobem. */
+body:has(.install-prompt) .toast-viewport {
+  bottom: calc(var(--space-4) + 88px);
+}
+/* Abaixo de 901px a .mobile-nav (fixa, min-height 68px) ocupa o rodapé; os
+   avisos ficam acima dela — e acima do banner de instalação, quando presente. */
+@media (max-width: 900px) {
+  .toast-viewport {
+    left: var(--space-3);
+    right: var(--space-3);
+    width: auto;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+  body:has(.install-prompt) .toast-viewport {
+    bottom: calc(152px + env(safe-area-inset-bottom));
+  }
+}

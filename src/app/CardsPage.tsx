@@ -7,6 +7,7 @@ import { PageHeader } from "./components/PageHeader";
 import { List } from "./components/List";
 import { SimpleForm } from "./components/SimpleForm";
 import { Dialog } from "./components/Dialog";
+import { useToast } from "./components/Toast";
 import { money, parseMoney, dateFmt } from "./components/Money";
 import { BrandLogo, CARD_BRANDS } from "./brand-logo";
 import { createClient } from "@/lib/supabase/client";
@@ -45,11 +46,10 @@ function CardsPageInner() {
     cards,
     invoices,
     loading,
-    message,
-    setMessage,
     reload,
     statementImports,
   } = useFinance(selectedCardId ? "card" : "cards", selectedCardId || undefined);
+  const { toast } = useToast();
   const supabase = useMemo(() => createClient(), []);
 
   if (loading || !workspace)
@@ -78,12 +78,10 @@ function CardsPageInner() {
       p_closing_day: Number(form.get("closing_day")),
       p_due_day: Number(form.get("due_day")),
     });
-    setMessage(
-      error
-        ? `Não foi possível adicionar o cartão: ${error.message}`
-        : "Cartão adicionado."
-    );
-    if (!error) {
+    if (error) {
+      toast(`Não foi possível adicionar o cartão: ${error.message}`, "error");
+    } else {
+      toast("Cartão adicionado.");
       setEditingCardId(null);
       setOpenDialog(false);
     }
@@ -104,12 +102,10 @@ function CardsPageInner() {
       })
       .eq("id", editingCardId)
       .eq("workspace_id", workspace.id);
-    setMessage(
-      error
-        ? `Não foi possível editar o cartão: ${error.message}`
-        : "Cartão atualizado."
-    );
-    if (!error) {
+    if (error) {
+      toast(`Não foi possível editar o cartão: ${error.message}`, "error");
+    } else {
+      toast("Cartão atualizado.");
       setEditingCardId(null);
       setOpenDialog(false);
     }
@@ -125,7 +121,7 @@ function CardsPageInner() {
       .eq("id", card.id)
       .eq("workspace_id", workspace.id);
     if (error) {
-      setMessage(`Não foi possível excluir o cartão: ${error.message}`);
+      toast(`Não foi possível excluir o cartão: ${error.message}`, "error");
       await reload();
       return;
     }
@@ -144,7 +140,7 @@ function CardsPageInner() {
           : ` A conta técnica não pôde ser removida: ${accountError.message}`;
       }
     }
-    setMessage(`Cartão excluído.${technicalAccountNote}`);
+    toast(`Cartão excluído.${technicalAccountNote}`);
     setDeletingCardId(null);
     await reload();
   }
@@ -160,9 +156,8 @@ function CardsPageInner() {
       p_notes: form.get("notes") || null,
       p_idempotency_key: crypto.randomUUID(),
     });
-    setMessage(
-      error ? "Não foi possível registrar a compra." : "Compra registrada."
-    );
+    if (error) toast("Não foi possível registrar a compra.", "error");
+    else toast("Compra registrada.");
     await reload();
   }
 
@@ -241,7 +236,6 @@ function CardsPageInner() {
           onClick: openNewCard,
         } : undefined}
       />
-      {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
 
       {!selectedCardId && (
         <section className="management-grid" style={{ gridTemplateColumns: '1fr' }}>
@@ -277,10 +271,10 @@ function CardsPageInner() {
                     </div>
                   </div>
                   <span className="row-actions">
-                    <button type="button" aria-label="Editar cartão" onClick={() => openEditCard(c.id)}>
+                    <button type="button" aria-label="Editar cartão" title="Editar cartão" onClick={() => openEditCard(c.id)}>
                       <Pencil aria-hidden="true" />
                     </button>
-                    <button type="button" className="danger" aria-label="Excluir cartão" onClick={() => setDeletingCardId(c.id)}>
+                    <button type="button" className="danger" aria-label="Excluir cartão" title="Excluir cartão" onClick={() => setDeletingCardId(c.id)}>
                       <Trash2 aria-hidden="true" />
                     </button>
                   </span>

@@ -10,6 +10,7 @@ import { List } from "../components/List";
 import { money, parseMoney, dateFmt } from "../components/Money";
 import { DashboardChart } from "../components/DashboardChart";
 import { PeriodFilter, periodRange, type PeriodKey } from "../components/PeriodFilter";
+import { useToast } from "../components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { TrendingUp, Plus, Pencil, Trash2, Archive } from "lucide-react";
 
@@ -82,13 +83,13 @@ export default function GanhosPage() {
   const [tab, setTab] = useState<Tab>("overview");
   const [period, setPeriod] = useState<PeriodKey>("month");
   const [dialog, setDialog] = useState<DialogState>(null);
-  const [message, setMessage] = useState("");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [earnings, setEarnings] = useState<PatientEarning[]>([]);
   const [otherIncome, setOtherIncome] = useState<OtherIncome[]>([]);
   const [contexts, setContexts] = useState<FinancialContext[]>([]);
   const [hubLoading, setHubLoading] = useState(true);
+  const { toast } = useToast();
 
   // Dados específicos do hub são carregados em consultas locais; o
   // useWorkspaceBasics fica responsável apenas por workspace, contas e categorias.
@@ -270,8 +271,12 @@ export default function GanhosPage() {
       full_name: form.get("full_name"),
       context_id: form.get("context_id") || null,
     });
-    setMessage(error ? "Não foi possível cadastrar o paciente." : "Paciente cadastrado.");
-    if (!error) setDialog(null);
+    if (error) {
+      toast("Não foi possível cadastrar o paciente.", "error");
+    } else {
+      toast("Paciente cadastrado.");
+      setDialog(null);
+    }
     await loadHub();
   }
 
@@ -287,8 +292,12 @@ export default function GanhosPage() {
       appointment_date: form.get("appointment_date"),
       due_date: form.get("due_date"),
     });
-    setMessage(error ? "Não foi possível registrar o atendimento." : "Atendimento registrado.");
-    if (!error) setDialog(null);
+    if (error) {
+      toast("Não foi possível registrar o atendimento.", "error");
+    } else {
+      toast("Atendimento registrado.");
+      setDialog(null);
+    }
     await loadHub();
   }
 
@@ -298,8 +307,12 @@ export default function GanhosPage() {
       p_account_id: form.get("account_id"),
       p_received_date: form.get("received_date"),
     });
-    setMessage(error ? "Não foi possível registrar o recebimento." : "Recebimento registrado.");
-    if (!error) setDialog(null);
+    if (error) {
+      toast("Não foi possível registrar o recebimento.", "error");
+    } else {
+      toast("Recebimento registrado.");
+      setDialog(null);
+    }
     await loadHub();
   }
 
@@ -312,24 +325,24 @@ export default function GanhosPage() {
     const { data: userData } = await supabase.auth.getUser();
     const ownerId = userData.user?.id;
     if (!ownerId) {
-      setMessage("Sessão expirada. Entre novamente.");
+      toast("Sessão expirada. Entre novamente.", "error");
       return;
     }
     const receivedDate = form.get("received_date") || null;
     const accountId = form.get("account_id") || null;
     if (receivedDate && !accountId) {
-      setMessage("Escolha a conta de recebimento para gerar a receita.");
+      toast("Escolha a conta de recebimento para gerar a receita.", "error");
       return;
     }
     const file = form.get("pdf") as File | null;
     let pdfPath: string | null = null;
     if (file && file.size > 0) {
       if (file.type !== "application/pdf") {
-        setMessage("O arquivo deve ser um PDF.");
+        toast("O arquivo deve ser um PDF.", "error");
         return;
       }
       if (file.size > 10 * 1024 * 1024) {
-        setMessage("O PDF deve ter no máximo 10 MB.");
+        toast("O PDF deve ter no máximo 10 MB.", "error");
         return;
       }
       // Bucket privado "payslips"; caminho com prefixo do owner garante
@@ -339,7 +352,7 @@ export default function GanhosPage() {
         .from("payslips")
         .upload(pdfPath, file, { contentType: "application/pdf" });
       if (uploadError) {
-        setMessage("Não foi possível enviar o PDF.");
+        toast("Não foi possível enviar o PDF.", "error");
         return;
       }
     }
@@ -358,11 +371,11 @@ export default function GanhosPage() {
       p_notes: form.get("notes") || null,
     });
     if (error) {
-      setMessage("Não foi possível cadastrar o contracheque.");
+      toast("Não foi possível cadastrar o contracheque.", "error");
       if (pdfPath) await supabase.storage.from("payslips").remove([pdfPath]);
       return;
     }
-    setMessage("Contracheque cadastrado.");
+    toast("Contracheque cadastrado.");
     setDialog(null);
     await loadHub();
   }
@@ -383,8 +396,12 @@ export default function GanhosPage() {
       status: "paid",
       idempotency_key: crypto.randomUUID(),
     });
-    setMessage(error ? "Não foi possível registrar a receita." : "Receita registrada.");
-    if (!error) setDialog(null);
+    if (error) {
+      toast("Não foi possível registrar a receita.", "error");
+    } else {
+      toast("Receita registrada.");
+      setDialog(null);
+    }
     await loadHub();
   }
 
@@ -401,8 +418,12 @@ export default function GanhosPage() {
       })
       .eq("id", id)
       .eq("workspace_id", activeWorkspace.id);
-    setMessage(error ? `Não foi possível salvar: ${error.message}` : "Contracheque atualizado.");
-    if (!error) setDialog(null);
+    if (error) {
+      toast(`Não foi possível salvar: ${error.message}`, "error");
+    } else {
+      toast("Contracheque atualizado.");
+      setDialog(null);
+    }
     await loadHub();
   }
 
@@ -416,8 +437,12 @@ export default function GanhosPage() {
       })
       .eq("id", id)
       .eq("workspace_id", activeWorkspace.id);
-    setMessage(error ? `Não foi possível salvar: ${error.message}` : "Atendimento atualizado.");
-    if (!error) setDialog(null);
+    if (error) {
+      toast(`Não foi possível salvar: ${error.message}`, "error");
+    } else {
+      toast("Atendimento atualizado.");
+      setDialog(null);
+    }
     await loadHub();
   }
 
@@ -434,8 +459,12 @@ export default function GanhosPage() {
       })
       .eq("id", id)
       .eq("workspace_id", activeWorkspace.id);
-    setMessage(error ? `Não foi possível salvar: ${error.message}` : "Receita atualizada.");
-    if (!error) setDialog(null);
+    if (error) {
+      toast(`Não foi possível salvar: ${error.message}`, "error");
+    } else {
+      toast("Receita atualizada.");
+      setDialog(null);
+    }
     await loadHub();
   }
 
@@ -455,7 +484,7 @@ export default function GanhosPage() {
         .delete()
         .eq("id", transactionId);
       if (txError) {
-        setMessage(`Não foi possível excluir: ${txError.message}`);
+        toast(`Não foi possível excluir: ${txError.message}`, "error");
         await loadHub();
         return;
       }
@@ -465,8 +494,12 @@ export default function GanhosPage() {
       .delete()
       .eq("id", id)
       .eq("workspace_id", activeWorkspace.id);
-    setMessage(error ? `Não foi possível excluir: ${error.message}` : successMessage);
-    if (!error) setDialog(null);
+    if (error) {
+      toast(`Não foi possível excluir: ${error.message}`, "error");
+    } else {
+      toast(successMessage);
+      setDialog(null);
+    }
     await loadHub();
   }
 
@@ -476,8 +509,12 @@ export default function GanhosPage() {
       .update({ active: false })
       .eq("id", id)
       .eq("workspace_id", activeWorkspace.id);
-    setMessage(error ? `Não foi possível desativar: ${error.message}` : "Paciente desativado.");
-    if (!error) setDialog(null);
+    if (error) {
+      toast(`Não foi possível desativar: ${error.message}`, "error");
+    } else {
+      toast("Paciente desativado.");
+      setDialog(null);
+    }
     await loadHub();
   }
 
@@ -494,8 +531,8 @@ export default function GanhosPage() {
             </small>
           </div>
           <span className="row-actions">
-            <button type="button" className="btn-circle" title="Registrar Atendimento" aria-label="Registrar atendimento" onClick={() => setDialog({ kind: "earning", patientId: p.id })}><Plus aria-hidden="true" /></button>
-            <button type="button" aria-label="Desativar paciente" onClick={() => setDialog({ kind: "deactivate-patient", patient: p })}><Archive aria-hidden="true" /></button>
+            <button type="button" className="btn-circle" title="Registrar atendimento" aria-label="Registrar atendimento" onClick={() => setDialog({ kind: "earning", patientId: p.id })}><Plus aria-hidden="true" /></button>
+            <button type="button" aria-label="Desativar paciente" title="Desativar paciente" onClick={() => setDialog({ kind: "deactivate-patient", patient: p })}><Archive aria-hidden="true" /></button>
           </span>
         </div>
         {pEarnings.length > 0 && (
@@ -513,8 +550,8 @@ export default function GanhosPage() {
                   </b>
                 )}
                 <span className="row-actions">
-                  <button type="button" aria-label="Editar" onClick={() => setDialog({ kind: "edit-earning", earning: e })}><Pencil aria-hidden="true" /></button>
-                  <button type="button" className="danger" aria-label="Excluir" onClick={() => setDialog({ kind: "delete-earning", earning: e })}><Trash2 aria-hidden="true" /></button>
+                  <button type="button" aria-label="Editar atendimento" title="Editar atendimento" onClick={() => setDialog({ kind: "edit-earning", earning: e })}><Pencil aria-hidden="true" /></button>
+                  <button type="button" className="danger" aria-label="Excluir atendimento" title="Excluir atendimento" onClick={() => setDialog({ kind: "delete-earning", earning: e })}><Trash2 aria-hidden="true" /></button>
                 </span>
               </li>
             ))}
@@ -533,7 +570,6 @@ export default function GanhosPage() {
         workspaceName={workspace.name}
         action={action}
       />
-      {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
 
       <nav className="hub-tabs" aria-label="Abas de ganhos">
         <button type="button" aria-pressed={tab === "overview"} onClick={() => setTab("overview")} className={tab === "overview" ? "active" : ""}>Visão geral</button>
@@ -619,8 +655,8 @@ export default function GanhosPage() {
                         <button type="button" className="btn-primary" style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => void openPayslipPdf(pdfPath)}>PDF</button>
                       )}
                       <span className="row-actions">
-                        <button type="button" aria-label="Editar" onClick={() => setDialog({ kind: "edit-payslip", payslip: p })}><Pencil aria-hidden="true" /></button>
-                        <button type="button" className="danger" aria-label="Excluir" onClick={() => setDialog({ kind: "delete-payslip", payslip: p })}><Trash2 aria-hidden="true" /></button>
+                        <button type="button" aria-label="Editar contracheque" title="Editar contracheque" onClick={() => setDialog({ kind: "edit-payslip", payslip: p })}><Pencil aria-hidden="true" /></button>
+                        <button type="button" className="danger" aria-label="Excluir contracheque" title="Excluir contracheque" onClick={() => setDialog({ kind: "delete-payslip", payslip: p })}><Trash2 aria-hidden="true" /></button>
                       </span>
                     </article>
                     );
@@ -663,8 +699,8 @@ export default function GanhosPage() {
                     </span>
                     <b>{money(t.amount)}</b>
                     <span className="row-actions">
-                      <button type="button" aria-label="Editar" onClick={() => setDialog({ kind: "edit-other", income: t })}><Pencil aria-hidden="true" /></button>
-                      <button type="button" className="danger" aria-label="Excluir" onClick={() => setDialog({ kind: "delete-other", income: t })}><Trash2 aria-hidden="true" /></button>
+                      <button type="button" aria-label="Editar receita" title="Editar receita" onClick={() => setDialog({ kind: "edit-other", income: t })}><Pencil aria-hidden="true" /></button>
+                      <button type="button" className="danger" aria-label="Excluir receita" title="Excluir receita" onClick={() => setDialog({ kind: "delete-other", income: t })}><Trash2 aria-hidden="true" /></button>
                     </span>
                   </li>
                 ))}

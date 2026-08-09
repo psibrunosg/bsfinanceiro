@@ -1,15 +1,17 @@
-const CACHE_NAME = "bsfinanceiro-v1";
+const CACHE_NAME = "bsfinanceiro-v2";
 const PRECACHE = [
-  "/",
-  "/entrar",
-  "/cadastro",
-  "/icon-192.png",
-  "/icon-512.png",
+  "./",
+  "./entrar/",
+  "./cadastro/",
+  "./icon-192.png",
+  "./icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE))
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(PRECACHE.map((url) => cache.add(url).catch(() => {})))
+    )
   );
   self.skipWaiting();
 });

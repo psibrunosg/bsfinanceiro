@@ -57,7 +57,7 @@ function renderPanel({
 }: {
   batches?: TransactionImportBatch[];
   onReload?: () => Promise<void>;
-  onMessage?: (message: string) => void;
+  onMessage?: (message: string, kind?: "success" | "error") => void;
 } = {}) {
   return render(
     <StatementImportPanel
@@ -195,7 +195,7 @@ describe("StatementImportPanel", () => {
       "discard_transaction_import_batch",
       { p_batch_id: "batch-new" },
     ));
-    expect(onMessage).toHaveBeenCalledWith("Não foi possível preparar a prévia do CSV.");
+    expect(onMessage).toHaveBeenCalledWith("Não foi possível preparar a prévia do CSV.", "error");
     expect(screen.queryByText("Prévia de falha.csv")).toBeNull();
   });
 
