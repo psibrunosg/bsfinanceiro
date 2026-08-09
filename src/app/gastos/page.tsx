@@ -38,6 +38,7 @@ type Commitment = {
   amount: number;
   due_day: number;
   category_id: string | null;
+  context_id: string | null;
 };
 type Occurrence = {
   id: string;
@@ -116,7 +117,7 @@ export default function GastosPage() {
             .limit(500),
           supabase
             .from("fixed_commitments")
-            .select("id,description,amount,due_day,category_id")
+            .select("id,description,amount,due_day,category_id,context_id")
             .eq("workspace_id", workspace.id)
             .eq("active", true)
             .order("due_day"),
@@ -160,14 +161,19 @@ export default function GastosPage() {
   // Ids reais do contexto escolhido; lançamentos antigos sem contexto contam
   // como pessoais para não sumirem do filtro.
   const filterContextIds = contexts.filter((c) => c.kind === contextFilter).map((c) => c.id);
-  const filteredExpenses =
-    contextFilter === "all"
-      ? expenses
-      : expenses.filter((t) =>
-          t.context_id === null
-            ? contextFilter === "pessoal"
-            : filterContextIds.includes(t.context_id)
-        );
+  const matchesContext = (contextId: string | null) =>
+    contextFilter === "all" ||
+    (contextId === null ? contextFilter === "pessoal" : filterContextIds.includes(contextId));
+  const filteredExpenses = expenses.filter((t) => matchesContext(t.context_id));
+  const filteredCommitments = commitments.filter((c) => matchesContext(c.context_id));
+  // Uma ocorrência herda o contexto do compromisso que a originou. Se esse
+  // compromisso foi desativado (não vem mais na lista), a ocorrência é tratada
+  // como pessoal — nunca escondida, pois é ela que carrega o botão de pagar.
+  const occurrenceContextId = (commitmentId: string) =>
+    commitments.find((c) => c.id === commitmentId)?.context_id ?? null;
+  const filteredOccurrences = occurrences.filter(
+    (o) => contextFilter === "all" || matchesContext(occurrenceContextId(o.fixed_commitment_id))
+  );
 
   // O período escolhido governa cards, gráfico por categoria e lançamentos.
   const { start: periodStart, end: periodEnd, label: periodLabel } = periodRange(period);
@@ -182,7 +188,7 @@ export default function GastosPage() {
   const totalMonthPending = periodExpenses
     .filter((t) => t.status !== "paid")
     .reduce((s, t) => s + Number(t.amount), 0);
-  const totalRecurrent = commitments.reduce((s, c) => s + Number(c.amount), 0);
+  const totalRecurrent = filteredCommitments.reduce((s, c) => s + Number(c.amount), 0);
 
   const byCategory = expenseCategories
     .map((c) => ({
@@ -278,6 +284,7 @@ export default function GastosPage() {
       due_day: Number(form.get("due_day")),
       account_id: form.get("account_id") || null,
       category_id: form.get("category_id") || null,
+      context_id: form.get("context_id") || null,
     });
     setMessage(error ? "Não foi possível criar o compromisso." : "Compromisso criado.");
     if (!error) setDialog(null);
@@ -432,12 +439,12 @@ export default function GastosPage() {
       {tab === "recurrent" && (
         <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
           <List title={`Compromissos fixos · ${money(totalRecurrent)}/mês`}>
-            {commitments.length === 0 && (
+            {filteredCommitments.length === 0 && (
               <p className="dashboard-empty">Nenhum compromisso fixo.{" "}
                 <button type="button" onClick={() => setDialog({ kind: "recurrent" })}>Criar primeiro compromisso</button>
               </p>
             )}
-            {commitments.map((c) => {
+            {filteredCommitments.map((c) => {
               const cat = expenseCategories.find((x) => x.id === c.category_id);
               return (
                 <article className="account-row" key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
@@ -452,8 +459,8 @@ export default function GastosPage() {
           </List>
 
           <List title={`Ocorrências · ${new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date())}`}>
-            {occurrences.length === 0 && <p className="muted">Nenhuma ocorrência neste mês.</p>}
-            {occurrences.map((o) => {
+            {filteredOccurrences.length === 0 && <p className="muted">Nenhuma ocorrência neste mês.</p>}
+            {filteredOccurrences.map((o) => {
               const paid = o.status === "paid";
               const payable = o.status === "planned";
               return (
@@ -587,6 +594,12 @@ export default function GastosPage() {
               <option value="">Categoria (opcional)</option>
               {expenseCategories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <label htmlFor="recurrent-context">Contexto</label>
+            <select id="recurrent-context" name="context_id" defaultValue={defaultContextId ?? ""}>
+              {contexts.map((c) => (
+                <option key={c.id} value={c.id}>{contextLabel(c)}</option>
               ))}
             </select>
             <button>Adicionar</button>
