@@ -77,13 +77,13 @@ export function SettingsPage() {
     <main className="management-page">
       <PageHeader title="Configurações" subtitle="Preferências e alertas." workspaceName={workspace.name} />
       <Nav />
-      <div className="tabs-nav" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)', marginBottom: '24px' }}>
+      <div className="tabs-nav" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '16px', borderBottom: '1px solid var(--border)', marginBottom: '24px' }}>
         {TABS.map(tab => (
           <button 
             key={tab} 
             onClick={() => setActiveTab(tab)}
             style={{ 
-              background: activeTab === tab ? 'var(--primary-color)' : 'transparent', 
+              background: activeTab === tab ? 'var(--accent)' : 'transparent', 
               color: activeTab === tab ? '#fff' : 'var(--text-color)',
               border: 'none',
               padding: '6px 16px',

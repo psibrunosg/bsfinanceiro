@@ -41,6 +41,12 @@ type Commitment = {
   category_id: string | null;
   context_id: string | null;
 };
+/** Cartão de crédito e a conta técnica que recebe os lançamentos dele. */
+type CreditCard = {
+  id: string;
+  name: string;
+  account_id: string | null;
+};
 type Occurrence = {
   id: string;
   fixed_commitment_id: string;
@@ -91,6 +97,7 @@ export default function GastosPage() {
   const [expenses, setExpenses] = useState<ExpenseTx[]>([]);
   const [commitments, setCommitments] = useState<Commitment[]>([]);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
+  const [cards, setCards] = useState<CreditCard[]>([]);
   const [contexts, setContexts] = useState<FinancialContext[]>([]);
   const [contextFilter, setContextFilter] = useState<"all" | "pessoal" | "clinica">("all");
   const [period, setPeriod] = useState<PeriodKey>("month");
@@ -101,7 +108,13 @@ export default function GastosPage() {
   const loadHub = useCallback(async () => {
     if (!workspace) return;
     try {
-      const [{ data: contextRows }, { data: expenseRows }, { data: commitmentRows }, { data: occurrenceData }] =
+      const [
+        { data: contextRows },
+        { data: expenseRows },
+        { data: commitmentRows },
+        { data: occurrenceData },
+        { data: cardRows },
+      ] =
         await Promise.all([
           supabase
             .from("financial_contexts")
@@ -126,11 +139,20 @@ export default function GastosPage() {
             p_workspace_id: workspace.id,
             p_month: monthStart(),
           }),
+          // As contas técnicas dos cartões não vêm em `accounts` (is_system),
+          // então buscamos os cartões para poder pagar com cartão.
+          supabase
+            .from("credit_cards")
+            .select("id,name,account_id")
+            .eq("workspace_id", workspace.id)
+            .eq("active", true)
+            .order("name"),
         ]);
       setContexts((contextRows ?? []) as FinancialContext[]);
       setExpenses(expenseRows ?? []);
       setCommitments(commitmentRows ?? []);
       setOccurrences(occurrenceData ?? []);
+      setCards((cardRows ?? []) as CreditCard[]);
     } finally {
       setHubLoading(false);
     }
@@ -159,6 +181,11 @@ export default function GastosPage() {
   const activeWorkspace = workspace;
   const expenseCategories = categories.filter((c) => c.kind === "expense");
   const defaultContextId = contexts.find((c) => c.kind === "pessoal")?.id ?? null;
+  // Cada cartão é oferecido pelo id da sua conta técnica, que é o que a RPC
+  // de pagamento e a tabela de transações esperam em `account_id`.
+  const cardOptions = cards.flatMap((c) =>
+    c.account_id ? [{ id: c.id, name: c.name, accountId: c.account_id }] : []
+  );
   // Ids reais do contexto escolhido; lançamentos antigos sem contexto contam
   // como pessoais para não sumirem do filtro.
   const filterContextIds = contexts.filter((c) => c.kind === contextFilter).map((c) => c.id);
@@ -491,7 +518,6 @@ export default function GastosPage() {
                     {payable && (
                       <form
                         className="finance-form"
-                        style={{ display: "flex", gap: 8, marginTop: 6 }}
                         onSubmit={async (e) => {
                           e.preventDefault();
                           const f = new FormData(e.currentTarget);
@@ -499,13 +525,28 @@ export default function GastosPage() {
                           await payOccurrence(o.id, f);
                         }}
                       >
-                        <select name="account_id" required aria-label="Conta para pagamento">
-                          <option value="">Pagar com...</option>
-                          {accounts.map((a) => (
-                            <option key={a.id} value={a.id}>{a.name}</option>
-                          ))}
-                        </select>
-                        <button><Check aria-hidden="true" /> Pagar</button>
+                        <div className="finance-form__row">
+                          <select name="account_id" required aria-label="Conta para pagamento">
+                            <option value="">Pagar com...</option>
+                            <optgroup label="Contas">
+                              {accounts.map((a) => (
+                                <option key={a.id} value={a.id}>{a.name}</option>
+                              ))}
+                            </optgroup>
+                            {cardOptions.length > 0 && (
+                              <optgroup label="Cartões">
+                                {cardOptions.map((c) => (
+                                  <option key={c.id} value={c.accountId}>{c.name}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </select>
+                          <button><Check aria-hidden="true" /> Pagar</button>
+                        </div>
+                        <small className="muted">
+                          Ao escolher um cartão, a despesa entra na conta do cartão e não sai do seu
+                          saldo em banco — mas ela não é incluída automaticamente na fatura.
+                        </small>
                       </form>
                     )}
                   </div>
@@ -585,7 +626,7 @@ export default function GastosPage() {
             <p>
               Excluir <strong>{dialog.tx.description}</strong> de <b>{money(dialog.tx.amount)}</b>? Esta ação não pode ser desfeita.
             </p>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="finance-form__row">
               <button type="button" className="danger" onClick={() => { void deleteExpense(dialog.tx); }}>Excluir</button>
               <button type="button" onClick={() => setDialog(null)}>Cancelar</button>
             </div>
@@ -602,9 +643,18 @@ export default function GastosPage() {
             <label htmlFor="recurrent-account">Conta</label>
             <select id="recurrent-account" name="account_id">
               <option value="">Conta (opcional)</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
+              <optgroup label="Contas">
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </optgroup>
+              {cardOptions.length > 0 && (
+                <optgroup label="Cartões">
+                  {cardOptions.map((c) => (
+                    <option key={c.id} value={c.accountId}>{c.name}</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
             <label htmlFor="recurrent-category">Categoria</label>
             <select id="recurrent-category" name="category_id">

@@ -301,6 +301,89 @@
   color: var(--danger);
 }
 
+/* --- Cartão de crédito expansível ----------------------------------------
+   O resumo fica sempre visível; as faturas só aparecem ao abrir. Usa
+   <details>/<summary> nativos, sem estado React.
+   ------------------------------------------------------------------------- */
+
+.card-block {
+  border-bottom: 1px solid var(--border);
+}
+.card-block:last-child {
+  border-bottom: 0;
+}
+.card-block > summary {
+  cursor: pointer;
+  list-style: none;
+  border-bottom: 0;
+}
+.card-block > summary::-webkit-details-marker {
+  display: none;
+}
+.card-block > summary:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+.card-block__info {
+  min-width: 0;
+}
+.card-block__line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.card-block__line + .card-block__line {
+  margin-top: var(--space-1);
+}
+.card-block .chevron {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.card-block[open] .chevron {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .card-block .chevron {
+    transition: transform 180ms ease;
+  }
+}
+.card-block__body {
+  padding: 0 var(--space-5) var(--space-4);
+  background: var(--surface-2);
+}
+
+/* Barra de uso do limite. Os valores antes vinham de style inline apontando
+   para --border-color, --danger-color e --primary-color, que não existem. */
+.progress-bar {
+  margin-top: var(--space-2);
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+.progress-bar__fill {
+  height: 100%;
+  background: var(--accent);
+}
+.progress-bar__fill--alert {
+  background: var(--danger);
+}
+
+/* O chip já carrega o próprio fundo; o span externo é só um agrupador. */
+.invoice-card > header > span[data-status] {
+  background: none;
+  padding: 0;
+}
+
+@media (max-width: 700px) {
+  .card-block__body {
+    padding-inline: var(--space-4);
+  }
+}
+
 /* --- Listas simples dentro de um cartão ---------------------------------- */
 
 .account-list > .list,
@@ -402,6 +485,16 @@
   font-size: 0.85rem;
 }
 /* Formulário curto embutido numa linha (ex.: pagar ocorrência). */
+.finance-form {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.finance-form__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
 .finance-form select {
   min-height: 36px;
   padding: 0 var(--space-2);

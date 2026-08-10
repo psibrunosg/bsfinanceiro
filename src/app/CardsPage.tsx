@@ -13,7 +13,7 @@ import { BrandLogo, CARD_BRANDS } from "./brand-logo";
 import type { Invoice } from "./components/types";
 import { createClient } from "@/lib/supabase/client";
 import { useMemo, Suspense, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 
 /** O Postgres devolve 23503 quando a exclusão esbarra numa chave estrangeira
  *  (ex.: lançamentos apontando para a conta técnica do cartão). */
@@ -71,6 +71,55 @@ function invoiceChipClass(variante: InvoiceStatusLabel["variante"]) {
  *  'invoice has no payable installments'. */
 function canPayInvoice(invoice: Invoice) {
   return invoice.status !== "paid" && invoice.status !== "cancelled" && invoiceTotal(invoice) > 0;
+}
+
+/** Único lugar que desenha uma fatura: a rota de detalhe e o bloco expansível
+ *  do cartão usam este mesmo markup. */
+function InvoiceCard({
+  invoice,
+  title,
+  onPay,
+}: {
+  invoice: Invoice;
+  title: string;
+  onPay: () => void;
+}) {
+  const items = invoice.credit_card_installments || [];
+  const statusLabel = invoiceStatusLabel(invoice);
+  return (
+    <article className="invoice-card">
+      <header>
+        <strong>{title}</strong>
+        <b>{money(invoiceTotal(invoice))}</b>
+        <span data-status={invoice.status}>
+          <span className={invoiceChipClass(statusLabel.variante)}>{statusLabel.texto}</span>
+        </span>
+        {canPayInvoice(invoice) && (
+          <div>
+            <button type="button" onClick={onPay}>
+              Pagar fatura
+            </button>
+          </div>
+        )}
+      </header>
+      <ul>
+        {items.map((item, index) => {
+          const purchase = Array.isArray(item.credit_card_purchases)
+            ? item.credit_card_purchases[0]
+            : item.credit_card_purchases;
+          return (
+            <li key={index}>
+              <span>
+                {purchase?.description || "Compra"} · {item.installment_number}/
+                {purchase?.installment_count || 1}
+              </span>
+              <b>{money(item.amount)}</b>
+            </li>
+          );
+        })}
+      </ul>
+    </article>
+  );
 }
 
 function CardsPageInner() {
@@ -314,36 +363,71 @@ function CardsPageInner() {
               );
               const limitPercentage = c.credit_limit > 0 ? Math.min(100, (usedLimit / c.credit_limit) * 100) : 0;
 
+              // As faturas do cartão só são desenhadas quando o bloco abre.
+              // <details> nativo dá teclado e acessibilidade sem estado React.
               return (
-                <article className="account-row" key={c.id}>
-                  <span className="brand-badge">
-                    <BrandLogo brand={c.brand} />
-                  </span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <strong>
-                        {c.name}
-                        {c.last_four ? ` • ${c.last_four}` : ""}
-                      </strong>
-                      <b>{money(c.credit_limit)}</b>
+                <details className="card-block" key={c.id}>
+                  <summary className="account-row">
+                    <span className="brand-badge">
+                      <BrandLogo brand={c.brand} />
+                    </span>
+                    <div className="card-block__info">
+                      <div className="card-block__line">
+                        <strong>
+                          {c.name}
+                          {c.last_four ? ` • ${c.last_four}` : ""}
+                        </strong>
+                        <b>{money(c.credit_limit)}</b>
+                      </div>
+                      <small className="card-block__line muted">
+                        <span>Fatura atual: <strong>{money(openInvoiceTotal)}</strong></span>
+                        <span>Disponível: {money(c.credit_limit - usedLimit)}</span>
+                      </small>
+                      <div className="progress-bar">
+                        <div
+                          className={limitPercentage > 90 ? "progress-bar__fill progress-bar__fill--alert" : "progress-bar__fill"}
+                          style={{ width: `${limitPercentage}%` }}
+                        />
+                      </div>
                     </div>
-                    <small style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Fatura atual: <strong>{money(openInvoiceTotal)}</strong></span>
-                      <span>Disponível: {money(c.credit_limit - usedLimit)}</span>
-                    </small>
-                    <div className="progress-bar" style={{ marginTop: '8px', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ width: `${limitPercentage}%`, height: '100%', background: limitPercentage > 90 ? 'var(--danger-color)' : 'var(--primary-color)' }} />
-                    </div>
+                    <span className="row-actions">
+                      {/* Sem stopPropagation, clicar em editar/excluir abriria o bloco. */}
+                      <button
+                        type="button"
+                        aria-label="Editar cartão"
+                        title="Editar cartão"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openEditCard(c.id); }}
+                      >
+                        <Pencil aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="danger"
+                        aria-label="Excluir cartão"
+                        title="Excluir cartão"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeletingCardId(c.id); }}
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </button>
+                    </span>
+                    <ChevronDown className="chevron" aria-hidden="true" />
+                  </summary>
+
+                  <div className="card-block__body">
+                    {cardInvoices.length === 0 ? (
+                      <p className="dashboard-empty">Nenhuma fatura importada.</p>
+                    ) : (
+                      cardInvoices.map((inv) => (
+                        <InvoiceCard
+                          key={inv.id}
+                          invoice={inv}
+                          title={`Vence ${dateFmt.format(new Date(`${inv.due_date}T12:00:00`))}`}
+                          onPay={() => setPayingInvoiceId(inv.id)}
+                        />
+                      ))
+                    )}
                   </div>
-                  <span className="row-actions">
-                    <button type="button" aria-label="Editar cartão" title="Editar cartão" onClick={() => openEditCard(c.id)}>
-                      <Pencil aria-hidden="true" />
-                    </button>
-                    <button type="button" className="danger" aria-label="Excluir cartão" title="Excluir cartão" onClick={() => setDeletingCardId(c.id)}>
-                      <Trash2 aria-hidden="true" />
-                    </button>
-                  </span>
-                </article>
+                </details>
               );
             })}
             {cards.length === 0 && (
@@ -431,48 +515,14 @@ function CardsPageInner() {
             {invoices.length === 0 && (
               <p className="muted">Nenhuma fatura para este cartão.</p>
             )}
-            {invoices.map((inv) => {
-              const items = inv.credit_card_installments || [];
-              const total = items.reduce((s, i) => s + Number(i.amount), 0);
-              const statusLabel = invoiceStatusLabel(inv);
-              return (
-                <article className="invoice-card" key={inv.id}>
-                  <header>
-                    <strong>
-                      Vence{" "}
-                      {dateFmt.format(new Date(`${inv.due_date}T12:00:00`))}
-                    </strong>
-                    <b>{money(total)}</b>
-                    <span data-status={inv.status}>
-                      <span className={invoiceChipClass(statusLabel.variante)}>{statusLabel.texto}</span>
-                    </span>
-                    {canPayInvoice(inv) && (
-                      <div>
-                        <button type="button" onClick={() => setPayingInvoiceId(inv.id)}>
-                          Pagar fatura
-                        </button>
-                      </div>
-                    )}
-                  </header>
-                  <ul>
-                    {items.map((i, n) => {
-                      const p = Array.isArray(i.credit_card_purchases)
-                        ? i.credit_card_purchases[0]
-                        : i.credit_card_purchases;
-                      return (
-                        <li key={n}>
-                          <span>
-                            {p?.description || "Compra"} ·{" "}
-                            {i.installment_number}/{p?.installment_count || 1}
-                          </span>
-                          <b>{money(i.amount)}</b>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </article>
-              );
-            })}
+            {invoices.map((inv) => (
+              <InvoiceCard
+                key={inv.id}
+                invoice={inv}
+                title={`Vence ${dateFmt.format(new Date(`${inv.due_date}T12:00:00`))}`}
+                onPay={() => setPayingInvoiceId(inv.id)}
+              />
+            ))}
           </List>
           <aside className="form-card">
             <h2>Nova compra</h2>
