@@ -50,11 +50,16 @@ declare
   payslip_income_transaction_a uuid;
   payslip_transaction_count integer;
   payslip_manual_hardened_a uuid;
+  mutation_count integer;
 begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
 
   workspace_a := public.bootstrap_personal_workspace('Teste A', 'Carteira A', 'understand');
+
+  insert into public.financial_contexts (workspace_id, owner_id, kind, name, color)
+  values (workspace_a, user_a, 'pessoal', 'Pessoal', '#087f5b')
+  on conflict (workspace_id, owner_id, kind) do nothing;
 
   insert into public.accounts (workspace_id, owner_id, name, type, initial_balance)
   values (workspace_a, user_a, 'Conta A', 'checking', 1000.00)
@@ -743,12 +748,13 @@ begin
   end if;
 
   insert into public.credit_cards (workspace_id, owner_id, account_id, name, credit_limit, closing_day, due_day)
-  values (workspace_a, user_a, account_a, 'Cartão de smoke A', 1000, 15, 22)
+  values (workspace_a, user_a, transaction_account_a, 'Cartão de smoke A', 1000, 15, 22)
   returning id into statement_card_a;
   select id into statement_import_a from public.create_credit_card_statement_import(
     statement_card_a, 'fatura-a.pdf', 'application/pdf', 100, repeat('a', 64)
   );
   perform set_config('request.jwt.claim.role', 'service_role', true);
+  perform set_config('role', 'service_role', true);
   perform public.claim_credit_card_statement_import(statement_import_a, user_a);
   perform public.finish_credit_card_statement_import_review(
     statement_import_a, 'santander', '1', current_date, current_date + 7, 1000,
@@ -759,18 +765,25 @@ begin
     ))
   );
   perform set_config('request.jwt.claim.role', 'authenticated', true);
-  begin
-    update public.credit_card_statement_import_items set description = 'mutação indevida' where import_id = statement_import_a;
+  perform set_config('role', 'authenticated', true);
+  update public.credit_card_statement_import_items
+  set description = 'mutação indevida'
+  where import_id = statement_import_a;
+  get diagnostics mutation_count = row_count;
+  if mutation_count <> 0 then
     raise exception 'owner can directly mutate protected statement candidates';
-  exception when insufficient_privilege then null;
-  end;
+  end if;
   perform set_config('request.jwt.claim.sub', user_b::text, true);
   if exists (select 1 from public.credit_card_statement_imports where id = statement_import_a)
     or exists (select 1 from public.credit_card_statement_import_items where import_id = statement_import_a) then
     raise exception 'user B can read user A statement review';
   end if;
   begin
-    perform public.apply_credit_card_statement_import(statement_import_a, '[]'::jsonb);
+    perform public.apply_credit_card_statement_import(statement_import_a, jsonb_build_array(jsonb_build_object(
+      'ordinal', 1, 'purchasedOn', current_date::text, 'description', 'Compra de smoke A',
+      'installmentAmountCents', 1000, 'installmentNumber', 1, 'installmentCount', 1,
+      'totalAmountCents', 1000, 'sourceFingerprint', repeat('b', 64)
+    )));
     raise exception 'user B can apply user A statement review';
   exception when no_data_found or insufficient_privilege then null;
   end;
@@ -790,12 +803,14 @@ begin
 
   select id into statement_import_atomic from public.create_credit_card_statement_import(statement_card_a, 'fatura-atomica.pdf', 'application/pdf', 101, repeat('c', 64));
   perform set_config('request.jwt.claim.role', 'service_role', true);
+  perform set_config('role', 'service_role', true);
   perform public.claim_credit_card_statement_import(statement_import_atomic, user_a);
   perform public.finish_credit_card_statement_import_review(statement_import_atomic, 'santander', '1', current_date, current_date + 7, 2000, jsonb_build_array(
     jsonb_build_object('ordinal',1,'purchasedOn',current_date::text,'description','Atômica um','installmentAmountCents',1000,'installmentNumber',1,'installmentCount',1,'totalAmountCents',1000,'needsReview',false,'sourceFingerprint',repeat('d',64)),
     jsonb_build_object('ordinal',2,'purchasedOn',current_date::text,'description','Atômica dois','installmentAmountCents',1000,'installmentNumber',1,'installmentCount',1,'totalAmountCents',1000,'needsReview',false,'sourceFingerprint',repeat('e',64))
   ));
   perform set_config('request.jwt.claim.role', 'authenticated', true);
+  perform set_config('role', 'authenticated', true);
   select count(*) into statement_purchase_count from public.credit_card_purchases where credit_card_id = statement_card_a;
   begin
     perform public.apply_credit_card_statement_import(statement_import_atomic, jsonb_build_array(
@@ -819,6 +834,7 @@ begin
   end;
   perform set_config('request.jwt.claim.sub', '', true);
   perform set_config('request.jwt.claim.role', 'anon', true);
+  perform set_config('role', 'anon', true);
   begin
     perform public.register_payslip(workspace_a, user_a, context_a, 'Tentativa anonima', date_trunc('month', current_date - interval '5 months')::date, 1000, 100, 900, null, null, null, null);
     raise exception 'anonymous register_payslip unexpectedly succeeded';
@@ -826,16 +842,21 @@ begin
   end;
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
+  perform set_config('role', 'authenticated', true);
   select id into payslip_import_a from public.create_payslip_document_import('contracheque-a.pdf', 'application/pdf', 100, repeat('f', 64));
   perform set_config('request.jwt.claim.role', 'service_role', true);
+  perform set_config('role', 'service_role', true);
   perform public.claim_payslip_document_import(payslip_import_a, user_a);
   perform public.finish_payslip_document_import_review(payslip_import_a, 'Empregador smoke A', date_trunc('month', current_date)::date, 500000, 125000, 375000, 'payslip', '1', repeat('1', 64));
   perform set_config('request.jwt.claim.role', 'authenticated', true);
-  begin
-    update public.payslip_document_imports set status = 'imported' where id = payslip_import_a;
+  perform set_config('role', 'authenticated', true);
+  update public.payslip_document_imports
+  set status = 'imported'
+  where id = payslip_import_a;
+  get diagnostics mutation_count = row_count;
+  if mutation_count <> 0 then
     raise exception 'owner can directly mutate protected payslip import';
-  exception when insufficient_privilege then null;
-  end;
+  end if;
   perform set_config('request.jwt.claim.sub', user_b::text, true);
   if exists (select 1 from public.payslip_document_imports where id = payslip_import_a) then raise exception 'user B can read user A payslip import'; end if;
   begin
@@ -850,9 +871,11 @@ begin
   select count(*) into payslip_transaction_count from public.transactions where workspace_id=workspace_a and owner_id=user_a;
   select id into payslip_import_income_a from public.create_payslip_document_import('contracheque-renda-a.pdf', 'application/pdf', 101, repeat('2', 64));
   perform set_config('request.jwt.claim.role', 'service_role', true);
+  perform set_config('role', 'service_role', true);
   perform public.claim_payslip_document_import(payslip_import_income_a, user_a);
   perform public.finish_payslip_document_import_review(payslip_import_income_a, 'Empregador smoke renda A', date_trunc('month', current_date - interval '1 month')::date, 300000, 50000, 250000, 'payslip', '1', repeat('3', 64));
   perform set_config('request.jwt.claim.role', 'authenticated', true);
+  perform set_config('role', 'authenticated', true);
   select public.apply_payslip_document_import(payslip_import_income_a, jsonb_build_object('employer','Empregador smoke renda A','competence',date_trunc('month',current_date - interval '1 month')::date::text,'grossAmountCents',300000,'discountsAmountCents',50000,'netAmountCents',250000,'sourceFingerprint',repeat('3',64)), current_date, transaction_account_a, context_a) into payslip_income_a;
   select transaction_id into payslip_income_transaction_a from public.payslips where id=payslip_income_a;
   if (select count(*) from public.transactions where workspace_id=workspace_a and owner_id=user_a) <> payslip_transaction_count + 1 then raise exception 'payslip with account and date must create one income transaction'; end if;
@@ -862,9 +885,11 @@ begin
   returning id into payslip_manual_a;
   select id into payslip_duplicate_import_a from public.create_payslip_document_import('contracheque-duplicado.pdf', 'application/pdf', 102, repeat('4', 64));
   perform set_config('request.jwt.claim.role', 'service_role', true);
+  perform set_config('role', 'service_role', true);
   perform public.claim_payslip_document_import(payslip_duplicate_import_a, user_a);
   perform public.finish_payslip_document_import_review(payslip_duplicate_import_a, ' empregador   manual canonico ', date_trunc('month', current_date - interval '2 months')::date, 100000, 10000, 90000, 'payslip', '1', repeat('4', 64));
   perform set_config('request.jwt.claim.role', 'authenticated', true);
+  perform set_config('role', 'authenticated', true);
   select count(*) into payslip_transaction_count from public.transactions where workspace_id=workspace_a and owner_id=user_a;
   begin
     perform public.apply_payslip_document_import(payslip_duplicate_import_a, jsonb_build_object('employer',' empregador   manual canonico ','competence',date_trunc('month',current_date - interval '2 months')::date::text,'grossAmountCents',100000,'discountsAmountCents',10000,'netAmountCents',90000,'sourceFingerprint',repeat('4',64)), current_date, transaction_account_a, context_a);
