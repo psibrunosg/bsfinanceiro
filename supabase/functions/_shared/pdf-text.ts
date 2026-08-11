@@ -17,8 +17,8 @@ export async function extractSelectablePdfText(bytes: Uint8Array): Promise<{ tex
   let rawText = "";
   try {
     document = await getDocumentProxy(bytes);
+    if (document.numPages > MAX_PAGES) fail("pdf_too_many_pages");
     const extracted = await extractText(document, { mergePages: true });
-    if (extracted.totalPages > MAX_PAGES) fail("pdf_too_many_pages");
     rawText = extracted.text;
     const text = rawText.replace(/\s+/g, " ").trim();
     if (!text) fail("pdf_without_selectable_text");
@@ -29,8 +29,12 @@ export async function extractSelectablePdfText(bytes: Uint8Array): Promise<{ tex
     fail("invalid_pdf");
   } finally {
     rawText = "";
-    await document?.cleanup();
-    await document?.loadingTask.destroy();
+    try {
+      await document?.cleanup();
+    } catch {}
+    try {
+      await document?.loadingTask.destroy();
+    } catch {}
   }
   fail("invalid_pdf");
 }
