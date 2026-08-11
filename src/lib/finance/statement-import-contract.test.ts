@@ -12,6 +12,10 @@ const reviewMigration = existsSync(reviewMigrationPath) ? readFileSync(reviewMig
 const retryMigration = readFileSync(retryMigrationPath, "utf8");
 const worker = readFileSync(resolve(root, "supabase/functions/process-credit-card-statement-import/index.ts"), "utf8");
 const cleanup = readFileSync(resolve(root, "supabase/functions/cleanup-credit-card-statement-imports/index.ts"), "utf8");
+const releaseHardeningPath = resolve(root, "supabase/migrations/20260811000006_release_import_hardening.sql");
+const cleanupSchedulePath = resolve(root, "supabase/migrations/20260811000007_schedule_document_import_cleanup.sql");
+const releaseHardening = existsSync(releaseHardeningPath) ? readFileSync(releaseHardeningPath, "utf8") : "";
+const cleanupSchedule = existsSync(cleanupSchedulePath) ? readFileSync(cleanupSchedulePath, "utf8") : "";
 
 describe("statement import deployment contracts", () => {
   it("keeps the bucket private and limits client access to its own pending job", () => {
@@ -39,17 +43,35 @@ describe("statement import deployment contracts", () => {
     expect(worker).toContain('return finishFailed("checksum_mismatch")');
   });
 
-  it("turns expired operational jobs into retryable failures only after object cleanup", () => {
+  it("persists expired jobs before object cleanup and preserves cleanup tombstones", () => {
     expect(cleanup).toContain('"pending_review"');
     expect(cleanup).toContain("if (removeError) continue");
     expect(cleanup).toContain("cleaned += 1");
     expect(cleanup).not.toContain('.from("credit_card_statement_imports").delete()');
-    expect(cleanup).toContain('status: "failed"');
-    expect(cleanup).toContain('error_code: "expired"');
-    expect(cleanup).toContain('.in("status", ["pending", "processing"])');
-    expect(cleanup.indexOf("if (removeError) continue")).toBeLessThan(cleanup.indexOf('status: "failed"'));
+    expect(cleanup).toContain('p_error_code: "expired"');
+    expect(cleanup).toContain('worker.rpc("finish_credit_card_statement_import_failed"');
+    expect(cleanup.indexOf('worker.rpc("finish_credit_card_statement_import_failed"')).toBeLessThan(cleanup.indexOf('storage.from("credit-card-statements").remove'));
     expect(retryMigration).toContain("if v_existing.status = 'failed' then");
     expect(retryMigration).toContain("expires_at = now() + interval '7 days'");
+  });
+
+  it("recreates the starter RPC with unambiguous aliases and durable retry", () => {
+    expect(releaseHardening).toContain("function public.create_credit_card_statement_import(");
+    expect(releaseHardening).toContain("from public.credit_cards as c");
+    expect(releaseHardening).toContain("c.id = p_credit_card_id");
+    expect(releaseHardening).toContain("from public.credit_card_statement_imports as i");
+    expect(releaseHardening).toContain("i.id = v_existing.id");
+    expect(releaseHardening).toContain("if v_existing.status = 'failed' then");
+  });
+
+  it("schedules both authenticated cleanup functions without committing credentials", () => {
+    expect(cleanupSchedule).toContain("cron.schedule('cleanup-credit-card-statement-imports-hourly'");
+    expect(cleanupSchedule).toContain("cron.schedule('cleanup-payslip-document-imports-hourly'");
+    expect(cleanupSchedule).toContain("vault.decrypted_secrets");
+    expect(cleanupSchedule).toContain("net.http_post");
+    expect(cleanupSchedule).toContain("Authorization");
+    expect(cleanupSchedule).toContain("apikey");
+    expect(cleanupSchedule).not.toMatch(/eyJ[a-zA-Z0-9_-]{20,}|service_role\s*=\s*['\"][^'\"]+/i);
   });
 
   it("adds a protected structured review table and the pending_review state", () => {

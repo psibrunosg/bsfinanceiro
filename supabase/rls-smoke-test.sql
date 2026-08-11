@@ -49,6 +49,7 @@ declare
   payslip_income_a uuid;
   payslip_income_transaction_a uuid;
   payslip_transaction_count integer;
+  payslip_manual_hardened_a uuid;
 begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
@@ -808,6 +809,23 @@ begin
 
   select id into context_a from public.financial_contexts where workspace_id = workspace_a and owner_id = user_a and active order by kind limit 1;
   if context_a is null then raise exception 'smoke workspace needs an active financial context'; end if;
+  select public.register_payslip(workspace_a, user_a, context_a, 'Manual hardening smoke A', date_trunc('month', current_date - interval '3 months')::date, 1000, 100, 900, null, null, null, null) into payslip_manual_hardened_a;
+  if not exists (select 1 from public.payslips where id = payslip_manual_hardened_a and owner_id = user_a and workspace_id = workspace_a) then raise exception 'manual register_payslip owner path failed'; end if;
+  perform set_config('request.jwt.claim.sub', user_b::text, true);
+  begin
+    perform public.register_payslip(workspace_a, user_a, context_a, 'Tentativa cruzada', date_trunc('month', current_date - interval '4 months')::date, 1000, 100, 900, null, null, null, null);
+    raise exception 'user B can register a payslip for user A';
+  exception when insufficient_privilege then null;
+  end;
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('request.jwt.claim.role', 'anon', true);
+  begin
+    perform public.register_payslip(workspace_a, user_a, context_a, 'Tentativa anonima', date_trunc('month', current_date - interval '5 months')::date, 1000, 100, 900, null, null, null, null);
+    raise exception 'anonymous register_payslip unexpectedly succeeded';
+  exception when insufficient_privilege then null;
+  end;
+  perform set_config('request.jwt.claim.sub', user_a::text, true);
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
   select id into payslip_import_a from public.create_payslip_document_import('contracheque-a.pdf', 'application/pdf', 100, repeat('f', 64));
   perform set_config('request.jwt.claim.role', 'service_role', true);
   perform public.claim_payslip_document_import(payslip_import_a, user_a);
