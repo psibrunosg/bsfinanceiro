@@ -863,10 +863,14 @@ begin
   exception when no_data_found or insufficient_privilege then null;
   end;
   perform set_config('request.jwt.claim.sub', user_a::text, true);
-  perform public.delete_payslip(payslip_income_a);
-  if exists (select 1 from public.payslips where id=payslip_income_a)
-     or exists (select 1 from public.transactions where id=payslip_income_transaction_a)
-     or not exists (select 1 from public.payslip_document_imports where id=payslip_import_income_a and status='discarded' and result_payslip_id is null) then raise exception 'payslip delete must atomically remove transaction and leave discarded tombstone'; end if;
+  begin
+    perform public.delete_payslip(payslip_income_a);
+    raise exception 'imported payslip unexpectedly deleted';
+  exception when object_not_in_prerequisite_state then null;
+  end;
+  if not exists (select 1 from public.payslips where id=payslip_income_a)
+     or not exists (select 1 from public.transactions where id=payslip_income_transaction_a)
+     or not exists (select 1 from public.payslip_document_imports where id=payslip_import_income_a and status='imported' and result_payslip_id=payslip_income_a) then raise exception 'imported payslip delete must preserve result, transaction and tombstone'; end if;
 
   delete from public.accounts
   where id = account_a and workspace_id = workspace_a and owner_id = user_a;

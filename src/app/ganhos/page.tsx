@@ -582,7 +582,7 @@ export default function GanhosPage() {
 
   async function deletePayslip(id: string) {
     const { error } = await supabase.rpc("delete_payslip", { p_payslip_id: id });
-    if (error) toast("Não foi possível excluir o contracheque e sua receita.", "error");
+    if (error) toast(error.message.includes("imported payslip cannot be deleted") ? "Este contracheque veio de uma importação confirmada e não pode ser excluído." : "Não foi possível excluir o contracheque e sua receita.", "error");
     else { toast("Contracheque excluído."); setDialog(null); }
     await loadHub();
   }

@@ -8,6 +8,7 @@ const worker = readFileSync(resolve(root, "supabase/functions/process-payslip-do
 const cleanup = readFileSync(resolve(root, "supabase/functions/cleanup-payslip-document-imports/index.ts"), "utf8");
 const smoke = readFileSync(resolve(root, "supabase/rls-smoke-test.sql"), "utf8");
 const hardening = readFileSync(resolve(root, "supabase/migrations/20260811000004_harden_payslip_document_imports.sql"), "utf8");
+const terminality = readFileSync(resolve(root, "supabase/migrations/20260811000005_preserve_imported_payslip_results.sql"), "utf8");
 
 describe("payslip document import contracts", () => {
   it("keeps the temporary bucket private, owner-scoped and distinct from manual attachments", () => {
@@ -37,6 +38,13 @@ describe("payslip document import contracts", () => {
     expect(migration).toContain("status = 'processing' or (status = 'pending' and expires_at <= now())");
   });
 
+  it("marks stale work failed before attempting temporary-object cleanup", () => {
+    const transition = cleanup.indexOf("finish_payslip_document_import_failed");
+    const remove = cleanup.indexOf('storage.from("payslip-document-imports").remove');
+    expect(transition).toBeGreaterThan(-1);
+    expect(remove).toBeGreaterThan(transition);
+  });
+
   it("exercises cross-owner denial, replay and optional cash creation in SQL smoke", () => {
     expect(smoke).toContain("claim_payslip_document_import");
     expect(smoke).toContain("finish_payslip_document_import_review");
@@ -51,5 +59,11 @@ describe("payslip document import contracts", () => {
     expect(hardening).toContain("function public.delete_payslip");
     expect(hardening).toContain("status = 'discarded'");
     expect(hardening).toContain("delete from public.transactions");
+  });
+
+  it("keeps imported results terminal when a payslip is deleted", () => {
+    expect(terminality).toContain("imported payslip cannot be deleted");
+    expect(terminality).toContain("if found and v_import.status = 'imported'");
+    expect(terminality).toContain("before any delete");
   });
 });
