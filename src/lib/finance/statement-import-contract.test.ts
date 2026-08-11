@@ -18,6 +18,8 @@ const releaseHardening = existsSync(releaseHardeningPath) ? readFileSync(release
 const cleanupSchedule = existsSync(cleanupSchedulePath) ? readFileSync(cleanupSchedulePath, "utf8") : "";
 const cleanupProtocolPath = resolve(root, "supabase/migrations/20260811000008_make_statement_cleanup_race_safe.sql");
 const cleanupProtocol = existsSync(cleanupProtocolPath) ? readFileSync(cleanupProtocolPath, "utf8") : "";
+const legacyRpcHardeningPath = resolve(root, "supabase/migrations/20260811000010_harden_legacy_finance_rpcs.sql");
+const legacyRpcHardening = existsSync(legacyRpcHardeningPath) ? readFileSync(legacyRpcHardeningPath, "utf8") : "";
 
 describe("statement import deployment contracts", () => {
   it("keeps the bucket private and limits client access to its own pending job", () => {
@@ -74,6 +76,16 @@ describe("statement import deployment contracts", () => {
     expect(releaseHardening).toContain("from public.credit_card_statement_imports as i");
     expect(releaseHardening).toContain("i.id = v_existing.id");
     expect(releaseHardening).toContain("if v_existing.status = 'failed' then");
+  });
+
+  it("hardens legacy finance writers to the authenticated owner", () => {
+    expect(legacyRpcHardening).toContain("function public.create_credit_card(");
+    expect(legacyRpcHardening).toContain("function public.receive_patient_earning(");
+    expect(legacyRpcHardening).toContain("security definer set search_path = ''");
+    expect(legacyRpcHardening).toContain("v_user_id uuid := (select auth.uid())");
+    expect(legacyRpcHardening).toContain("a.owner_id = v_user_id");
+    expect(legacyRpcHardening).toContain("revoke all on function public.create_credit_card");
+    expect(legacyRpcHardening).toContain("grant execute on function public.receive_patient_earning");
   });
 
   it("schedules both authenticated cleanup functions without committing credentials", () => {
