@@ -406,7 +406,7 @@ export function useFinance(
           .limit(12),
         supabase
           .from("credit_card_statement_imports")
-          .select("id,file_name,status,error_code,created_at")
+          .select("id,file_name,status,error_code,declared_total_cents,created_at,credit_card_statement_import_items(ordinal,purchased_on,description,installment_amount_cents,installment_number,installment_count,total_amount_cents,needs_review,source_fingerprint)")
           .eq("credit_card_id", cardId)
           .order("created_at", { ascending: false })
           .limit(5),

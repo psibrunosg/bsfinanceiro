@@ -10,7 +10,7 @@ import { Dialog } from "./components/Dialog";
 import { useToast } from "./components/Toast";
 import { money, parseMoney, dateFmt } from "./components/Money";
 import { BrandLogo, CARD_BRANDS } from "./brand-logo";
-import type { Invoice } from "./components/types";
+import type { Invoice, StatementImport, StatementImportItem } from "./components/types";
 import { createClient } from "@/lib/supabase/client";
 import { useMemo, Suspense, useState } from "react";
 import { ChevronDown, Pencil, Trash2 } from "lucide-react";
@@ -29,6 +29,12 @@ function statementImportErrorMessage(errorCode: string | null) {
     case "processing_failed": return "A importação foi interrompida e poderá ser tentada novamente.";
     default: return "Não foi possível enviar a importação.";
   }
+}
+
+type StatementReviewDraft = Pick<StatementImportItem, "purchased_on" | "description" | "installment_amount_cents" | "installment_number" | "installment_count" | "total_amount_cents">;
+
+function reviewDraft(item: StatementImportItem, draft?: Partial<StatementReviewDraft>): StatementReviewDraft {
+  return { ...item, ...draft };
 }
 
 /** Soma das parcelas da fatura — é este o valor que a RPC de pagamento lança. */
@@ -129,6 +135,8 @@ function CardsPageInner() {
   const [importingStatement, setImportingStatement] = useState(false);
   const [statementImportFeedback, setStatementImportFeedback] = useState("");
   const [statementImportFailed, setStatementImportFailed] = useState(false);
+  const [statementReviewDrafts, setStatementReviewDrafts] = useState<Record<string, Partial<StatementReviewDraft>>>({});
+  const [applyingStatementId, setApplyingStatementId] = useState<string | null>(null);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
@@ -318,8 +326,8 @@ function CardsPageInner() {
       if (queueError) throw queueError;
       const { data: result, error: workerError } = await supabase.functions.invoke("process-credit-card-statement-import", { body: { importId: job.id } });
       if (workerError) throw workerError;
-      setStatementImportFailed(result?.status !== "imported");
-      setStatementImportFeedback(result?.status === "imported" ? "Importação concluída." : statementImportErrorMessage(result?.error));
+      setStatementImportFailed(result?.status !== "pending_review");
+      setStatementImportFeedback(result?.status === "pending_review" ? "Fatura extraída. Revise antes de importar." : statementImportErrorMessage(result?.error));
     } catch {
       setStatementImportFeedback(statementImportErrorMessage("request_failed"));
       setStatementImportFailed(true);
@@ -327,6 +335,28 @@ function CardsPageInner() {
       setImportingStatement(false);
       await reload();
     }
+  }
+
+  function updateStatementReview(importId: string, ordinal: number, patch: Partial<StatementReviewDraft>) {
+    const key = `${importId}:${ordinal}`;
+    setStatementReviewDrafts((current) => ({ ...current, [key]: { ...current[key], ...patch } }));
+  }
+
+  async function applyStatementReview(item: StatementImport) {
+    const payload = (item.credit_card_statement_import_items || []).map((candidate) => {
+      const draft = reviewDraft(candidate, statementReviewDrafts[`${item.id}:${candidate.ordinal}`]);
+      return { ordinal: candidate.ordinal, purchasedOn: draft.purchased_on, description: draft.description, installmentAmountCents: draft.installment_amount_cents, installmentNumber: draft.installment_number, installmentCount: draft.installment_count, totalAmountCents: draft.total_amount_cents, sourceFingerprint: candidate.source_fingerprint };
+    });
+    if (payload.some((candidate) => !candidate.totalAmountCents || candidate.totalAmountCents < candidate.installmentAmountCents)) {
+      toast("Informe o total original de cada compra antes de confirmar.", "error");
+      return;
+    }
+    setApplyingStatementId(item.id);
+    const { error } = await supabase.rpc("apply_credit_card_statement_import", { p_import_id: item.id, p_items: payload });
+    if (error) toast(statementImportErrorMessage(error.message), "error");
+    else toast("Fatura importada. O pagamento continua uma ação separada.");
+    setApplyingStatementId(null);
+    await reload();
   }
 
   const openNewCard = () => {
@@ -583,7 +613,31 @@ function CardsPageInner() {
           </form>
           {statementImports.length > 0 && (
             <ul className="statement-import-list" aria-label="Importações recentes">
-              {statementImports.map((item) => <li key={item.id}><span>{item.file_name}</span><strong data-status={item.status}>{item.status === "failed" ? "Falhou: formato não suportado" : item.status}</strong></li>)}
+              {statementImports.map((item) => {
+                const candidates = item.credit_card_statement_import_items || [];
+                const currentCents = candidates.reduce((total, candidate) => total + reviewDraft(candidate, statementReviewDrafts[`${item.id}:${candidate.ordinal}`]).installment_amount_cents, 0);
+                const difference = currentCents - (item.declared_total_cents || 0);
+                return <li key={item.id}>
+                  <span>{item.file_name}</span>
+                  <strong data-status={item.status}>{item.status === "pending_review" ? "Revisão necessária" : item.status === "failed" ? "Falhou: formato não suportado" : item.status}</strong>
+                  {item.status === "pending_review" && <div className="statement-review">
+                    <p role="status">Revisão necessária. Diferença: {money(difference / 100)}</p>
+                    {candidates.map((candidate) => {
+                      const draft = reviewDraft(candidate, statementReviewDrafts[`${item.id}:${candidate.ordinal}`]);
+                      return <fieldset key={candidate.ordinal}>
+                        <label>Descrição <input value={draft.description} onChange={(event) => updateStatementReview(item.id, candidate.ordinal, { description: event.target.value })} /></label>
+                        <label>Data <input type="date" value={draft.purchased_on} onChange={(event) => updateStatementReview(item.id, candidate.ordinal, { purchased_on: event.target.value })} /></label>
+                        <label>Valor da parcela <input inputMode="decimal" value={money(draft.installment_amount_cents / 100).replace(/^R\$\s*/, "")} onChange={(event) => updateStatementReview(item.id, candidate.ordinal, { installment_amount_cents: Math.round(parseMoney(event.target.value) * 100) })} /></label>
+                        <label>Parcela <input type="number" min="1" max="120" value={draft.installment_number} onChange={(event) => updateStatementReview(item.id, candidate.ordinal, { installment_number: Number(event.target.value) })} /></label>
+                        <label>Total de parcelas <input type="number" min="1" max="120" value={draft.installment_count} onChange={(event) => updateStatementReview(item.id, candidate.ordinal, { installment_count: Number(event.target.value) })} /></label>
+                        <label htmlFor={`statement-total-${item.id}-${candidate.ordinal}`}>Total original de {candidate.description}</label>
+                        <input id={`statement-total-${item.id}-${candidate.ordinal}`} inputMode="decimal" value={draft.total_amount_cents === null ? "" : money(draft.total_amount_cents / 100).replace(/^R\$\s*/, "")} onChange={(event) => updateStatementReview(item.id, candidate.ordinal, { total_amount_cents: event.target.value ? Math.round(parseMoney(event.target.value) * 100) : null })} />
+                      </fieldset>;
+                    })}
+                    <button type="button" disabled={applyingStatementId === item.id} onClick={() => void applyStatementReview(item)}>{applyingStatementId === item.id ? "Confirmando..." : "Confirmar fatura revisada"}</button>
+                  </div>}
+                </li>;
+              })}
             </ul>
           )}
         </section>

@@ -66,9 +66,22 @@ export type Transaction = {
 export type StatementImport = {
   id: string;
   file_name: string;
-  status: "pending" | "processing" | "imported" | "failed";
+  status: "pending" | "processing" | "pending_review" | "imported" | "failed";
   error_code: string | null;
+  declared_total_cents?: number | null;
+  credit_card_statement_import_items?: StatementImportItem[];
   created_at: string;
+};
+export type StatementImportItem = {
+  ordinal: number;
+  purchased_on: string;
+  description: string;
+  installment_amount_cents: number;
+  installment_number: number;
+  installment_count: number;
+  total_amount_cents: number | null;
+  needs_review: boolean;
+  source_fingerprint: string;
 };
 export type TransactionImportItem = {
   id: string;

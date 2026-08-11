@@ -33,6 +33,8 @@ declare
   parallel_second_result_count integer;
   parallel_transaction_count integer;
   failure_transaction_count integer;
+  statement_card_a uuid;
+  statement_import_a uuid;
 begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
@@ -724,6 +726,40 @@ begin
   ) then
     raise exception 'discarding a pending batch should remove its items';
   end if;
+
+  insert into public.credit_cards (workspace_id, owner_id, account_id, name, credit_limit, closing_day, due_day)
+  values (workspace_a, user_a, account_a, 'Cartão de smoke A', 1000, 15, 22)
+  returning id into statement_card_a;
+  select id into statement_import_a from public.create_credit_card_statement_import(
+    statement_card_a, 'fatura-a.pdf', 'application/pdf', 100, repeat('a', 64)
+  );
+  perform set_config('request.jwt.claim.role', 'service_role', true);
+  perform public.claim_credit_card_statement_import(statement_import_a, user_a);
+  perform public.finish_credit_card_statement_import_review(
+    statement_import_a, 'santander', '1', current_date, current_date + 7, 1000,
+    jsonb_build_array(jsonb_build_object(
+      'ordinal', 1, 'purchasedOn', current_date::text, 'description', 'Compra de smoke A',
+      'installmentAmountCents', 1000, 'installmentNumber', 1, 'installmentCount', 1,
+      'totalAmountCents', 1000, 'needsReview', false, 'sourceFingerprint', repeat('b', 64)
+    ))
+  );
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  begin
+    update public.credit_card_statement_import_items set description = 'mutação indevida' where import_id = statement_import_a;
+    raise exception 'owner can directly mutate protected statement candidates';
+  exception when insufficient_privilege then null;
+  end;
+  perform set_config('request.jwt.claim.sub', user_b::text, true);
+  if exists (select 1 from public.credit_card_statement_imports where id = statement_import_a)
+    or exists (select 1 from public.credit_card_statement_import_items where import_id = statement_import_a) then
+    raise exception 'user B can read user A statement review';
+  end if;
+  begin
+    perform public.apply_credit_card_statement_import(statement_import_a, '[]'::jsonb);
+    raise exception 'user B can apply user A statement review';
+  exception when no_data_found or insufficient_privilege then null;
+  end;
+  perform set_config('request.jwt.claim.sub', user_a::text, true);
 
   delete from public.accounts
   where id = account_a and workspace_id = workspace_a and owner_id = user_a;
