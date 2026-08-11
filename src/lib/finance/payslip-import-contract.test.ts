@@ -11,6 +11,8 @@ const hardening = readFileSync(resolve(root, "supabase/migrations/20260811000004
 const terminality = readFileSync(resolve(root, "supabase/migrations/20260811000005_preserve_imported_payslip_results.sql"), "utf8");
 const releaseHardeningPath = resolve(root, "supabase/migrations/20260811000006_release_import_hardening.sql");
 const releaseHardening = existsSync(releaseHardeningPath) ? readFileSync(releaseHardeningPath, "utf8") : "";
+const createImportFixPath = resolve(root, "supabase/migrations/20260811000009_fix_payslip_import_ambiguity.sql");
+const createImportFix = existsSync(createImportFixPath) ? readFileSync(createImportFixPath, "utf8") : "";
 
 describe("payslip document import contracts", () => {
   it("keeps the temporary bucket private, owner-scoped and distinct from manual attachments", () => {
@@ -82,5 +84,14 @@ describe("payslip document import contracts", () => {
     expect(smoke).toContain("anonymous register_payslip unexpectedly succeeded");
     expect(smoke).toContain("invalid_authorization_specification or insufficient_privilege");
     expect(smoke).toContain("user B can register a payslip for user A");
+  });
+
+  it("recreates payslip import creation without RETURNS TABLE id ambiguity", () => {
+    expect(createImportFix).toContain("function public.create_payslip_document_import(");
+    expect(createImportFix).toContain("from public.workspaces as w");
+    expect(createImportFix).toContain("from public.payslip_document_imports as i");
+    expect(createImportFix).toContain("where i.id = v_existing.id");
+    expect(createImportFix).toContain("returning i.id, i.storage_path, i.status into id, storage_path, status");
+    expect(createImportFix).toContain("v_existing.status = 'failed'");
   });
 });
