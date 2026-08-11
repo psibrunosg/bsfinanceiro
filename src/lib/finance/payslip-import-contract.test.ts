@@ -80,6 +80,7 @@ describe("payslip document import contracts", () => {
     expect(releaseHardening).toContain("grant execute on function public.register_payslip");
     expect(smoke).toContain("manual register_payslip owner path failed");
     expect(smoke).toContain("anonymous register_payslip unexpectedly succeeded");
+    expect(smoke).toContain("invalid_authorization_specification or insufficient_privilege");
     expect(smoke).toContain("user B can register a payslip for user A");
   });
 });

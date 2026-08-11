@@ -822,7 +822,7 @@ begin
   begin
     perform public.register_payslip(workspace_a, user_a, context_a, 'Tentativa anonima', date_trunc('month', current_date - interval '5 months')::date, 1000, 100, 900, null, null, null, null);
     raise exception 'anonymous register_payslip unexpectedly succeeded';
-  exception when insufficient_privilege then null;
+  exception when invalid_authorization_specification or insufficient_privilege then null;
   end;
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);

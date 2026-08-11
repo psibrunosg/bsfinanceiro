@@ -16,6 +16,8 @@ const releaseHardeningPath = resolve(root, "supabase/migrations/20260811000006_r
 const cleanupSchedulePath = resolve(root, "supabase/migrations/20260811000007_schedule_document_import_cleanup.sql");
 const releaseHardening = existsSync(releaseHardeningPath) ? readFileSync(releaseHardeningPath, "utf8") : "";
 const cleanupSchedule = existsSync(cleanupSchedulePath) ? readFileSync(cleanupSchedulePath, "utf8") : "";
+const cleanupProtocolPath = resolve(root, "supabase/migrations/20260811000008_make_statement_cleanup_race_safe.sql");
+const cleanupProtocol = existsSync(cleanupProtocolPath) ? readFileSync(cleanupProtocolPath, "utf8") : "";
 
 describe("statement import deployment contracts", () => {
   it("keeps the bucket private and limits client access to its own pending job", () => {
@@ -48,11 +50,21 @@ describe("statement import deployment contracts", () => {
     expect(cleanup).toContain("if (removeError) continue");
     expect(cleanup).toContain("cleaned += 1");
     expect(cleanup).not.toContain('.from("credit_card_statement_imports").delete()');
-    expect(cleanup).toContain('p_error_code: "expired"');
-    expect(cleanup).toContain('worker.rpc("finish_credit_card_statement_import_failed"');
-    expect(cleanup.indexOf('worker.rpc("finish_credit_card_statement_import_failed"')).toBeLessThan(cleanup.indexOf('storage.from("credit-card-statements").remove'));
+    expect(cleanup).toContain('worker.rpc("prepare_credit_card_statement_import_cleanup"');
+    expect(cleanup).toContain('worker.rpc("finish_credit_card_statement_import_cleanup"');
+    expect(cleanup.indexOf('worker.rpc("prepare_credit_card_statement_import_cleanup"')).toBeLessThan(cleanup.indexOf('storage.from("credit-card-statements").remove'));
+    expect(cleanup.indexOf('storage.from("credit-card-statements").remove')).toBeLessThan(cleanup.indexOf('worker.rpc("finish_credit_card_statement_import_cleanup"'));
     expect(retryMigration).toContain("if v_existing.status = 'failed' then");
     expect(retryMigration).toContain("expires_at = now() + interval '7 days'");
+  });
+
+  it("locks an expired import through cleanup until object removal is acknowledged", () => {
+    expect(cleanupProtocol).toContain("error_code = 'cleanup_pending'");
+    expect(cleanupProtocol).toContain("function public.prepare_credit_card_statement_import_cleanup");
+    expect(cleanupProtocol).toContain("function public.finish_credit_card_statement_import_cleanup");
+    expect(cleanupProtocol).toContain("v_import.expires_at > now()");
+    expect(cleanupProtocol).toContain("v_existing.error_code = 'cleanup_pending'");
+    expect(cleanupProtocol).toContain("error_code = 'expired'");
   });
 
   it("recreates the starter RPC with unambiguous aliases and durable retry", () => {
