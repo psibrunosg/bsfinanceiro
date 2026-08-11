@@ -38,9 +38,10 @@ Deno.serve(async (request) => {
   if (job.status !== "processing") return response({ status: job.status });
   const storage = worker.storage.from("credit-card-statements");
   const finishFailed = async (errorCode: string) => {
-    await worker.rpc("finish_credit_card_statement_import", {
+    const { error: finishError } = await worker.rpc("finish_credit_card_statement_import", {
       p_import_id: job.id, p_status: "failed", p_error_code: errorCode, p_purchase_id: null,
     });
+    if (finishError) return response({ error: "state_persistence_failed" }, 503);
     await storage.remove([job.storage_path]);
     return response({ status: "failed", error: errorCode });
   };

@@ -602,12 +602,12 @@ function CardsPageInner() {
         <section className="card-import" aria-labelledby="statement-import-title">
           <div>
             <h2 id="statement-import-title">Importar fatura experimental</h2>
-            <p className="muted">Aceita apenas a fixture sintética documentada. PDFs e layouts reais serão recusados sem criar compras.</p>
+            <p className="muted">PDF Santander com texto selecionável. Layouts não reconhecidos são recusados antes de criar compras.</p>
           </div>
           <form className="finance-form" aria-busy={importingStatement} onSubmit={(event) => { event.preventDefault(); void submitStatementImport(new FormData(event.currentTarget)); }}>
             <label htmlFor="statement-file">Arquivo de fatura</label>
             <input id="statement-file" name="statement" type="file" accept="application/pdf,text/plain,.txt,.bsf-fixture" required disabled={importingStatement} aria-invalid={statementImportFailed || undefined} aria-describedby={statementImportDescribedBy} />
-            <small id="statement-import-help">Até 5 MB. Apenas a fixture sintética é processada nesta etapa.</small>
+            <small id="statement-import-help">Até 5 MB. Revise os lançamentos antes de confirmar a importação.</small>
             <button disabled={importingStatement}>{importingStatement ? "Enviando..." : "Enviar para importação"}</button>
             {statementImportFeedback && <p id="statement-import-feedback" className={statementImportFailed ? "form-error" : "form-success"} role={statementImportFailed ? "alert" : "status"}>{statementImportFeedback}</p>}
           </form>

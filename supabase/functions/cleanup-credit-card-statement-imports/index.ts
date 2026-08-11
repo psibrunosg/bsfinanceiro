@@ -18,8 +18,7 @@ Deno.serve(async (request) => {
   for (const job of jobs || []) {
     const { error: removeError } = await supabase.storage.from("credit-card-statements").remove([job.storage_path]);
     if (removeError) continue;
-    const { error: deleteError } = await supabase.from("credit_card_statement_imports").delete().eq("id", job.id);
-    if (!deleteError) cleaned += 1;
+    cleaned += 1;
   }
   return Response.json({ cleaned, attempted: jobs?.length || 0 });
 });

@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 
 const root = resolve(process.cwd());
 const migration = readFileSync(resolve(root, "supabase/migrations/20260728000007_credit_card_statement_imports.sql"), "utf8");
-const reviewMigrationPath = resolve(root, "supabase/migrations/20260811000000_review_credit_card_statement_imports.sql");
+const enumMigrationPath = resolve(root, "supabase/migrations/20260811000000_credit_card_statement_import_pending_review.sql");
+const reviewMigrationPath = resolve(root, "supabase/migrations/20260811000001_review_credit_card_statement_imports.sql");
+const enumMigration = existsSync(enumMigrationPath) ? readFileSync(enumMigrationPath, "utf8") : "";
 const reviewMigration = existsSync(reviewMigrationPath) ? readFileSync(reviewMigrationPath, "utf8") : "";
 const worker = readFileSync(resolve(root, "supabase/functions/process-credit-card-statement-import/index.ts"), "utf8");
 const cleanup = readFileSync(resolve(root, "supabase/functions/cleanup-credit-card-statement-imports/index.ts"), "utf8");
@@ -35,14 +37,16 @@ describe("statement import deployment contracts", () => {
     expect(worker).toContain('return finishFailed("checksum_mismatch")');
   });
 
-  it("retries cleanup for every expired state and deletes the record only after storage removal succeeds", () => {
+  it("retries terminal-object cleanup without deleting the durable import identity", () => {
     expect(cleanup).toContain('"pending_review"');
     expect(cleanup).toContain("if (removeError) continue");
-    expect(cleanup).toContain("if (!deleteError) cleaned += 1");
+    expect(cleanup).toContain("cleaned += 1");
+    expect(cleanup).not.toContain('.from("credit_card_statement_imports").delete()');
   });
 
   it("adds a protected structured review table and the pending_review state", () => {
-    expect(reviewMigration).toContain("add value if not exists 'pending_review'");
+    expect(enumMigration).toContain("add value if not exists 'pending_review'");
+    expect(reviewMigration).not.toContain("add value if not exists 'pending_review'");
     expect(reviewMigration).toContain("create table public.credit_card_statement_import_items");
     expect(reviewMigration).toContain("references public.credit_card_statement_imports(id, workspace_id, owner_id)");
     expect(reviewMigration).toContain("unique (import_id, ordinal)");
@@ -55,11 +59,17 @@ describe("statement import deployment contracts", () => {
   it("applies one owner-scoped, locked batch of at most 500 corrected items", () => {
     expect(reviewMigration).toContain("function public.apply_credit_card_statement_import");
     expect(reviewMigration).toContain("v_user_id uuid := (select auth.uid())");
+    expect(reviewMigration).toContain("security definer");
+    expect(reviewMigration).toContain("set search_path = ''");
     expect(reviewMigration).toContain("for update");
-    expect(reviewMigration).toContain("jsonb_array_length(p_items) > 500");
+    expect(reviewMigration).toContain("jsonb_array_length(p_items) not between 1 and 500");
     expect(reviewMigration).toContain("totalAmountCents");
     expect(reviewMigration).toContain("corrected total amount required");
     expect(reviewMigration).toContain("md5('credit-card-statement:'");
+    expect(reviewMigration).toContain("v_payload_date < v_period_start");
+    expect(reviewMigration).toContain("v_payload_installment_count = 1 and v_payload_total_cents <> v_payload_amount_cents");
+    expect(reviewMigration).toContain("invoice dates do not match statement");
+    expect(reviewMigration).toContain("paid or cancelled invoice cannot accept statement items");
   });
 
   it("preserves card semantics: observed installments and invoices, never cash or payment", () => {
@@ -78,6 +88,7 @@ describe("statement import deployment contracts", () => {
     expect(worker).toContain('worker.rpc("finish_credit_card_statement_import_review"');
     expect(worker).toContain('.remove([job.storage_path])');
     expect(worker).toContain('status: "pending_review"');
+    expect(worker).toContain("if (finishError) return response({ error: \"state_persistence_failed\" }, 503)");
     expect(worker).not.toContain("NAO_PERSISTIR_TEXTO_BRUTO_9f3a");
   });
 

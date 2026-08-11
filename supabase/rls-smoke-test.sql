@@ -35,6 +35,10 @@ declare
   failure_transaction_count integer;
   statement_card_a uuid;
   statement_import_a uuid;
+  statement_import_atomic uuid;
+  statement_first uuid[];
+  statement_replay uuid[];
+  statement_purchase_count integer;
 begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
@@ -760,6 +764,37 @@ begin
   exception when no_data_found or insufficient_privilege then null;
   end;
   perform set_config('request.jwt.claim.sub', user_a::text, true);
+  select public.apply_credit_card_statement_import(statement_import_a, jsonb_build_array(jsonb_build_object(
+    'ordinal', 1, 'purchasedOn', current_date::text, 'description', 'Compra de smoke A',
+    'installmentAmountCents', 1000, 'installmentNumber', 1, 'installmentCount', 1,
+    'totalAmountCents', 1000, 'sourceFingerprint', repeat('b', 64)
+  ))) into statement_first;
+  select public.apply_credit_card_statement_import(statement_import_a, jsonb_build_array(jsonb_build_object(
+    'ordinal', 1, 'purchasedOn', current_date::text, 'description', 'Compra de smoke A',
+    'installmentAmountCents', 1000, 'installmentNumber', 1, 'installmentCount', 1,
+    'totalAmountCents', 1000, 'sourceFingerprint', repeat('b', 64)
+  ))) into statement_replay;
+  if statement_first is distinct from statement_replay or cardinality(statement_first) <> 1 then raise exception 'statement replay must return the original purchase'; end if;
+  if exists (select 1 from public.transactions where owner_id = user_a and description like 'Pagamento de fatura%') then raise exception 'statement apply created a cash payment'; end if;
+
+  select id into statement_import_atomic from public.create_credit_card_statement_import(statement_card_a, 'fatura-atomica.pdf', 'application/pdf', 101, repeat('c', 64));
+  perform set_config('request.jwt.claim.role', 'service_role', true);
+  perform public.claim_credit_card_statement_import(statement_import_atomic, user_a);
+  perform public.finish_credit_card_statement_import_review(statement_import_atomic, 'santander', '1', current_date, current_date + 7, 2000, jsonb_build_array(
+    jsonb_build_object('ordinal',1,'purchasedOn',current_date::text,'description','Atômica um','installmentAmountCents',1000,'installmentNumber',1,'installmentCount',1,'totalAmountCents',1000,'needsReview',false,'sourceFingerprint',repeat('d',64)),
+    jsonb_build_object('ordinal',2,'purchasedOn',current_date::text,'description','Atômica dois','installmentAmountCents',1000,'installmentNumber',1,'installmentCount',1,'totalAmountCents',1000,'needsReview',false,'sourceFingerprint',repeat('e',64))
+  ));
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  select count(*) into statement_purchase_count from public.credit_card_purchases where credit_card_id = statement_card_a;
+  begin
+    perform public.apply_credit_card_statement_import(statement_import_atomic, jsonb_build_array(
+      jsonb_build_object('ordinal',1,'purchasedOn',current_date::text,'description','Atômica um','installmentAmountCents',1000,'installmentNumber',1,'installmentCount',1,'totalAmountCents',1000,'sourceFingerprint',repeat('d',64)),
+      jsonb_build_object('ordinal',2,'purchasedOn',current_date::text,'description','Atômica dois','installmentAmountCents',1000,'installmentNumber',1,'installmentCount',1,'totalAmountCents',999,'sourceFingerprint',repeat('e',64))
+    ));
+    raise exception 'invalid statement item unexpectedly applied';
+  exception when data_exception then null;
+  end;
+  if (select count(*) from public.credit_card_purchases where credit_card_id = statement_card_a) <> statement_purchase_count or not exists (select 1 from public.credit_card_statement_imports where id = statement_import_atomic and status = 'pending_review') then raise exception 'statement apply must be atomic'; end if;
 
   delete from public.accounts
   where id = account_a and workspace_id = workspace_a and owner_id = user_a;

@@ -13,7 +13,8 @@ function buildPdf(pageTexts: string[]) {
     `<< /Type /Pages /Kids [${pageTexts.map((_, index) => `${pageObjectStart + index} 0 R`).join(" ")}] /Count ${pageTexts.length} >>`,
     ...pageTexts.map((_, index) => `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontObject} 0 R >> >> /Contents ${contentObjectStart + index} 0 R >>`),
     ...pageTexts.map((text) => {
-      const stream = `BT /F1 12 Tf 72 720 Td (${pdfString(text)}) Tj ET`;
+      const lines = text.split(/\r?\n/).map((line) => `(${pdfString(line)}) Tj 0 -14 Td`).join(" ");
+      const stream = `BT /F1 12 Tf 72 720 Td ${lines} ET`;
       return `<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream`;
     }),
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
@@ -32,5 +33,6 @@ function buildPdf(pageTexts: string[]) {
 }
 
 export const textualPdf = () => buildPdf(["Fatura   Santander\n  Agosto 2026"]);
+export const textualPdfWithText = (text: string) => buildPdf([text]);
 export const blankPdf = () => buildPdf([""]);
 export const multiPagePdf = (pages: number) => buildPdf(Array.from({ length: pages }, () => "pagina"));
