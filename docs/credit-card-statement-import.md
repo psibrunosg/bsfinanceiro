@@ -39,4 +39,4 @@ As RPCs derivam o usuário autenticado e validam workspace, cartão, conta e con
 
 ## Operação e validação de publicação
 
-Este documento descreve o código no branch do ciclo; ele **não confirma publicação**. Antes de expor os fluxos em produção é obrigatório alinhar e aplicar as migrations remotas, executar o smoke de RLS/RPC, publicar as Edge Functions com o import map e só então publicar o frontend. O gate autenticado de Playwright só pode voltar a rodar com `E2E_EMAIL` e `E2E_PASSWORD` externos, após rotação da senha que já foi exposta e revogação das sessões correspondentes. Não reutilize a credencial antiga.
+O fluxo foi publicado em 11/08/2026 após alinhamento das migrations, smoke remoto de RLS/RPC, publicação das Edge Functions com o import map, validação dos jobs de limpeza e deploy do frontend. O gate autenticado de Playwright só pode voltar a rodar com `E2E_EMAIL` e `E2E_PASSWORD` externos, após rotação da senha que já foi exposta e revogação das sessões correspondentes. Não reutilize a credencial antiga.

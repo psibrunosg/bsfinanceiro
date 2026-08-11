@@ -53,7 +53,7 @@ Configure estes Repository secrets em `Settings > Secrets and variables > Action
 O workflow usa esses valores somente durante o build estático. Nunca configure `service_role` nesses secrets.
 
 ## Banco
-O projeto Supabase é `wgntlhzjyriwhncumjsv`, o mesmo ref usado em `.env.example`. Em 15/07/2026, o banco remoto foi resetado e recriado a partir das oito migrations locais em `supabase/migrations`. As tabelas de RH que estavam no schema `public` foram removidas no reset. Os advisors de segurança e desempenho não apontaram issues após a recriação.
+O projeto Supabase é `wgntlhzjyriwhncumjsv`, o mesmo ref usado em `.env.example`. O histórico remoto está alinhado até `20260811000010`; o smoke de RLS/RPC usa dois usuários e roles SQL reais. As quatro Edge Functions de documentos e os dois jobs horários de limpeza estão ativos. As RPCs financeiras legadas usadas por Cartões e Ganhos foram restringidas ao proprietário autenticado e não concedem execução a `anon`.
 
 ## Estado atual
 - Dashboard responsivo com temas claro/escuro e dados reais do Supabase.
@@ -65,7 +65,7 @@ O projeto Supabase é `wgntlhzjyriwhncumjsv`, o mesmo ref usado em `.env.example
 - Banco remoto resetado e recriado apenas com as migrations financeiras.
 - RLS validado no banco remoto com dois usuários simulados em transação com rollback.
 - Telas e ações para onboarding, contas, categorias, movimentações, cartões, compromissos e planejamento.
-- Importação revisável de CSV/OFX, faturas Santander textuais e contracheques textuais; os dois últimos aguardam validação remota de migrations e Edge Functions antes de serem considerados publicados.
+- Importação revisável de CSV/OFX, faturas Santander textuais e contracheques textuais publicada; migrations, Edge Functions, cron e smoke remoto foram validados em 11/08/2026.
 - A navegação mostra apenas rotas disponíveis no app.
 
 ## Plano de desenvolvimento

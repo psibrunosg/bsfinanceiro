@@ -83,15 +83,17 @@ O projeto Supabase do BS Financeiro é `wgntlhzjyriwhncumjsv`, que também apare
 - [x] Persistir inbox de lotes e aplicar somente após confirmação explícita.
 - [x] Revalidar duplicatas no banco e tornar confirmação idempotente, inclusive em lotes concorrentes.
 
-## P2.9 Importação OFX e documentos textuais — implementação concluída; validação remota pendente
+## P2.9 Importação OFX e documentos textuais — Publicada
 
 - [x] Importar OFX usando a mesma prévia, inbox, deduplicação e confirmação explícita do CSV.
 - [x] Extrair PDF com texto selecionável em Edge Function, sem persistir texto bruto.
 - [x] Gerar revisão de fatura Santander textual; importação preserva fatura, compra e parcela, sem pagar a fatura.
 - [x] Gerar revisão de contracheque textual; receita somente nasce com data e conta confirmadas.
 - [x] Manter idempotência, privacidade, jobs de limpeza e recusa fechada para layout ambíguo.
-- [ ] Alinhar/aplicar as migrations remotas, publicar Edge Functions e executar smoke RLS/RPC antes de declarar a entrega publicada.
+- [x] Alinhar/aplicar as migrations remotas, publicar Edge Functions e executar smoke RLS/RPC antes de declarar a entrega publicada.
 - [ ] Rodar Playwright autenticado com credencial externa rotacionada; a senha exposta não deve voltar a ser usada.
+
+Publicação confirmada em 11/08/2026: migrations alinhadas até `20260811000010`, quatro Edge Functions ativas com JWT obrigatório, dois jobs horários ativos, chamadas de limpeza `200`, smoke RLS/RPC verde e Pages no commit `c4b8c49`. O gate autenticado permanece separado até a rotação externa da credencial comprometida.
 
 OCR continua fora deste ciclo e segue nas issues #8 e #10. Open Finance, suporte universal a layouts e categorização automática continuam futuros.
 
