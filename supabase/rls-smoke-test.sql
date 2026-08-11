@@ -844,6 +844,7 @@ begin
   end;
   perform set_config('request.jwt.claim.sub', '', true);
   perform set_config('request.jwt.claim.role', 'anon', true);
+  perform set_config('role', 'anon', true);
   begin
     perform public.create_credit_card(workspace_a, user_a, 'Cartao anonimo', 1000, 10, 20, null, null);
     raise exception 'anonymous card creation unexpectedly succeeded';
@@ -851,6 +852,7 @@ begin
   end;
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
+  perform set_config('role', 'authenticated', true);
   perform public.receive_patient_earning(legacy_earning_a, transaction_account_a, current_date);
   if not exists (select 1 from public.patient_earnings where id = legacy_earning_a and status = 'received' and transaction_id is not null) then raise exception 'legacy earning owner path failed'; end if;
   select public.register_payslip(workspace_a, user_a, context_a, 'Manual hardening smoke A', date_trunc('month', current_date - interval '3 months')::date, 1000, 100, 900, null, null, null, null) into payslip_manual_hardened_a;
