@@ -26,26 +26,28 @@ test.describe("Validação manual P2.7 — Decisão diária", () => {
     await page.goto("/");
     await page.waitForLoadState("domcontentloaded");
     await page.waitForTimeout(1500);
-    if (await novaMovBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await novaMovBtn.click();
-      await page.waitForTimeout(500);
-      await page.screenshot({ path: "test-results/manual-validation/03-dialog-registro.png", fullPage: true });
-      await page.keyboard.press("Escape");
-    }
+    await expect(novaMovBtn).toBeVisible({ timeout: 3000 });
+    await novaMovBtn.click();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: "test-results/manual-validation/03-dialog-registro.png", fullPage: true });
+    await page.keyboard.press("Escape");
 
     await page.goto("/movimentacoes");
     await page.waitForLoadState("domcontentloaded");
     await page.waitForTimeout(5000);
+    expect(page.url()).not.toContain("/entrar");
     await page.screenshot({ path: "test-results/manual-validation/04-movimentacoes.png", fullPage: true });
 
     await page.goto("/ganhos");
     await page.waitForLoadState("domcontentloaded");
     await page.waitForTimeout(5000);
+    expect(page.url()).not.toContain("/entrar");
     await page.screenshot({ path: "test-results/manual-validation/05-ganhos.png", fullPage: true });
 
     await page.goto("/gastos");
     await page.waitForLoadState("domcontentloaded");
     await page.waitForTimeout(5000);
+    expect(page.url()).not.toContain("/entrar");
     await page.screenshot({ path: "test-results/manual-validation/06-gastos.png", fullPage: true });
 
     await page.goto("/compromissos");
@@ -58,11 +60,13 @@ test.describe("Validação manual P2.7 — Decisão diária", () => {
     await page.goto("/configuracoes");
     await page.waitForLoadState("domcontentloaded");
     await page.waitForTimeout(5000);
+    expect(page.url()).not.toContain("/entrar");
     await page.screenshot({ path: "test-results/manual-validation/08-configuracoes.png", fullPage: true });
 
     await page.goto("/investimentos");
     await page.waitForLoadState("domcontentloaded");
     await page.waitForTimeout(5000);
+    expect(page.url()).not.toContain("/entrar");
     await page.screenshot({ path: "test-results/manual-validation/09-investimentos.png", fullPage: true });
 
     await page.goto("/");
