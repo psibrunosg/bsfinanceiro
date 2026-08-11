@@ -25,13 +25,24 @@ Com uma conta de teste autenticada, percorra o fluxo abaixo para validar a exper
 5. Lance uma despesa pelo registro rápido, informando somente valor e descrição; ela deve usar a conta principal e a data de hoje.
 6. Abra Movimentações, pesquise pela descrição e confirme que a despesa aparece no histórico.
 
-O ciclo não inclui importação bancária. A próxima fronteira é importação OFX/CSV com prévia, deduplicação e inbox de revisão.
+O ciclo inclui importação de extratos CSV e OFX com prévia, deduplicação e inbox de revisão. A confirmação continua explícita: a prévia nunca grava movimentações sozinha.
 
 ### Importar extrato CSV com revisão
 
 Em **Movimentações**, escolha uma conta e envie um CSV UTF-8 com cabeçalho. O formato reconhecido usa colunas de data, descrição e valor (por exemplo, `date,description,amount`); valores positivos viram receitas e negativos, despesas. A prévia mostra linhas prontas, duplicadas e inválidas, sem gravar movimentações. Só `Confirmar importação` aplica as linhas prontas. Duplicatas são revalidadas no banco por conta, data, tipo, valor e descrição normalizada; reenviar ou confirmar o mesmo lote não duplica lançamentos.
 
-OFX, PDF, OCR, Open Finance e categorização automática ainda não fazem parte desta entrega.
+### Importar OFX com revisão
+
+Em **Movimentações**, envie um OFX do internet banking para a mesma inbox de revisão do CSV. Antes de confirmar, confira conta, data, descrição e valor de cada linha. Reenviar o arquivo ou confirmar um lote novamente não deve duplicar movimentações.
+
+### Importar documentos PDF com revisão
+
+O app também aceita dois fluxos estreitos de PDF com **texto selecionável**:
+
+- **Cartões:** fatura Santander no layout textual reconhecido, em **Cartões**. A prévia cria candidatos de compra e parcela; revise-os e confirme a fatura. Importar uma fatura não a paga e não cria movimento de caixa. O pagamento segue sendo uma ação separada.
+- **Ganhos:** contracheque textual com rótulos reconhecidos, em **Ganhos > Contracheques**. Revise empregador, competência, bruto, descontos e líquido. Só há receita no caixa quando data e conta de recebimento forem informadas e confirmadas.
+
+Os arquivos são temporários em buckets privados e o texto extraído não é guardado no banco. PDFs escaneados, vazios, grandes, extensos, ambíguos ou de layout não reconhecido falham sem criar dados financeiros. OCR, Open Finance e suporte universal a emissores continuam fora do escopo; acompanhe OCR nas issues #8 e #10. Consulte [a documentação de faturas](./docs/credit-card-statement-import.md) para limites, estados e recuperação.
 
 ## Deploy no GitHub Pages
 Configure estes Repository secrets em `Settings > Secrets and variables > Actions`:
@@ -54,6 +65,7 @@ O projeto Supabase é `wgntlhzjyriwhncumjsv`, o mesmo ref usado em `.env.example
 - Banco remoto resetado e recriado apenas com as migrations financeiras.
 - RLS validado no banco remoto com dois usuários simulados em transação com rollback.
 - Telas e ações para onboarding, contas, categorias, movimentações, cartões, compromissos e planejamento.
+- Importação revisável de CSV/OFX, faturas Santander textuais e contracheques textuais; os dois últimos aguardam validação remota de migrations e Edge Functions antes de serem considerados publicados.
 - A navegação mostra apenas rotas disponíveis no app.
 
 ## Plano de desenvolvimento
