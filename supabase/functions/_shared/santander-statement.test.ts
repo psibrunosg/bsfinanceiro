@@ -20,7 +20,8 @@ const statement = `
   Compras e pagamentos realizados até 15/08/2026
   Lançamentos
   10/08 MERCADO EXEMPLO R$ 23,45
-  12/08 LIVRARIA MODELO 02/10 R$ 199,90 Total da compra R$ 1.999,00
+  12/08 LIVRARIA MODELO 02/10 R$ 199,90
+  Total da compra R$ 1.999,00
   Limites
   Limite disponível R$ 1.000,00
 `;
@@ -70,12 +71,15 @@ describe("parseSantanderStatement", () => {
     await expect(parseSantanderStatement(text)).resolves.toMatchObject({
       declaredTotalCents: 22335,
       dueDate: "2026-08-22",
-      items: [{ description: "MERCADO EXEMPLO" }, { installmentNumber: 2, installmentCount: 10 }],
+      items: [
+        { description: "MERCADO EXEMPLO" },
+        { installmentNumber: 2, installmentCount: 10, totalAmountCents: 199900, needsReview: false },
+      ],
     });
   });
 
   it("never fabricates the original total when an installment line omits it", async () => {
-    const parsed = await parseSantanderStatement(statement.replace(" Total da compra R$ 1.999,00", ""));
+    const parsed = await parseSantanderStatement(statement.replace("Total da compra R$ 1.999,00", ""));
 
     expect(parsed.items[1]).toMatchObject({
       installmentAmountCents: 19990,
@@ -98,8 +102,9 @@ describe("parseSantanderStatement", () => {
 
   it.each([
     [statement.replace("SANTANDER", "OUTRO BANCO"), "unsupported_layout"],
-    [statement.replace("R$ 199,90 Total", "Total"), "ambiguous_financial_fields"],
-    [statement.replace("Total da compra R$ 1.999,00", "Total da compra R$ 1.999,00 Total da compra R$ 2.000,00"), "ambiguous_financial_fields"],
+    [statement.replace("R$ 199,90", "TOTAL"), "ambiguous_financial_fields"],
+    [statement.replace("Total da compra R$ 1.999,00", "Total da compra R$ 1.999,00\n  Total da compra R$ 2.000,00"), "ambiguous_financial_fields"],
+    [statement.replace("12/08 LIVRARIA MODELO 02/10 R$ 199,90\n  Total da compra R$ 1.999,00", "Total da compra R$ 1.999,00\n  12/08 LIVRARIA MODELO 02/10 R$ 199,90"), "ambiguous_financial_fields"],
     [statement.replace("15/08/2026", "31/02/2026"), "ambiguous_financial_fields"],
   ])("fails closed for unsupported, missing, duplicate, or impossible fields", async (text, code) => {
     await expect(parseSantanderStatement(text)).rejects.toThrow(code);

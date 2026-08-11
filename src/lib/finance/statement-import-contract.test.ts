@@ -6,8 +6,10 @@ const root = resolve(process.cwd());
 const migration = readFileSync(resolve(root, "supabase/migrations/20260728000007_credit_card_statement_imports.sql"), "utf8");
 const enumMigrationPath = resolve(root, "supabase/migrations/20260811000000_credit_card_statement_import_pending_review.sql");
 const reviewMigrationPath = resolve(root, "supabase/migrations/20260811000001_review_credit_card_statement_imports.sql");
+const retryMigrationPath = resolve(root, "supabase/migrations/20260728000008_retry_failed_credit_card_statement_imports.sql");
 const enumMigration = existsSync(enumMigrationPath) ? readFileSync(enumMigrationPath, "utf8") : "";
 const reviewMigration = existsSync(reviewMigrationPath) ? readFileSync(reviewMigrationPath, "utf8") : "";
+const retryMigration = readFileSync(retryMigrationPath, "utf8");
 const worker = readFileSync(resolve(root, "supabase/functions/process-credit-card-statement-import/index.ts"), "utf8");
 const cleanup = readFileSync(resolve(root, "supabase/functions/cleanup-credit-card-statement-imports/index.ts"), "utf8");
 
@@ -37,11 +39,17 @@ describe("statement import deployment contracts", () => {
     expect(worker).toContain('return finishFailed("checksum_mismatch")');
   });
 
-  it("retries terminal-object cleanup without deleting the durable import identity", () => {
+  it("turns expired operational jobs into retryable failures only after object cleanup", () => {
     expect(cleanup).toContain('"pending_review"');
     expect(cleanup).toContain("if (removeError) continue");
     expect(cleanup).toContain("cleaned += 1");
     expect(cleanup).not.toContain('.from("credit_card_statement_imports").delete()');
+    expect(cleanup).toContain('status: "failed"');
+    expect(cleanup).toContain('error_code: "expired"');
+    expect(cleanup).toContain('.in("status", ["pending", "processing"])');
+    expect(cleanup.indexOf("if (removeError) continue")).toBeLessThan(cleanup.indexOf('status: "failed"'));
+    expect(retryMigration).toContain("if v_existing.status = 'failed' then");
+    expect(retryMigration).toContain("expires_at = now() + interval '7 days'");
   });
 
   it("adds a protected structured review table and the pending_review state", () => {

@@ -22,10 +22,24 @@ export async function parseSantanderStatement(content: string): Promise<Santande
     : text.match(/\bLANCAMENTOS\s+(.+?)(?=\s+(?:LIMITES|FORMAS DE PAGAMENTO|MENSAGENS)\b|$)/);
   if (!ledgerMatch) fail("ambiguous_financial_fields");
   const ledger = ledgerMatch[1];
-  const rows = ledger.includes("\n")
-    ? [...ledger.matchAll(/^(\d{2}\/\d{2}(?:\/\d{4})?)\s+(.+)$/gm)].map((row) => ({ date: row[1], body: row[2] }))
-    : [...ledger.matchAll(new RegExp(`(?:^|\\s)(\\d{2}\\/\\d{2}(?:\\/\\d{4})?)\\s+(.+?)\\s+(?:(\\d{2})\\/(\\d{2})\\s+)?${MONEY}(?:\\s+TOTAL DA COMPRA\\s+${MONEY})?(?=\\s+\\d{2}\\/\\d{2}\\s+(?!R\\$)[A-Z]|$)`, "g"))]
-      .map((row) => ({ date: row[1], body: `${row[2]}${row[3] ? ` ${row[3]}/${row[4]}` : ""} R$ ${row[5]}${row[6] ? ` TOTAL DA COMPRA R$ ${row[6]}` : ""}` }));
+  const rows: Array<{ date: string; body: string }> = [];
+  if (ledger.includes("\n")) {
+    for (const line of ledger.split("\n").map((value) => value.trim()).filter(Boolean)) {
+      const total = line.match(new RegExp(`^TOTAL DA COMPRA\\s+${MONEY}$`));
+      if (total) {
+        const previous = rows.at(-1);
+        if (!previous || /\bTOTAL DA COMPRA\b/.test(previous.body)) fail("ambiguous_financial_fields");
+        previous.body += ` TOTAL DA COMPRA R$ ${total[1]}`;
+        continue;
+      }
+      const item = line.match(/^(\d{2}\/\d{2}(?:\/\d{4})?)\s+(.+)$/);
+      if (!item) fail("ambiguous_financial_fields");
+      rows.push({ date: item[1], body: item[2] });
+    }
+  } else {
+    rows.push(...[...ledger.matchAll(new RegExp(`(?:^|\\s)(\\d{2}\\/\\d{2}(?:\\/\\d{4})?)\\s+(.+?)\\s+(?:(\\d{2})\\/(\\d{2})\\s+)?${MONEY}(?:\\s+TOTAL DA COMPRA\\s+${MONEY})?(?=\\s+\\d{2}\\/\\d{2}\\s+(?!R\\$)[A-Z]|$)`, "g"))]
+      .map((row) => ({ date: row[1], body: `${row[2]}${row[3] ? ` ${row[3]}/${row[4]}` : ""} R$ ${row[5]}${row[6] ? ` TOTAL DA COMPRA R$ ${row[6]}` : ""}` })));
+  }
   if (!rows.length || rows.length > 500) fail("ambiguous_financial_fields");
   const items: CardStatementCandidate[] = [];
   for (const [index,row] of rows.entries()) {
