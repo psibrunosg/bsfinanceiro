@@ -1,9 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isVerifiedServiceRoleRequest } from "../_shared/service-role-request.ts";
 
 Deno.serve(async (request) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const url = Deno.env.get("SUPABASE_URL");
-  if (!serviceKey || !url || request.headers.get("Authorization") !== `Bearer ${serviceKey}`) return new Response("Unauthorized", { status: 401 });
+  if (!serviceKey || !url || !isVerifiedServiceRoleRequest(request)) return new Response("Unauthorized", { status: 401 });
   const supabase = createClient(url, serviceKey);
   const { data: jobs, error } = await supabase.from("payslip_document_imports").select("id,storage_path,status").lt("expires_at", new Date().toISOString()).limit(100);
   if (error) return new Response("Unable to load expired imports", { status: 500 });

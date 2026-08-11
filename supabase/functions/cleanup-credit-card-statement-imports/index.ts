@@ -1,9 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isVerifiedServiceRoleRequest } from "../_shared/service-role-request.ts";
 
 Deno.serve(async (request) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const url = Deno.env.get("SUPABASE_URL");
-  if (!serviceKey || !url || request.headers.get("Authorization") !== `Bearer ${serviceKey}`) {
+  if (!serviceKey || !url || !isVerifiedServiceRoleRequest(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
   const worker = createClient(url, serviceKey);

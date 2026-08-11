@@ -50,6 +50,9 @@ declare
   payslip_income_transaction_a uuid;
   payslip_transaction_count integer;
   payslip_manual_hardened_a uuid;
+  legacy_card_a uuid;
+  legacy_patient_a uuid;
+  legacy_earning_a uuid;
   mutation_count integer;
 begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
@@ -824,6 +827,32 @@ begin
 
   select id into context_a from public.financial_contexts where workspace_id = workspace_a and owner_id = user_a and active order by kind limit 1;
   if context_a is null then raise exception 'smoke workspace needs an active financial context'; end if;
+  select public.create_credit_card(workspace_a, user_a, 'Cartao legacy smoke A', 1000, 10, 20, null, null) into legacy_card_a;
+  if not exists (select 1 from public.credit_cards where id = legacy_card_a and workspace_id = workspace_a and owner_id = user_a) then raise exception 'legacy card owner path failed'; end if;
+  insert into public.patients(workspace_id, owner_id, full_name, context_id) values (workspace_a, user_a, 'Paciente legacy smoke A', context_a) returning id into legacy_patient_a;
+  insert into public.patient_earnings(workspace_id, owner_id, patient_id, context_id, amount, appointment_date, due_date) values (workspace_a, user_a, legacy_patient_a, context_a, 100, current_date, current_date) returning id into legacy_earning_a;
+  perform set_config('request.jwt.claim.sub', user_b::text, true);
+  begin
+    perform public.create_credit_card(workspace_a, user_a, 'Cartao cruzado', 1000, 10, 20, null, null);
+    raise exception 'user B can create a card for user A';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.receive_patient_earning(legacy_earning_a, transaction_account_a, current_date);
+    raise exception 'user B can receive user A earning';
+  exception when no_data_found or insufficient_privilege then null;
+  end;
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('request.jwt.claim.role', 'anon', true);
+  begin
+    perform public.create_credit_card(workspace_a, user_a, 'Cartao anonimo', 1000, 10, 20, null, null);
+    raise exception 'anonymous card creation unexpectedly succeeded';
+  exception when invalid_authorization_specification or insufficient_privilege then null;
+  end;
+  perform set_config('request.jwt.claim.sub', user_a::text, true);
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  perform public.receive_patient_earning(legacy_earning_a, transaction_account_a, current_date);
+  if not exists (select 1 from public.patient_earnings where id = legacy_earning_a and status = 'received' and transaction_id is not null) then raise exception 'legacy earning owner path failed'; end if;
   select public.register_payslip(workspace_a, user_a, context_a, 'Manual hardening smoke A', date_trunc('month', current_date - interval '3 months')::date, 1000, 100, 900, null, null, null, null) into payslip_manual_hardened_a;
   if not exists (select 1 from public.payslips where id = payslip_manual_hardened_a and owner_id = user_a and workspace_id = workspace_a) then raise exception 'manual register_payslip owner path failed'; end if;
   perform set_config('request.jwt.claim.sub', user_b::text, true);

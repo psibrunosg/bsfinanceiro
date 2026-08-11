@@ -20,6 +20,7 @@ const cleanupProtocolPath = resolve(root, "supabase/migrations/20260811000008_ma
 const cleanupProtocol = existsSync(cleanupProtocolPath) ? readFileSync(cleanupProtocolPath, "utf8") : "";
 const legacyRpcHardeningPath = resolve(root, "supabase/migrations/20260811000010_harden_legacy_finance_rpcs.sql");
 const legacyRpcHardening = existsSync(legacyRpcHardeningPath) ? readFileSync(legacyRpcHardeningPath, "utf8") : "";
+const smoke = readFileSync(resolve(root, "supabase/rls-smoke-test.sql"), "utf8");
 
 describe("statement import deployment contracts", () => {
   it("keeps the bucket private and limits client access to its own pending job", () => {
@@ -86,6 +87,10 @@ describe("statement import deployment contracts", () => {
     expect(legacyRpcHardening).toContain("a.owner_id = v_user_id");
     expect(legacyRpcHardening).toContain("revoke all on function public.create_credit_card");
     expect(legacyRpcHardening).toContain("grant execute on function public.receive_patient_earning");
+    expect(smoke).toContain("legacy card owner path failed");
+    expect(smoke).toContain("user B can create a card for user A");
+    expect(smoke).toContain("anonymous card creation unexpectedly succeeded");
+    expect(smoke).toContain("legacy earning owner path failed");
   });
 
   it("schedules both authenticated cleanup functions without committing credentials", () => {
