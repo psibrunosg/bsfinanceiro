@@ -222,7 +222,7 @@ export default function GanhosPage() {
   const editPayslip = dialog?.kind === "edit-payslip" ? dialog.payslip : null;
   const editEarning = dialog?.kind === "edit-earning" ? dialog.earning : null;
   const editOther = dialog?.kind === "edit-other" ? dialog.income : null;
-  const deletePayslip = dialog?.kind === "delete-payslip" ? dialog.payslip : null;
+  const deletePayslipRecord = dialog?.kind === "delete-payslip" ? dialog.payslip : null;
   const deleteEarning = dialog?.kind === "delete-earning" ? dialog.earning : null;
   const deleteOther = dialog?.kind === "delete-other" ? dialog.income : null;
   const deactivatePatient =
@@ -254,6 +254,7 @@ export default function GanhosPage() {
   ];
   const today = new Date().toISOString().slice(0, 10);
   const incomeCategories = categories.filter((c) => c.kind === "income");
+  const cashAccounts = accounts.filter((account) => ["checking", "cash", "savings"].includes(account.type));
 
   // Pacientes com movimento no período vêm primeiro (maior valor primeiro);
   // os demais ficam agrupados sob "Sem movimento", em ordem alfabética.
@@ -414,15 +415,13 @@ export default function GanhosPage() {
     }
     if (job.status === "pending") {
       const { error: uploadError } = await supabase.storage.from("payslip-document-imports").upload(job.storage_path, file, { contentType: "application/pdf", upsert: false });
-      if (uploadError) {
-        toast("Não foi possível enviar o PDF para revisão.", "error");
-        return;
-      }
       const { error: queueError } = await supabase.rpc("queue_payslip_document_import", { p_import_id: job.id });
       if (queueError) {
-        toast("O PDF foi enviado, mas não pôde ser preparado.", "error");
+        toast(uploadError ? "Não foi possível retomar o PDF enviado." : "O PDF foi enviado, mas não pôde ser preparado.", "error");
         return;
       }
+    }
+    if (job.status === "pending" || job.status === "processing") {
       const { error: processError } = await supabase.functions.invoke("process-payslip-document-import", { body: { importId: job.id } });
       if (processError) toast("PDF enviado; a análise poderá ser retomada em breve.", "error");
     }
@@ -578,6 +577,13 @@ export default function GanhosPage() {
       toast(successMessage);
       setDialog(null);
     }
+    await loadHub();
+  }
+
+  async function deletePayslip(id: string) {
+    const { error } = await supabase.rpc("delete_payslip", { p_payslip_id: id });
+    if (error) toast("Não foi possível excluir o contracheque e sua receita.", "error");
+    else { toast("Contracheque excluído."); setDialog(null); }
     await loadHub();
   }
 
@@ -889,7 +895,7 @@ export default function GanhosPage() {
             <label htmlFor="import-payslip-account">Conta de recebimento (opcional)</label>
             <select id="import-payslip-account" name="account_id" defaultValue="">
               <option value="">Sem criar receita</option>
-              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              {cashAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
             <button>Confirmar contracheque</button>
           </SimpleForm>
@@ -988,16 +994,16 @@ export default function GanhosPage() {
             <button>Salvar receita</button>
           </SimpleForm>
         )}
-        {deletePayslip && (
+        {deletePayslipRecord && (
           <SimpleForm
-            key={`delete-payslip-${deletePayslip.id}`}
-            onSubmit={() => removeRecord("payslips", deletePayslip.id, deletePayslip.transaction_id, "Contracheque excluído.")}
+            key={`delete-payslip-${deletePayslipRecord.id}`}
+            onSubmit={() => deletePayslip(deletePayslipRecord.id)}
           >
             <p>
-              Excluir o contracheque de {deletePayslip.employer} (competência{" "}
-              {dateFmt.format(new Date(`${deletePayslip.competence}T12:00:00`))}), no valor líquido de {money(deletePayslip.net_amount)}?
+              Excluir o contracheque de {deletePayslipRecord.employer} (competência{" "}
+              {dateFmt.format(new Date(`${deletePayslipRecord.competence}T12:00:00`))}), no valor líquido de {money(deletePayslipRecord.net_amount)}?
             </p>
-            {deletePayslip.transaction_id && (
+            {deletePayslipRecord.transaction_id && (
               <p className="form-error">
                 Este contracheque está liquidado: a receita correspondente também será removida do caixa.
               </p>

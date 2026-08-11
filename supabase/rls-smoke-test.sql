@@ -42,8 +42,12 @@ declare
   context_a uuid;
   payslip_import_a uuid;
   payslip_import_income_a uuid;
+  payslip_duplicate_import_a uuid;
+  payslip_manual_a uuid;
   payslip_first uuid;
   payslip_replay uuid;
+  payslip_income_a uuid;
+  payslip_income_transaction_a uuid;
   payslip_transaction_count integer;
 begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
@@ -831,8 +835,38 @@ begin
   perform public.claim_payslip_document_import(payslip_import_income_a, user_a);
   perform public.finish_payslip_document_import_review(payslip_import_income_a, 'Empregador smoke renda A', date_trunc('month', current_date - interval '1 month')::date, 300000, 50000, 250000, 'payslip', '1', repeat('3', 64));
   perform set_config('request.jwt.claim.role', 'authenticated', true);
-  perform public.apply_payslip_document_import(payslip_import_income_a, jsonb_build_object('employer','Empregador smoke renda A','competence',date_trunc('month',current_date - interval '1 month')::date::text,'grossAmountCents',300000,'discountsAmountCents',50000,'netAmountCents',250000,'sourceFingerprint',repeat('3',64)), current_date, transaction_account_a, context_a);
+  select public.apply_payslip_document_import(payslip_import_income_a, jsonb_build_object('employer','Empregador smoke renda A','competence',date_trunc('month',current_date - interval '1 month')::date::text,'grossAmountCents',300000,'discountsAmountCents',50000,'netAmountCents',250000,'sourceFingerprint',repeat('3',64)), current_date, transaction_account_a, context_a) into payslip_income_a;
+  select transaction_id into payslip_income_transaction_a from public.payslips where id=payslip_income_a;
   if (select count(*) from public.transactions where workspace_id=workspace_a and owner_id=user_a) <> payslip_transaction_count + 1 then raise exception 'payslip with account and date must create one income transaction'; end if;
+
+  insert into public.payslips (workspace_id, owner_id, context_id, employer, competence, gross_amount, discounts_amount, net_amount)
+  values (workspace_a, user_a, context_a, 'Empregador Manual Canonico', date_trunc('month', current_date - interval '2 months')::date, 1000, 100, 900)
+  returning id into payslip_manual_a;
+  select id into payslip_duplicate_import_a from public.create_payslip_document_import('contracheque-duplicado.pdf', 'application/pdf', 102, repeat('4', 64));
+  perform set_config('request.jwt.claim.role', 'service_role', true);
+  perform public.claim_payslip_document_import(payslip_duplicate_import_a, user_a);
+  perform public.finish_payslip_document_import_review(payslip_duplicate_import_a, ' empregador   manual canonico ', date_trunc('month', current_date - interval '2 months')::date, 100000, 10000, 90000, 'payslip', '1', repeat('4', 64));
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  select count(*) into payslip_transaction_count from public.transactions where workspace_id=workspace_a and owner_id=user_a;
+  begin
+    perform public.apply_payslip_document_import(payslip_duplicate_import_a, jsonb_build_object('employer',' empregador   manual canonico ','competence',date_trunc('month',current_date - interval '2 months')::date::text,'grossAmountCents',100000,'discountsAmountCents',10000,'netAmountCents',90000,'sourceFingerprint',repeat('4',64)), current_date, transaction_account_a, context_a);
+    raise exception 'manual canonical duplicate unexpectedly applied';
+  exception when unique_violation then null;
+  end;
+  if (select count(*) from public.transactions where workspace_id=workspace_a and owner_id=user_a) <> payslip_transaction_count
+     or not exists (select 1 from public.payslip_document_imports where id=payslip_duplicate_import_a and status='pending_review') then raise exception 'duplicate apply must roll back income transaction and preserve review'; end if;
+
+  perform set_config('request.jwt.claim.sub', user_b::text, true);
+  begin
+    perform public.delete_payslip(payslip_first);
+    raise exception 'user B can delete user A payslip';
+  exception when no_data_found or insufficient_privilege then null;
+  end;
+  perform set_config('request.jwt.claim.sub', user_a::text, true);
+  perform public.delete_payslip(payslip_income_a);
+  if exists (select 1 from public.payslips where id=payslip_income_a)
+     or exists (select 1 from public.transactions where id=payslip_income_transaction_a)
+     or not exists (select 1 from public.payslip_document_imports where id=payslip_import_income_a and status='discarded' and result_payslip_id is null) then raise exception 'payslip delete must atomically remove transaction and leave discarded tombstone'; end if;
 
   delete from public.accounts
   where id = account_a and workspace_id = workspace_a and owner_id = user_a;

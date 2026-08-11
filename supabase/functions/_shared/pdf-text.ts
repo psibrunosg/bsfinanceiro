@@ -20,7 +20,7 @@ export async function extractSelectablePdfText(bytes: Uint8Array): Promise<{ tex
     if (document.numPages > MAX_PAGES) fail("pdf_too_many_pages");
     const extracted = await extractText(document, { mergePages: true });
     rawText = extracted.text;
-    const text = rawText.replace(/\s+/g, " ").trim();
+    const text = rawText.split(/\r?\n/).map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n");
     if (!text) fail("pdf_without_selectable_text");
     rawText = "";
     return { text, totalPages: extracted.totalPages };

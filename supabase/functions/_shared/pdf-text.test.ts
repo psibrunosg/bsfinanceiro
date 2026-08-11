@@ -47,9 +47,14 @@ afterEach(async () => {
 
 test("extracts normalized selectable text from a real one-page PDF", async () => {
   await expect((await extractor())(textualPdf())).resolves.toEqual({
-    text: "Fatura Santander Agosto 2026",
+    text: "Fatura Santander\nAgosto 2026",
     totalPages: 1,
   });
+});
+
+test("preserves line boundaries while normalizing selectable text", async () => {
+  const { extract } = await mockExtractor({ pages: 1, text: "EMPREGADOR: ACME\n  COMPETÊNCIA: 07/2026" });
+  await expect(extract(textualPdf())).resolves.toEqual({ text: "EMPREGADOR: ACME\nCOMPETÊNCIA: 07/2026", totalPages: 1 });
 });
 
 test("rejects bytes without a PDF header", async () => {

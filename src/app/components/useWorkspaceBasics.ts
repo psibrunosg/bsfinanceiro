@@ -45,13 +45,18 @@ export function useWorkspaceBasics(): WorkspaceBasics {
       return;
     }
 
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("active_workspace_id")
+      .eq("id", user.id)
+      .maybeSingle();
+    const activeWorkspaceId = profile?.active_workspace_id;
     const { data: ws } = await supabase
       .from("workspaces")
       .select("id,name")
       .eq("owner_id", user.id)
       .eq("kind", "personal")
-      .order("created_at")
-      .limit(1)
+      .eq("id", activeWorkspaceId ?? "00000000-0000-0000-0000-000000000000")
       .maybeSingle();
     if (!ws) {
       window.location.replace(appPath("/onboarding"));

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parsePayslip } from "./payslip";
+import { extractSelectablePdfText } from "./pdf-text";
+import { textualPdfWithText } from "./pdf-test-fixture";
 
 const payslip = `
   CONTRACHEQUE
@@ -28,6 +30,16 @@ describe("parsePayslip", () => {
     const second = await parsePayslip(payslip.replace("PROVENTOS R$", "PROVENTOS\nR$"));
     expect(first.sourceFingerprint).toMatch(/^[a-f0-9]{64}$/);
     expect(second.sourceFingerprint).toBe(first.sourceFingerprint);
+  });
+
+  it("parses the flattened text returned by the selectable-PDF extractor", async () => {
+    const fixture = `CONTRACHEQUE\nEMPREGADOR: ACME SERVICOS LTDA\nCOMPETENCIA: 07/2026\nPROVENTOS R$ 5.000,00\nDESCONTOS R$ 1.250,00\nVALOR LIQUIDO R$ 3.750,00`;
+    const { text } = await extractSelectablePdfText(textualPdfWithText(fixture));
+    await expect(parsePayslip(text)).resolves.toMatchObject({
+      employer: "ACME SERVICOS LTDA",
+      competence: "2026-07-01",
+      netAmountCents: 375000,
+    });
   });
 
   it.each([

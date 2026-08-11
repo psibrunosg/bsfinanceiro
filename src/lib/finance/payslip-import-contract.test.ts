@@ -7,6 +7,7 @@ const migration = readFileSync(resolve(root, "supabase/migrations/20260811000003
 const worker = readFileSync(resolve(root, "supabase/functions/process-payslip-document-import/index.ts"), "utf8");
 const cleanup = readFileSync(resolve(root, "supabase/functions/cleanup-payslip-document-imports/index.ts"), "utf8");
 const smoke = readFileSync(resolve(root, "supabase/rls-smoke-test.sql"), "utf8");
+const hardening = readFileSync(resolve(root, "supabase/migrations/20260811000004_harden_payslip_document_imports.sql"), "utf8");
 
 describe("payslip document import contracts", () => {
   it("keeps the temporary bucket private, owner-scoped and distinct from manual attachments", () => {
@@ -42,5 +43,13 @@ describe("payslip document import contracts", () => {
     expect(smoke).toContain("user B can apply user A payslip import");
     expect(smoke).toContain("payslip replay without cash");
     expect(smoke).toContain("payslip with account and date must create one income transaction");
+  });
+
+  it("uses a canonical employer key and one atomic delete path for manual and imported payslips", () => {
+    expect(hardening).toContain("normalize_payslip_employer");
+    expect(hardening).toContain("unique (workspace_id, owner_id, employer_key, competence)");
+    expect(hardening).toContain("function public.delete_payslip");
+    expect(hardening).toContain("status = 'discarded'");
+    expect(hardening).toContain("delete from public.transactions");
   });
 });
