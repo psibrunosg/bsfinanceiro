@@ -120,7 +120,7 @@ create or replace function public.finish_payslip_document_import_failed(p_import
 language plpgsql security definer set search_path = '' as $$
 begin
   if (select auth.role()) <> 'service_role' then raise exception 'service role required' using errcode = '28000'; end if;
-  update public.payslip_document_imports set status='failed',error_code=coalesce(nullif(btrim(p_error_code),''),'processing_failed'),completed_at=now() where id=p_import_id and status='processing';
+  update public.payslip_document_imports set status='failed',error_code=coalesce(nullif(btrim(p_error_code),''),'processing_failed'),started_at=coalesce(started_at,now()),completed_at=now() where id=p_import_id and (status = 'processing' or (status = 'pending' and expires_at <= now()));
   if not found then raise exception 'processing import not found' using errcode = 'P0002'; end if;
 end; $$;
 

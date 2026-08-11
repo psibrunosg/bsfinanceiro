@@ -33,6 +33,7 @@ describe("payslip document import contracts", () => {
     expect(worker).toContain("state_persistence_failed");
     expect(worker).toContain("cleanup_failed");
     expect(cleanup).not.toContain('.from("payslip_document_imports").delete()');
+    expect(migration).toContain("status = 'processing' or (status = 'pending' and expires_at <= now())");
   });
 
   it("exercises cross-owner denial, replay and optional cash creation in SQL smoke", () => {
