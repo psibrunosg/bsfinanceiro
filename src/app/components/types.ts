@@ -83,6 +83,19 @@ export type StatementImportItem = {
   needs_review: boolean;
   source_fingerprint: string;
 };
+export type PayslipDocumentImport = {
+  id: string;
+  file_name: string;
+  status: "pending" | "processing" | "pending_review" | "imported" | "failed" | "discarded";
+  error_code: string | null;
+  employer: string | null;
+  competence: string | null;
+  gross_amount_cents: number | null;
+  discounts_amount_cents: number | null;
+  net_amount_cents: number | null;
+  source_fingerprint: string | null;
+  result_payslip_id: string | null;
+};
 export type TransactionImportItem = {
   id: string;
   batch_id: string;

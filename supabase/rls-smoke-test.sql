@@ -39,6 +39,12 @@ declare
   statement_first uuid[];
   statement_replay uuid[];
   statement_purchase_count integer;
+  context_a uuid;
+  payslip_import_a uuid;
+  payslip_import_income_a uuid;
+  payslip_first uuid;
+  payslip_replay uuid;
+  payslip_transaction_count integer;
 begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
@@ -795,6 +801,38 @@ begin
   exception when data_exception then null;
   end;
   if (select count(*) from public.credit_card_purchases where credit_card_id = statement_card_a) <> statement_purchase_count or not exists (select 1 from public.credit_card_statement_imports where id = statement_import_atomic and status = 'pending_review') then raise exception 'statement apply must be atomic'; end if;
+
+  select id into context_a from public.financial_contexts where workspace_id = workspace_a and owner_id = user_a and active order by kind limit 1;
+  if context_a is null then raise exception 'smoke workspace needs an active financial context'; end if;
+  select id into payslip_import_a from public.create_payslip_document_import('contracheque-a.pdf', 'application/pdf', 100, repeat('f', 64));
+  perform set_config('request.jwt.claim.role', 'service_role', true);
+  perform public.claim_payslip_document_import(payslip_import_a, user_a);
+  perform public.finish_payslip_document_import_review(payslip_import_a, 'Empregador smoke A', date_trunc('month', current_date)::date, 500000, 125000, 375000, 'payslip', '1', repeat('1', 64));
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  begin
+    update public.payslip_document_imports set status = 'imported' where id = payslip_import_a;
+    raise exception 'owner can directly mutate protected payslip import';
+  exception when insufficient_privilege then null;
+  end;
+  perform set_config('request.jwt.claim.sub', user_b::text, true);
+  if exists (select 1 from public.payslip_document_imports where id = payslip_import_a) then raise exception 'user B can read user A payslip import'; end if;
+  begin
+    perform public.apply_payslip_document_import(payslip_import_a, '{}'::jsonb, null, null, context_a);
+    raise exception 'user B can apply user A payslip import';
+  exception when no_data_found or insufficient_privilege then null;
+  end;
+  perform set_config('request.jwt.claim.sub', user_a::text, true);
+  select public.apply_payslip_document_import(payslip_import_a, jsonb_build_object('employer','Empregador smoke A','competence',date_trunc('month',current_date)::date::text,'grossAmountCents',500000,'discountsAmountCents',125000,'netAmountCents',375000,'sourceFingerprint',repeat('1',64)), null, null, context_a) into payslip_first;
+  select public.apply_payslip_document_import(payslip_import_a, jsonb_build_object('employer','Empregador smoke A','competence',date_trunc('month',current_date)::date::text,'grossAmountCents',500000,'discountsAmountCents',125000,'netAmountCents',375000,'sourceFingerprint',repeat('1',64)), null, null, context_a) into payslip_replay;
+  if payslip_first is distinct from payslip_replay or exists (select 1 from public.payslips where id=payslip_first and transaction_id is not null) then raise exception 'payslip replay without cash must be durable and transaction-free'; end if;
+  select count(*) into payslip_transaction_count from public.transactions where workspace_id=workspace_a and owner_id=user_a;
+  select id into payslip_import_income_a from public.create_payslip_document_import('contracheque-renda-a.pdf', 'application/pdf', 101, repeat('2', 64));
+  perform set_config('request.jwt.claim.role', 'service_role', true);
+  perform public.claim_payslip_document_import(payslip_import_income_a, user_a);
+  perform public.finish_payslip_document_import_review(payslip_import_income_a, 'Empregador smoke renda A', date_trunc('month', current_date - interval '1 month')::date, 300000, 50000, 250000, 'payslip', '1', repeat('3', 64));
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  perform public.apply_payslip_document_import(payslip_import_income_a, jsonb_build_object('employer','Empregador smoke renda A','competence',date_trunc('month',current_date - interval '1 month')::date::text,'grossAmountCents',300000,'discountsAmountCents',50000,'netAmountCents',250000,'sourceFingerprint',repeat('3',64)), current_date, transaction_account_a, context_a);
+  if (select count(*) from public.transactions where workspace_id=workspace_a and owner_id=user_a) <> payslip_transaction_count + 1 then raise exception 'payslip with account and date must create one income transaction'; end if;
 
   delete from public.accounts
   where id = account_a and workspace_id = workspace_a and owner_id = user_a;

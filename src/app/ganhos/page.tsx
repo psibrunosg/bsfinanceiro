@@ -12,6 +12,7 @@ import { DashboardChart } from "../components/DashboardChart";
 import { PeriodFilter, periodRange, type PeriodKey } from "../components/PeriodFilter";
 import { useToast } from "../components/Toast";
 import { createClient } from "@/lib/supabase/client";
+import type { PayslipDocumentImport } from "../components/types";
 import { TrendingUp, Plus, Pencil, Trash2, Archive } from "lucide-react";
 
 type Tab = "overview" | "payslips" | "patients" | "other";
@@ -58,6 +59,8 @@ type DialogState =
   | { kind: "patient" }
   | { kind: "earning"; patientId: string }
   | { kind: "payslip" }
+  | { kind: "import-payslip" }
+  | { kind: "review-payslip"; importId: string }
   | { kind: "receive"; earningId: string }
   | { kind: "other" }
   | { kind: "edit-payslip"; payslip: Payslip }
@@ -85,6 +88,7 @@ export default function GanhosPage() {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [payslips, setPayslips] = useState<Payslip[]>([]);
+  const [payslipImports, setPayslipImports] = useState<PayslipDocumentImport[]>([]);
   const [earnings, setEarnings] = useState<PatientEarning[]>([]);
   const [otherIncome, setOtherIncome] = useState<OtherIncome[]>([]);
   const [contexts, setContexts] = useState<FinancialContext[]>([]);
@@ -103,6 +107,7 @@ export default function GanhosPage() {
         { data: contextRows },
         { data: patientRows },
         { data: payslipRows },
+        { data: payslipImportRows },
         { data: earningRows },
         { data: incomeRows },
       ] = await Promise.all([
@@ -124,6 +129,12 @@ export default function GanhosPage() {
           .order("competence", { ascending: false })
           .limit(50),
         supabase
+          .from("payslip_document_imports")
+          .select("id,file_name,status,error_code,employer,competence,gross_amount_cents,discounts_amount_cents,net_amount_cents,source_fingerprint,result_payslip_id")
+          .eq("workspace_id", workspace.id)
+          .order("created_at", { ascending: false })
+          .limit(10),
+        supabase
           .from("patient_earnings")
           .select("id,patient_id,amount,appointment_date,due_date,status,transaction_id,notes,created_at")
           .eq("workspace_id", workspace.id)
@@ -144,6 +155,7 @@ export default function GanhosPage() {
       setContexts(contextRows ?? []);
       setPatients(patientRows ?? []);
       setPayslips(payslipRows ?? []);
+      setPayslipImports((payslipImportRows ?? []) as PayslipDocumentImport[]);
       setEarnings(earningRows ?? []);
       setOtherIncome(incomeRows ?? []);
     } finally {
@@ -190,6 +202,8 @@ export default function GanhosPage() {
     dialog?.kind === "patient" ? "Cadastrar paciente"
       : dialog?.kind === "earning" ? "Registrar atendimento"
         : dialog?.kind === "payslip" ? "Cadastrar contracheque"
+          : dialog?.kind === "import-payslip" ? "Importar PDF de contracheque"
+            : dialog?.kind === "review-payslip" ? "Revisar contracheque importado"
           : dialog?.kind === "receive" ? "Registrar recebimento"
             : dialog?.kind === "other" ? "Registrar receita"
               : dialog?.kind === "edit-payslip" ? "Editar contracheque"
@@ -213,6 +227,9 @@ export default function GanhosPage() {
   const deleteOther = dialog?.kind === "delete-other" ? dialog.income : null;
   const deactivatePatient =
     dialog?.kind === "deactivate-patient" ? dialog.patient : null;
+  const reviewPayslipImport = dialog?.kind === "review-payslip"
+    ? payslipImports.find((item) => item.id === dialog.importId) ?? null
+    : null;
 
   // Recorte de período: `start` inclusivo, `end` exclusivo; sem limites em "Todo o período".
   const range = periodRange(period);
@@ -376,6 +393,67 @@ export default function GanhosPage() {
       return;
     }
     toast("Contracheque cadastrado.");
+    setDialog(null);
+    await loadHub();
+  }
+
+  async function submitPayslipDocument(form: FormData) {
+    const file = form.get("document") as File | null;
+    if (!file || file.size === 0 || file.type !== "application/pdf" || file.size > 10 * 1024 * 1024) {
+      toast("Escolha um PDF de até 10 MB.", "error");
+      return;
+    }
+    const checksum = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer())), (value) => value.toString(16).padStart(2, "0")).join("");
+    const { data: rows, error: createError } = await supabase.rpc("create_payslip_document_import", {
+      p_file_name: file.name, p_content_type: file.type, p_size_bytes: file.size, p_sha256: checksum,
+    });
+    const job = Array.isArray(rows) ? rows[0] : rows;
+    if (createError || !job) {
+      toast("Não foi possível preparar a importação.", "error");
+      return;
+    }
+    if (job.status === "pending") {
+      const { error: uploadError } = await supabase.storage.from("payslip-document-imports").upload(job.storage_path, file, { contentType: "application/pdf", upsert: false });
+      if (uploadError) {
+        toast("Não foi possível enviar o PDF para revisão.", "error");
+        return;
+      }
+      const { error: queueError } = await supabase.rpc("queue_payslip_document_import", { p_import_id: job.id });
+      if (queueError) {
+        toast("O PDF foi enviado, mas não pôde ser preparado.", "error");
+        return;
+      }
+      const { error: processError } = await supabase.functions.invoke("process-payslip-document-import", { body: { importId: job.id } });
+      if (processError) toast("PDF enviado; a análise poderá ser retomada em breve.", "error");
+    }
+    setDialog(null);
+    await loadHub();
+  }
+
+  async function applyPayslipDocument(importItem: PayslipDocumentImport, form: FormData) {
+    const grossAmountCents = Math.round(parseMoney(form.get("gross_amount")) * 100);
+    const discountsAmountCents = Math.round(parseMoney(form.get("discounts_amount")) * 100);
+    const netAmountCents = Math.round(parseMoney(form.get("net_amount")) * 100);
+    const receivedDate = String(form.get("received_date") || "") || null;
+    const accountId = String(form.get("account_id") || "") || null;
+    const contextId = String(form.get("context_id") || "") || null;
+    if (grossAmountCents - discountsAmountCents !== netAmountCents || (receivedDate === null) !== (accountId === null) || !contextId || !importItem.source_fingerprint) {
+      toast("Revise os valores, contexto e conta/data de recebimento.", "error");
+      return;
+    }
+    const { error } = await supabase.rpc("apply_payslip_document_import", {
+      p_import_id: importItem.id,
+      p_candidate: {
+        employer: form.get("employer"), competence: form.get("competence"), grossAmountCents,
+        discountsAmountCents, netAmountCents, sourceFingerprint: importItem.source_fingerprint,
+      },
+      p_received_date: receivedDate, p_account_id: accountId, p_context_id: contextId,
+    });
+    if (error) {
+      toast(error.message.includes("duplicate_payslip") ? "Já existe um contracheque para este empregador e competência." : "Não foi possível confirmar a importação.", "error");
+      return;
+    }
+    toast(receivedDate ? "Contracheque e receita confirmados." : "Contracheque confirmado sem criar receita.");
     setDialog(null);
     await loadHub();
   }
@@ -620,6 +698,21 @@ export default function GanhosPage() {
 
       {tab === "payslips" && (
         <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button type="button" className="btn-primary" onClick={() => setDialog({ kind: "import-payslip" })}>Importar PDF</button>
+            <span className="muted">A análise cria uma prévia; o cadastro manual continua separado.</span>
+          </div>
+          {payslipImports.length > 0 && (
+            <section aria-live="polite" aria-label="Importações de contracheque" className="list">
+              {payslipImports.map((item) => (
+                <article key={item.id} className="list-row">
+                  <span>{item.file_name} · {item.status === "pending_review" ? "pronto para revisão" : item.status}</span>
+                  {item.status === "pending_review" && <button type="button" className="btn-primary" onClick={() => setDialog({ kind: "review-payslip", importId: item.id })}>Revisar</button>}
+                  {item.status === "failed" && <span className="form-error">{item.error_code ?? "Não foi possível analisar o PDF."}</span>}
+                </article>
+              ))}
+            </section>
+          )}
           <List title="Contracheques">
             {periodPayslips.length === 0 && (
               <p className="dashboard-empty">Nenhum contracheque cadastrado.{" "}
@@ -763,6 +856,42 @@ export default function GanhosPage() {
             <label htmlFor="payslip-notes">Observação</label>
             <input id="payslip-notes" name="notes" placeholder="Observação" />
             <button>Cadastrar contracheque</button>
+          </SimpleForm>
+        )}
+        {dialog?.kind === "import-payslip" && (
+          <SimpleForm key="import-payslip" onSubmit={submitPayslipDocument}>
+            <p className="muted">Use um PDF textual. O arquivo é temporário e os dados só entram após sua revisão.</p>
+            <label htmlFor="payslip-import-document">PDF do contracheque</label>
+            <input id="payslip-import-document" name="document" type="file" accept="application/pdf" required autoFocus />
+            <button>Importar PDF</button>
+          </SimpleForm>
+        )}
+        {reviewPayslipImport && (
+          <SimpleForm key={`review-payslip-${reviewPayslipImport.id}`} onSubmit={(form) => applyPayslipDocument(reviewPayslipImport, form)}>
+            <p className="muted">Confira os dados antes de confirmar. Sem data e conta, nenhum lançamento de receita será criado.</p>
+            <label htmlFor="import-payslip-employer">Empregador</label>
+            <input id="import-payslip-employer" name="employer" defaultValue={reviewPayslipImport.employer ?? ""} maxLength={120} required autoFocus />
+            <label htmlFor="import-payslip-competence">Competência</label>
+            <input id="import-payslip-competence" name="competence" type="date" defaultValue={reviewPayslipImport.competence ?? ""} required />
+            <label htmlFor="import-payslip-gross">Valor bruto</label>
+            <input id="import-payslip-gross" name="gross_amount" defaultValue={moneyInput(Number(reviewPayslipImport.gross_amount_cents ?? 0) / 100)} required />
+            <label htmlFor="import-payslip-discounts">Descontos</label>
+            <input id="import-payslip-discounts" name="discounts_amount" defaultValue={moneyInput(Number(reviewPayslipImport.discounts_amount_cents ?? 0) / 100)} required />
+            <label htmlFor="import-payslip-net">Valor líquido</label>
+            <input id="import-payslip-net" name="net_amount" defaultValue={moneyInput(Number(reviewPayslipImport.net_amount_cents ?? 0) / 100)} required />
+            <label htmlFor="import-payslip-context">Contexto</label>
+            <select id="import-payslip-context" name="context_id" defaultValue={defaultContextId ?? ""} required>
+              <option value="">Escolha um contexto</option>
+              {contexts.map((c) => <option key={c.id} value={c.id}>{contextLabel(c)}</option>)}
+            </select>
+            <label htmlFor="import-payslip-date">Data de recebimento (opcional)</label>
+            <input id="import-payslip-date" name="received_date" type="date" />
+            <label htmlFor="import-payslip-account">Conta de recebimento (opcional)</label>
+            <select id="import-payslip-account" name="account_id" defaultValue="">
+              <option value="">Sem criar receita</option>
+              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            <button>Confirmar contracheque</button>
           </SimpleForm>
         )}
         {receiveDialog && receiveEarning && (
