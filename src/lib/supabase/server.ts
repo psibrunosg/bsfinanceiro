@@ -13,8 +13,8 @@ export async function createClient() {
           try {
             items.forEach(({ name, value, options }) => store.set(name, value, options));
           } catch {
-            // ponytail: set() throws in Server Components; safe to ignore —
-            // middleware session refresh handles cookie writes there.
+            // set() throws in Server Components; safe to ignore —
+            // sessão é renovada no cliente (não há middleware neste app estático).
           }
         },
       },
