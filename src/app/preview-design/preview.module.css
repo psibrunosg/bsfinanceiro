@@ -1,0 +1,228 @@
+/* Dark Premium Base */
+.layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: #0B0E14;
+  color: #E2E8F0;
+  font-family: "Source Sans 3", system-ui, sans-serif;
+}
+
+.sidebar {
+  width: 260px;
+  background-color: #11151F;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: Lexend, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin-bottom: 40px;
+}
+
+.brandIcon {
+  background: linear-gradient(135deg, #10B981, #059669);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  color: #94A3B8;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #FFFFFF;
+}
+
+.menuItem.active {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #10B981;
+}
+
+.previewContainer {
+  flex: 1;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  overflow-y: auto;
+}
+
+.header {
+  margin-bottom: 20px;
+}
+
+.header h1 {
+  font-family: Lexend, sans-serif;
+  font-size: 2rem;
+  color: #FFFFFF;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.header p {
+  color: #94A3B8;
+  margin-top: 8px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sectionTitle {
+  font-family: Lexend, sans-serif;
+  font-size: 1.5rem;
+  color: #F8FAFC;
+  margin: 0;
+}
+
+/* Glassmorphism Cards (Accounts/Cards style) */
+.glassCard {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+/* Dynamic Colorful Cards (Dashboard/Budgets style) */
+.dynamicCard {
+  border-radius: 24px;
+  padding: 24px;
+  color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.cardGradient1 {
+  background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+}
+
+.cardGradient2 {
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+}
+
+.cardGradient3 {
+  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+}
+
+.cardGradient4 {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+}
+
+.dynamicCardTitle {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.dynamicCardValue {
+  font-family: Lexend, sans-serif;
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* Progress Bars */
+.progressContainer {
+  margin-top: 16px;
+}
+
+.progressLabel {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  opacity: 0.9;
+}
+
+.progressBarTrack {
+  height: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  background: #FFFFFF;
+  border-radius: 4px;
+}
+
+/* Card details (Accounts) */
+.accountName {
+  font-family: Lexend, sans-serif;
+  font-size: 1.2rem;
+  color: #F8FAFC;
+  margin-bottom: 4px;
+}
+
+.accountType {
+  font-size: 0.85rem;
+  color: #94A3B8;
+  margin-bottom: 16px;
+}
+
+.accountBalance {
+  font-family: Lexend, sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.cardIcon {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  opacity: 0.2;
+}
+
+.glassCardInner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
