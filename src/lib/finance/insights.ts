@@ -3,7 +3,10 @@
  * All functions are pure — they take data and return text insights.
  */
 
-type Transaction = {
+import { addMonths } from "./local-date";
+import { filterOutTransfers, type TransferTransaction } from "./transfers";
+
+type Transaction = TransferTransaction & {
   type: string;
   amount: string | number;
   competence_date: string;
@@ -38,25 +41,27 @@ export function generateInsights(
   currentMonth: string,
 ): Insight[] {
   const insights: Insight[] = [];
+  const nextMonth = addMonths(currentMonth, 1);
+  const nonTransfers = filterOutTransfers(transactions, categories, accounts);
 
   // 1. Variação vs período anterior
-  const variation = comparePeriods(transactions, currentMonth);
+  const variation = comparePeriods(nonTransfers, currentMonth, nextMonth);
   if (variation) insights.push(variation);
 
   // 2. Maior categoria de gasto
-  const topCategory = topExpenseCategory(transactions, categories, currentMonth);
+  const topCategory = topExpenseCategory(nonTransfers, categories, currentMonth, nextMonth);
   if (topCategory) insights.push(topCategory);
 
   // 3. Peso das despesas fixas vs variáveis
-  const fixedWeight = fixedExpenseWeight(transactions, currentMonth);
+  const fixedWeight = fixedExpenseWeight(nonTransfers, currentMonth, nextMonth);
   if (fixedWeight) insights.push(fixedWeight);
 
   // 4. Saldo das contas
-  const accountSummary = accountBalanceSummary(accounts, transactions);
+  const accountSummary = accountBalanceSummary(accounts, nonTransfers);
   if (accountSummary) insights.push(accountSummary);
 
   // 5. Receitas vs despesas do mês
-  const ratio = incomeExpenseRatio(transactions, currentMonth);
+  const ratio = incomeExpenseRatio(nonTransfers, currentMonth, nextMonth);
   if (ratio) insights.push(ratio);
 
   return insights.slice(0, 4); // Max 4 insights
@@ -65,8 +70,9 @@ export function generateInsights(
 function comparePeriods(
   transactions: Transaction[],
   currentMonth: string,
+  nextMonth: string,
 ): Insight | null {
-  const current = monthTotals(transactions, currentMonth);
+  const current = monthTotals(transactions, currentMonth, nextMonth);
   const prev = previousMonth(transactions, currentMonth);
   if (!prev || prev.total === 0) return null;
 
@@ -86,9 +92,10 @@ function topExpenseCategory(
   transactions: Transaction[],
   categories: Category[],
   currentMonth: string,
+  nextMonth: string,
 ): Insight | null {
   const expenses = transactions.filter(
-    (t) => t.type === "expense" && t.competence_date >= currentMonth,
+    (t) => t.type === "expense" && t.competence_date >= currentMonth && t.competence_date < nextMonth,
   );
   if (expenses.length === 0) return null;
 
@@ -123,9 +130,10 @@ function topExpenseCategory(
 function fixedExpenseWeight(
   transactions: Transaction[],
   currentMonth: string,
+  nextMonth: string,
 ): Insight | null {
   const expenses = transactions.filter(
-    (t) => t.type === "expense" && t.competence_date >= currentMonth,
+    (t) => t.type === "expense" && t.competence_date >= currentMonth && t.competence_date < nextMonth,
   );
   if (expenses.length === 0) return null;
 
@@ -133,7 +141,7 @@ function fixedExpenseWeight(
   // For now, just report total expense ratio
   const total = expenses.reduce((sum, t) => sum + Number(t.amount), 0);
   const income = transactions
-    .filter((t) => t.type === "income" && t.competence_date >= currentMonth)
+    .filter((t) => t.type === "income" && t.competence_date >= currentMonth && t.competence_date < nextMonth)
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
   if (income === 0) return null;
@@ -178,12 +186,13 @@ function accountBalanceSummary(
 function incomeExpenseRatio(
   transactions: Transaction[],
   currentMonth: string,
+  nextMonth: string,
 ): Insight | null {
   const income = transactions
-    .filter((t) => t.type === "income" && t.competence_date >= currentMonth)
+    .filter((t) => t.type === "income" && t.competence_date >= currentMonth && t.competence_date < nextMonth)
     .reduce((sum, t) => sum + Number(t.amount), 0);
   const expense = transactions
-    .filter((t) => t.type === "expense" && t.competence_date >= currentMonth)
+    .filter((t) => t.type === "expense" && t.competence_date >= currentMonth && t.competence_date < nextMonth)
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
   if (income === 0 && expense === 0) return null;
@@ -195,9 +204,9 @@ function incomeExpenseRatio(
   };
 }
 
-function monthTotals(transactions: Transaction[], month: string) {
+function monthTotals(transactions: Transaction[], month: string, nextMonth: string) {
   const filtered = transactions.filter(
-    (t) => t.competence_date >= month && t.type === "expense",
+    (t) => t.competence_date >= month && t.competence_date < nextMonth && t.type === "expense",
   );
   return {
     total: filtered.reduce((sum, t) => sum + Number(t.amount), 0),
@@ -218,5 +227,5 @@ function previousMonth(transactions: Transaction[], currentMonth: string): { tot
 }
 
 function formatBRL(value: number): string {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value / 100);
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }

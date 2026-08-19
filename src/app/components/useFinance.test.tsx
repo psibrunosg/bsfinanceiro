@@ -115,7 +115,9 @@ function resolveQuery(state: QueryState, single = false) {
       }),
     };
   }
-  if (status === "paid") {
+  const isFullAccountsLoad =
+    status === undefined && state.rangeValue && state.selectOptions?.count !== "exact";
+  if (status === "paid" || isFullAccountsLoad) {
     const start = state.rangeValue?.[0] ?? 0;
     return {
       data:
@@ -143,16 +145,6 @@ function resolveQuery(state: QueryState, single = false) {
       ],
     };
   }
-  if (state.limitValue === 30) {
-    return {
-      data: Array.from({ length: 30 }, (_, index) =>
-        transaction(`recent-${index}`, {
-          competence_date: "2026-07-29",
-        }),
-      ),
-    };
-  }
-
   return {
     data: [
       transaction("history-row", {
@@ -329,7 +321,7 @@ describe("useFinance transaction loading", () => {
     expect(result.current.transactionTotal).toBe(51);
   });
 
-  it("keeps complete dashboard data separate from the recent list", async () => {
+  it("exposes the complete paid+planned dataset for client-side aggregation", async () => {
     const { result } = renderHook(() => useFinance("dashboard"));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -348,12 +340,6 @@ describe("useFinance transaction loading", () => {
       [500, 999],
     ]);
     expect(
-      transactionQueries.find((query) => query.limitValue === 30)?.orders,
-    ).toEqual([
-      ["competence_date", false],
-      ["id", false],
-    ]);
-    expect(
       transactionQueries.find(
         (query) =>
           filterValue(query, "eq", "status") === "planned" &&
@@ -365,7 +351,8 @@ describe("useFinance transaction loading", () => {
         ["lte", "competence_date", "2026-10-03"],
       ]),
     );
-    expect(result.current.transactions).toHaveLength(30);
+    // 500 paid rows + 1 older paid row + 1 planned expense + 1 planned income.
+    expect(result.current.transactions).toHaveLength(503);
     expect(result.current.cashPosition.balanceCents).toBe(-401_00);
   });
 
@@ -383,7 +370,7 @@ describe("useFinance transaction loading", () => {
   });
 
   it("keeps a small recent query on lightweight routes", async () => {
-    const { result } = renderHook(() => useFinance("accounts"));
+    const { result } = renderHook(() => useFinance("planning"));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -391,5 +378,23 @@ describe("useFinance transaction loading", () => {
       (query) => query.table === "transactions",
     );
     expect(transactionQuery?.limitValue).toBe(30);
+  });
+
+  it("loads the full transaction history for account balances", async () => {
+    const { result } = renderHook(() => useFinance("accounts"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const transactionQueries = mocks.queries.filter(
+      (query) => query.table === "transactions",
+    );
+    expect(transactionQueries.map((query) => query.rangeValue)).toEqual([
+      [0, 499],
+      [500, 999],
+    ]);
+    expect(transactionQueries.some((query) => query.limitValue === 30)).toBe(
+      false,
+    );
+    expect(result.current.transactions).toHaveLength(501);
   });
 });

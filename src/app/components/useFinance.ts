@@ -289,17 +289,10 @@ export function useFinance(
         return rows;
       };
 
-      const [paidRows, plannedExpenseRows, recentResult, materializedResults] =
+      const [paidRows, plannedExpenseRows, materializedResults] =
         await Promise.all([
           loadAllDashboardTransactions("paid"),
           loadAllDashboardTransactions("planned"),
-          supabase
-            .from("transactions")
-            .select(TRANSACTION_SELECT)
-            .eq("workspace_id", ws.id)
-            .order("competence_date", { ascending: false })
-            .order("id", { ascending: false })
-            .limit(30),
           Promise.all(
             monthStartsThroughDate(today, cutoff).map((month) =>
               supabase.rpc("materialize_fixed_commitment_occurrences", {
@@ -310,12 +303,14 @@ export function useFinance(
           ),
         ]);
 
-      visibleTransactionRows = (recentResult.data ?? []) as Transaction[];
       upcomingTransactionRows = [
         ...plannedExpenseRows,
         ...(nextIncome ? [nextIncome] : []),
       ];
       calculationTransactionRows = [...paidRows, ...upcomingTransactionRows];
+      // Consumidores (Dashboard, Saúde, Relatórios) fazem agregação mensal
+      // client-side sobre o dataset inteiro — não só os últimos 30 lançamentos.
+      visibleTransactionRows = calculationTransactionRows;
       occurrenceRows = materializedResults.flatMap(
         (result) => (result.data ?? []) as Occurrence[],
       );
@@ -347,6 +342,23 @@ export function useFinance(
       visibleTransactionRows = (data ?? []) as Transaction[];
       historyTotal = count ?? 0;
       importBatchRows = (batches ?? []) as TransactionImportBatch[];
+    } else if (route === "accounts") {
+      // Saldo por conta soma initial_balance + todo o histórico de lançamentos:
+      // uma lista truncada aqui sub-computa o saldo real de contas antigas.
+      const rows: Transaction[] = [];
+      for (let from = 0; ; from += DASHBOARD_QUERY_BATCH_SIZE) {
+        const { data } = await supabase
+          .from("transactions")
+          .select(TRANSACTION_SELECT)
+          .eq("workspace_id", ws.id)
+          .order("competence_date", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, from + DASHBOARD_QUERY_BATCH_SIZE - 1);
+        const batch = (data ?? []) as Transaction[];
+        rows.push(...batch);
+        if (batch.length < DASHBOARD_QUERY_BATCH_SIZE) break;
+      }
+      visibleTransactionRows = rows;
     } else {
       const { data } = await supabase
         .from("transactions")

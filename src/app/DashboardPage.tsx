@@ -36,8 +36,11 @@ export function DashboardPage() {
     const monthTransactions = transactions.filter((t) => t.competence_date >= month && t.competence_date < nextMonth);
     const expensesByCategory = aggregateExpensesByCategory(monthTransactions, categories, month, 5, nextMonth);
     const insights = generateInsights(transactions, categories, accounts, month);
+    const uncategorizedCount = monthTransactions.filter(
+      (t) => !t.category_id && (t.type === "expense" || t.type === "income"),
+    ).length;
 
-    return { balance, monthIncome, monthExpense, expensesByCategory, insights };
+    return { balance, monthIncome, monthExpense, expensesByCategory, insights, uncategorizedCount };
   }, [accounts, categories, transactions, month, nextMonth]);
 
   const dailyDecision = useMemo(() => {
@@ -94,6 +97,13 @@ export function DashboardPage() {
         </div>
       </article>
     </div>
+
+    {metrics.uncategorizedCount > 0 ? (
+      <Link href="/categorias" className="insight-link" style={{ marginBottom: "16px" }}>
+        <span>{metrics.uncategorizedCount} lançamento{metrics.uncategorizedCount > 1 ? "s" : ""} sem categoria este mês<small>Categorize para relatórios e insights precisos</small></span>
+        <ChevronDown aria-hidden="true" />
+      </Link>
+    ) : null}
 
     <details className="dashboard-section" open><summary><div><p className="eyebrow">SAÚDE DO MÊS</p><strong>{money(metrics.balance)} disponível</strong></div><ChevronDown aria-hidden="true" /></summary><div className="dashboard-section__body">
       <div className="metric-grid"><article className="metric positive"><span>Entradas</span><strong>{money(metrics.monthIncome)}</strong></article><article className="metric"><span>Saídas</span><strong>{money(metrics.monthExpense)}</strong></article><article className="metric"><span>Saldo do mês</span><strong>{money(metrics.monthIncome - metrics.monthExpense)}</strong></article></div>

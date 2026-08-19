@@ -25,12 +25,16 @@ export function AccountsPage() {
       </main>
     );
 
+  // Saldo atual conta só o que já foi liquidado — igual ao "disponível" do
+  // painel. Transações "planned" (futuras) não afetam o saldo de hoje.
+  const settledTransactions = transactions.filter((t) => t.status === "paid");
+
   const totalBalance = accounts.reduce((sum, a) => sum + Number(a.initial_balance), 0) +
-    transactions.reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
+    settledTransactions.reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
 
   const balances = accounts.map((a) => ({
     account: a,
-    balance: Number(a.initial_balance) + transactions
+    balance: Number(a.initial_balance) + settledTransactions
       .filter((t) => t.account_id === a.id)
       .reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0),
   }));
