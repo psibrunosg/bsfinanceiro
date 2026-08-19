@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, CircleAlert, Plus, Target, WalletCards } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronDown, CircleAlert, DollarSign, Plus, PiggyBank, Target, TrendingDown, WalletCards } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { currentMonthStart, useMonth } from "./components/MonthContext";
@@ -10,15 +10,67 @@ import { MonthPicker } from "./components/MonthPicker";
 import { money } from "./components/Money";
 import { DashboardChart } from "./components/DashboardChart";
 import { QuickTransactionForm } from "./components/QuickTransactionForm";
-import { aggregateExpensesByCategory, computeDailyDecision } from "@/lib/finance/aggregations";
+import { useCurrentUser } from "./components/useCurrentUser";
+import { createClient } from "@/lib/supabase/client";
+import { appPath } from "@/lib/app-path";
+import { aggregateExpensesByCategory, computeMonthlyFlow, lastNMonths } from "@/lib/finance/aggregations";
 import { generateInsights } from "@/lib/finance/insights";
 
+const ASSET_TYPE_LABEL: Record<string, string> = {
+  stock: "Ações",
+  reit: "FIIs",
+  fund: "Fundos",
+  fixed_income: "Renda fixa",
+  real_estate: "Imóveis",
+};
+
+type InvestmentAsset = { id: string; type: string };
+type InvestmentOperation = { asset_id: string; operation_type: "buy" | "sell"; quantity: number; unit_price: number };
+
 export function DashboardPage() {
-  const { ownerId, workspace, accounts, transactions, categories, defaultCashAccountId, loading, reload } = useFinance("dashboard");
+  const { ownerId, workspace, accounts, transactions, categories, goals, defaultCashAccountId, loading, reload } = useFinance("dashboard");
   const { month, nextMonth } = useMonth();
+  const { displayName, initials } = useCurrentUser();
+  const supabase = useMemo(() => createClient(), []);
   const [quickTransactionStatus, setQuickTransactionStatus] = useState("");
   const [openQuickForm, setOpenQuickForm] = useState(false);
   const [Dialog, setDialog] = useState<React.ElementType | null>(null);
+  const [assets, setAssets] = useState<InvestmentAsset[]>([]);
+  const [operations, setOperations] = useState<InvestmentOperation[]>([]);
+
+  const loadInvestments = useCallback(async () => {
+    if (!workspace) return;
+    const [{ data: assetRows }, { data: operationRows }] = await Promise.all([
+      supabase.from("investment_assets").select("id,type").eq("workspace_id", workspace.id).eq("active", true),
+      supabase.from("investment_operations").select("asset_id,operation_type,quantity,unit_price").eq("workspace_id", workspace.id),
+    ]);
+    setAssets(assetRows ?? []);
+    setOperations(operationRows ?? []);
+  }, [supabase, workspace]);
+
+  useEffect(() => {
+    void loadInvestments();
+  }, [loadInvestments]);
+
+  const investments = useMemo(() => {
+    // ponytail: custo investido (compras - vendas), não valor de mercado —
+    // evoluir pra cotação atual quando o dashboard também consumir investment_quotes.
+    const principalByAsset = new Map<string, number>();
+    for (const op of operations) {
+      const amount = op.quantity * op.unit_price * (op.operation_type === "buy" ? 1 : -1);
+      principalByAsset.set(op.asset_id, (principalByAsset.get(op.asset_id) ?? 0) + amount);
+    }
+    const byType = new Map<string, number>();
+    for (const asset of assets) {
+      const principal = principalByAsset.get(asset.id) ?? 0;
+      if (principal <= 0) continue;
+      byType.set(asset.type, (byType.get(asset.type) ?? 0) + principal);
+    }
+    const allocation = Array.from(byType, ([type, value]) => ({ label: ASSET_TYPE_LABEL[type] ?? type, value }))
+      .sort((a, b) => b.value - a.value);
+    const total = allocation.reduce((sum, item) => sum + item.value, 0);
+    return { allocation, total };
+  }, [assets, operations]);
 
   const metrics = useMemo(() => {
     // Saldo real depende do mês corrente de verdade ("tudo antes de hoje está liquidado"),
@@ -46,12 +98,22 @@ export function DashboardPage() {
       .sort((a, b) => (a.competence_date < b.competence_date ? 1 : a.competence_date > b.competence_date ? -1 : 0))
       .slice(0, 5);
 
-    return { balance, monthIncome, monthExpense, expensesByCategory, insights, uncategorizedCount, recentTransactions };
-  }, [accounts, categories, transactions, month, nextMonth]);
+    const { months: evolutionMonths, labels: evolutionLabels } = lastNMonths(12);
+    const { flowIn, flowOut } = computeMonthlyFlow(transactions, evolutionMonths, { categories });
 
-  const dailyDecision = useMemo(() => {
-    return computeDailyDecision(metrics.balance, 30);
-  }, [metrics.balance]);
+    return {
+      balance,
+      monthIncome,
+      monthExpense,
+      expensesByCategory,
+      insights,
+      uncategorizedCount,
+      recentTransactions,
+      evolutionLabels,
+      flowIn,
+      flowOut,
+    };
+  }, [accounts, categories, transactions, month, nextMonth]);
 
   if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
 
@@ -61,13 +123,18 @@ export function DashboardPage() {
     await reload();
   }
 
+  async function signOut() {
+    await supabase.auth.signOut();
+    window.location.replace(appPath("/entrar"));
+  }
+
   return <main className="dashboard-shell">
     <Nav />
 
-    <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+    <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
       <div>
-        <p className="eyebrow">{workspace.name}</p>
-        <h1 style={{ fontSize: '2rem', margin: '4px 0 16px' }}>Visão Global Financeira</h1>
+        <h1 style={{ fontSize: '1.75rem', margin: '0 0 4px' }}>Olá, {displayName}! 👋</h1>
+        <p className="muted" style={{ margin: '0 0 16px' }}>Aqui está o resumo das suas finanças</p>
         <MonthPicker />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
@@ -79,13 +146,18 @@ export function DashboardPage() {
           <span>Nova Movimentação</span>
         </button>
 
-        <div className="user-profile-header" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 16px', background: 'var(--surface)', borderRadius: '100px', border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+        <button
+          type="button"
+          onClick={() => void signOut()}
+          title="Sair da conta"
+          style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 16px', background: 'var(--surface)', borderRadius: '100px', border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', cursor: 'pointer' }}
+        >
           <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', color: 'var(--bg)', display: 'grid', placeItems: 'center', fontWeight: 'bold', fontSize: '14px' }}>
-            {workspace?.name?.charAt(0).toUpperCase() || 'U'}
+            {initials}
           </div>
-          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{workspace?.name || 'Usuário'}</span>
+          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{displayName}</span>
           <ChevronDown size={16} className="muted" />
-        </div>
+        </button>
       </div>
     </div>
 
@@ -107,61 +179,99 @@ export function DashboardPage() {
       </Link>
     ) : null}
 
+    <div className="bento-row" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <article className="metric-card metric-card--positive">
+        <WalletCards size={32} opacity={0.5} style={{ marginBottom: 16 }} />
+        <span className="muted">Patrimônio líquido</span>
+        <strong>{money(metrics.balance + investments.total)}</strong>
+      </article>
+      <article className="metric-card">
+        <DollarSign size={32} opacity={0.5} style={{ marginBottom: 16 }} />
+        <span className="muted">Receitas do mês</span>
+        <strong>{money(metrics.monthIncome)}</strong>
+      </article>
+      <article className="metric-card metric-card--negative">
+        <TrendingDown size={32} opacity={0.5} style={{ marginBottom: 16 }} />
+        <span className="muted">Despesas do mês</span>
+        <strong>{money(metrics.monthExpense)}</strong>
+      </article>
+      <article className="metric-card">
+        <PiggyBank size={32} opacity={0.5} style={{ marginBottom: 16 }} />
+        <span className="muted">Investimentos</span>
+        <strong>{money(investments.total)}</strong>
+      </article>
+    </div>
+
     <div className="dashboard-bento-grid">
       <div className="bento-main">
-        <div className="bento-row">
-          <article className="metric-card metric-card--positive">
-            <WalletCards size={32} opacity={0.5} style={{ marginBottom: 16 }} />
-            <span className="muted">Saldo Atual</span>
-            <strong>{money(metrics.balance)}</strong>
-          </article>
-          <article className="metric-card">
-            <Target size={32} opacity={0.5} style={{ marginBottom: 16 }} />
-            <span className="muted">Entradas do Mês</span>
-            <strong>{money(metrics.monthIncome)}</strong>
-          </article>
-          <article className="metric-card metric-card--negative">
-            <CircleAlert size={32} opacity={0.5} style={{ marginBottom: 16 }} />
-            <span className="muted">Saídas do Mês</span>
-            <strong>{money(metrics.monthExpense)}</strong>
-          </article>
-        </div>
-
-        <article className="dashboard-card" style={{ marginTop: '24px' }}>
-          <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Evolução de Saldo Recomendado (30 dias)</h3>
-          <p className="muted" style={{ marginBottom: '24px' }}>Baseado no teto diário de {money(dailyDecision.dailyLimit)} para manter o saldo positivo.</p>
+        <article className="dashboard-card">
+          <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Evolução do patrimônio</h3>
+          <p className="muted" style={{ marginBottom: '24px' }}>Ganhos e gastos nos últimos 12 meses.</p>
           <div className="chart-wrap" style={{ height: '300px' }}>
-            <DashboardChart type="line" label="Projeção" labels={dailyDecision.trajectory.map((item) => `Dia ${item.day}`)} values={dailyDecision.trajectory.map((item) => item.remaining)} color={dailyDecision.status === "critical" ? "#ef4444" : dailyDecision.status === "warning" ? "#f59e0b" : "#10b981"} />
+            <DashboardChart
+              type="line"
+              labels={metrics.evolutionLabels}
+              series={[
+                { label: "Ganhos", values: metrics.flowIn, color: "var(--accent)" },
+                { label: "Gastos", values: metrics.flowOut, color: "var(--gold)" },
+              ]}
+            />
           </div>
         </article>
       </div>
 
       <div className="bento-sidebar">
-        <article className="dashboard-card" style={{ marginBottom: '24px' }}>
-          <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Alocação de Gastos</h3>
-          <div className="chart-wrap" style={{ height: '220px' }}>
-            {metrics.expensesByCategory.length ? <DashboardChart type="doughnut" label="Gastos" labels={metrics.expensesByCategory.map((item) => item.label)} values={metrics.expensesByCategory.map((item) => item.value)} color="var(--accent)" /> : <p className="muted">Sem dados suficientes no mês.</p>}
-          </div>
-        </article>
-
         <article className="dashboard-card">
-          <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Transações Recentes</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {metrics.recentTransactions.map(t => (
-              <div key={t.id} className="transaction-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: '1px solid var(--border)', borderRadius: '12px' }}>
-                <div>
-                  <div style={{ fontWeight: 600 }}>{t.description}</div>
-                  <div className="muted" style={{ fontSize: '0.85rem' }}>{new Date(t.competence_date).toLocaleDateString('pt-BR')}</div>
-                </div>
-                <div style={{ fontWeight: 600, color: t.type === 'expense' ? 'var(--danger)' : 'var(--positive)' }}>
-                  {t.type === 'expense' ? '-' : '+'}{money(Number(t.amount))}
-                </div>
-              </div>
-            ))}
-            {!metrics.recentTransactions.length && <p className="muted">Nenhuma transação recente.</p>}
+          <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Alocação de investimentos</h3>
+          <div className="chart-wrap" style={{ height: '220px' }}>
+            {investments.allocation.length ? (
+              <DashboardChart type="doughnut" label="Investimentos" labels={investments.allocation.map((item) => item.label)} values={investments.allocation.map((item) => item.value)} color="var(--accent)" />
+            ) : (
+              <p className="dashboard-empty">Nenhum investimento cadastrado. <Link href="/investimentos">Cadastrar ativo</Link></p>
+            )}
           </div>
         </article>
       </div>
+    </div>
+
+    <div className="dashboard-bento-grid" style={{ marginTop: '24px', gridTemplateColumns: '1fr 1fr' }}>
+      <article className="dashboard-card">
+        <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}><Target size={18} aria-hidden="true" style={{ marginRight: 6, verticalAlign: '-3px' }} />Metas</h3>
+        <div className="insight-list">
+          {goals.length ? goals.slice(0, 4).map((goal) => {
+            const percent = Number(goal.target_amount) > 0 ? Math.min(100, (Number(goal.current_amount) / Number(goal.target_amount)) * 100) : 0;
+            return (
+              <Link href="/planejamento" className="insight-link" key={goal.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+                <span style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                  {goal.name}
+                  <small>{money(goal.current_amount)} de {money(goal.target_amount)}</small>
+                </span>
+                <div style={{ height: 6, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${percent}%`, background: 'var(--accent)', borderRadius: 999 }} />
+                </div>
+              </Link>
+            );
+          }) : <p className="dashboard-empty">Crie uma meta para acompanhar seu progresso.</p>}
+        </div>
+      </article>
+
+      <article className="dashboard-card">
+        <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Transações Recentes</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {metrics.recentTransactions.map(t => (
+            <div key={t.id} className="transaction-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: '1px solid var(--border)', borderRadius: '12px' }}>
+              <div>
+                <div style={{ fontWeight: 600 }}>{t.description}</div>
+                <div className="muted" style={{ fontSize: '0.85rem' }}>{new Date(t.competence_date).toLocaleDateString('pt-BR')}</div>
+              </div>
+              <div style={{ fontWeight: 600, color: t.type === 'expense' ? 'var(--danger)' : 'var(--positive)' }}>
+                {t.type === 'expense' ? '-' : '+'}{money(Number(t.amount))}
+              </div>
+            </div>
+          ))}
+          {!metrics.recentTransactions.length && <p className="muted">Nenhuma transação recente.</p>}
+        </div>
+      </article>
     </div>
   </main>;
 }
