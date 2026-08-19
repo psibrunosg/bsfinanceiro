@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CircleAlert, Plus, Target, WalletCards } from "lucide-react";
+import { ChevronDown, CircleAlert, Plus, Target, WalletCards } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
@@ -61,7 +61,7 @@ export function DashboardPage() {
         <h1 style={{ fontSize: '2rem', margin: '4px 0 16px' }}>Visão Global Financeira</h1>
         <MonthPicker />
       </div>
-      <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
         <button type="button" style={{ padding: '12px 24px', borderRadius: '12px', background: 'var(--primary)', color: 'var(--bg)', border: 'none', fontWeight: 600, display: 'flex', gap: '8px', alignItems: 'center', cursor: 'pointer' }} onClick={() => {
             if (!Dialog) import("./components/Dialog").then(m => setDialog(() => m.Dialog));
             setOpenQuickForm(true);
@@ -69,6 +69,14 @@ export function DashboardPage() {
           <Plus size={18} aria-hidden="true" />
           <span>Nova Movimentação</span>
         </button>
+
+        <div className="user-profile-header" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 16px', background: 'var(--surface)', borderRadius: '100px', border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', color: 'var(--bg)', display: 'grid', placeItems: 'center', fontWeight: 'bold', fontSize: '14px' }}>
+            {workspace?.name?.charAt(0).toUpperCase() || 'U'}
+          </div>
+          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{workspace?.name || 'Usuário'}</span>
+          <ChevronDown size={16} className="muted" />
+        </div>
       </div>
     </div>
 

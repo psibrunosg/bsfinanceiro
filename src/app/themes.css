@@ -306,3 +306,34 @@
 }
 
 
+
+/* Corporate Nav Exact Match */
+:root[data-theme=\"corporate\"] .app-nav {
+  padding-top: 32px !important;
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+:root[data-theme=\"corporate\"] .app-nav nav {
+  margin-top: 40px !important;
+  gap: 12px !important;
+}
+
+:root[data-theme=\"corporate\"] .app-nav nav a {
+  border-radius: 12px !important;
+  padding: 12px 16px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease;
+}
+
+:root[data-theme=\"corporate\"] .app-nav nav a.active {
+  background-color: #EBF5FF !important;
+  color: #1D4ED8 !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1) !important;
+}
+
+:root[data-theme=\"corporate\"] .app-nav nav a.active svg {
+  color: #2563EB !important;
+}
+
