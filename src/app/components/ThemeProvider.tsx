@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export type ThemePreference = "system" | "light" | "dark";
+export type ThemePreference = "system" | "light" | "dark" | "cyberpunk" | "corporate" | "neumorphism";
 type ThemeContextValue = { preference: ThemePreference; updateThemePreference: (value: ThemePreference) => Promise<void> };
 const ThemeContext = createContext<ThemeContextValue>({
   preference: "system",

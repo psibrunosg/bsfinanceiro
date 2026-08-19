@@ -1,0 +1,227 @@
+/* ==========================================================================
+   NEW THEMES (CYBERPUNK, CORPORATE, NEUMORPHISM)
+   ========================================================================== */
+
+/* 1. Cyberpunk Dark Mode */
+:root[data-theme="cyberpunk"] {
+  color-scheme: dark !important;
+  --bg: #05050A !important;
+  --surface: #0A0F1A !important;
+  --surface-2: rgba(255, 255, 255, 0.05) !important;
+  --text: #F8FAFC !important;
+  --muted: #94A3B8 !important;
+  --border: rgba(16, 185, 129, 0.2) !important;
+  --primary: #10B981 !important;
+  --primary-2: #059669 !important;
+  --accent: #8B5CF6 !important;
+  --accent-contrast: #FFFFFF !important;
+  --positive: #10B981 !important;
+  --warning: #F59E0B !important;
+  --danger: #EF4444 !important;
+  --gold: #F59E0B !important;
+  --focus: #8B5CF6 !important;
+  --shadow: 0 0 20px rgba(16, 185, 129, 0.15) !important;
+  --radius: 24px !important;
+}
+
+:root[data-theme="cyberpunk"] .nav-brand span {
+  background: linear-gradient(135deg, #8B5CF6, #6D28D9) !important;
+}
+
+:root[data-theme="cyberpunk"] .metric-card--positive {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.3)) !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+}
+
+:root[data-theme="cyberpunk"] .dashboard-card,
+:root[data-theme="cyberpunk"] .metric-card,
+:root[data-theme="cyberpunk"] .account-row,
+:root[data-theme="cyberpunk"] .transaction-row {
+  background: rgba(10, 15, 26, 0.8) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(16, 185, 129, 0.15) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 4px 30px rgba(16, 185, 129, 0.1) !important;
+}
+
+/* 2. Corporate Clean (Light) */
+:root[data-theme="corporate"] {
+  color-scheme: light !important;
+  --bg: #F8FAFC !important;
+  --surface: #FFFFFF !important;
+  --surface-2: #F1F5F9 !important;
+  --text: #0F172A !important;
+  --muted: #64748B !important;
+  --border: #E2E8F0 !important;
+  --primary: #2563EB !important;
+  --primary-2: #1D4ED8 !important;
+  --accent: #2563EB !important;
+  --accent-contrast: #FFFFFF !important;
+  --positive: #10B981 !important;
+  --warning: #F59E0B !important;
+  --danger: #EF4444 !important;
+  --gold: #F59E0B !important;
+  --focus: #2563EB !important;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+  --radius: 16px !important;
+}
+
+:root[data-theme="corporate"] body {
+  background-color: #F8FAFC !important;
+  color: #0F172A !important;
+}
+
+:root[data-theme="corporate"] .app {
+  background-color: #F8FAFC !important;
+}
+
+:root[data-theme="corporate"] .app-nav {
+  background-color: #FFFFFF !important;
+  border-right: 1px solid #E2E8F0 !important;
+}
+
+:root[data-theme="corporate"] .nav-brand span {
+  background: linear-gradient(135deg, #2563EB, #1D4ED8) !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme="corporate"] .app-nav nav a {
+  color: #475569 !important;
+}
+
+:root[data-theme="corporate"] .app-nav nav a:hover {
+  background-color: #F1F5F9 !important;
+  color: #0F172A !important;
+}
+
+:root[data-theme="corporate"] .app-nav nav a.active {
+  background-color: rgba(37, 99, 235, 0.1) !important;
+  color: #2563EB !important;
+}
+
+:root[data-theme="corporate"] .dashboard-card,
+:root[data-theme="corporate"] .metric-card,
+:root[data-theme="corporate"] .account-row,
+:root[data-theme="corporate"] .transaction-row,
+:root[data-theme="corporate"] .hub-overview {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03) !important;
+  color: #0F172A !important;
+  backdrop-filter: none !important;
+}
+
+:root[data-theme="corporate"] .metric-card--positive {
+  background: #E6F4EA !important;
+  border: 1px solid #A8DAB5 !important;
+  color: #0B6B38 !important;
+}
+
+:root[data-theme="corporate"] .metric-card--positive strong {
+  color: #0B6B38 !important;
+}
+
+:root[data-theme="corporate"] .metric-card--positive span {
+  color: #1A864D !important;
+}
+
+:root[data-theme="corporate"] .metric-card--negative {
+  background: #FEE2E2 !important;
+  border: 1px solid #FECACA !important;
+  color: #991B1B !important;
+}
+
+:root[data-theme="corporate"] .metric-card--negative strong {
+  color: #991B1B !important;
+}
+
+:root[data-theme="corporate"] .page-header h1, 
+:root[data-theme="corporate"] h1, 
+:root[data-theme="corporate"] h2, 
+:root[data-theme="corporate"] h3,
+:root[data-theme="corporate"] strong {
+  color: #0F172A !important;
+}
+
+:root[data-theme="corporate"] .muted {
+  color: #64748B !important;
+}
+
+/* 3. Neumorphism Dark */
+:root[data-theme="neumorphism"] {
+  color-scheme: dark !important;
+  --bg: #2B2F36 !important;
+  --surface: #2B2F36 !important;
+  --surface-2: #323740 !important;
+  --text: #E2E8F0 !important;
+  --muted: #94A3B8 !important;
+  --border: transparent !important;
+  --primary: #E2E8F0 !important;
+  --primary-2: #F8FAFC !important;
+  --accent: #F97316 !important;
+  --accent-contrast: #FFFFFF !important;
+  --positive: #3B82F6 !important;
+  --warning: #F59E0B !important;
+  --danger: #EF4444 !important;
+  --gold: #F59E0B !important;
+  --focus: #F97316 !important;
+  --shadow: 8px 8px 16px #1D1F24, -8px -8px 16px #393F48 !important;
+  --radius: 20px !important;
+}
+
+:root[data-theme="neumorphism"] body {
+  background-color: #2B2F36 !important;
+  color: #E2E8F0 !important;
+}
+
+:root[data-theme="neumorphism"] .app {
+  background-color: #2B2F36 !important;
+}
+
+:root[data-theme="neumorphism"] .app-nav {
+  background-color: #2B2F36 !important;
+  border-right: none !important;
+  box-shadow: inset -4px 0 10px rgba(0,0,0,0.1) !important;
+}
+
+:root[data-theme="neumorphism"] .nav-brand span {
+  background: #2B2F36 !important;
+  color: #E2E8F0 !important;
+  box-shadow: 4px 4px 8px #1D1F24, -4px -4px 8px #393F48 !important;
+}
+
+:root[data-theme="neumorphism"] .dashboard-card,
+:root[data-theme="neumorphism"] .metric-card,
+:root[data-theme="neumorphism"] .account-row,
+:root[data-theme="neumorphism"] .transaction-row,
+:root[data-theme="neumorphism"] .hub-overview {
+  background: #2B2F36 !important;
+  border: none !important;
+  border-radius: 20px !important;
+  box-shadow: 8px 8px 16px #1D1F24, -8px -8px 16px #393F48 !important;
+  color: #E2E8F0 !important;
+  backdrop-filter: none !important;
+}
+
+:root[data-theme="neumorphism"] .metric-card--positive {
+  background: #2B2F36 !important;
+  border: none !important;
+  box-shadow: inset 6px 6px 12px #1D1F24, inset -6px -6px 12px #393F48 !important;
+  color: #3B82F6 !important;
+}
+
+:root[data-theme="neumorphism"] .metric-card--positive strong {
+  color: #3B82F6 !important;
+}
+
+:root[data-theme="neumorphism"] .metric-card--negative {
+  background: #2B2F36 !important;
+  border: none !important;
+  box-shadow: inset 6px 6px 12px #1D1F24, inset -6px -6px 12px #393F48 !important;
+  color: #EF4444 !important;
+}
+
+:root[data-theme="neumorphism"] .metric-card--negative strong {
+  color: #EF4444 !important;
+}
