@@ -16,7 +16,7 @@ import { aggregateExpensesByCategory, computeEvolution, computeMonthlyFlow, last
 import { generateInsights } from "@/lib/finance/insights";
 
 export function DashboardPage() {
-  const { ownerId, workspace, accounts, cards, transactions, categories, budgets = [], goals, monthSpent = {}, commitments = [], occurrences = [], invoices = [], defaultCashAccountId, loading, reload } = useFinance("dashboard");
+  const { ownerId, workspace, accounts, transactions, categories, budgets = [], goals, monthSpent = {}, occurrences = [], invoices = [], defaultCashAccountId, loading, reload } = useFinance("dashboard");
   const [openQuickForm, setOpenQuickForm] = useState(false);
   const [Dialog, setDialog] = useState<React.ElementType | null>(null);
   const { toast } = useToast();
@@ -69,7 +69,6 @@ export function DashboardPage() {
     ...invoices.slice(0, 1).map((item) => ({ href: "/cartoes", title: "Fatura de cartão", text: `Vence em ${new Date(`${item.due_date}T12:00:00`).toLocaleDateString("pt-BR")}` })),
     ...budgets.filter((budget) => (monthSpent[budget.category_id] || 0) >= Number(budget.amount) * .8).slice(0, 1).map(() => ({ href: "/planejamento", title: "Orçamento perto do limite", text: "Revise seus gastos deste mês" })),
   ].slice(0, 3);
-  const invoicesTotal = invoices.reduce((sum, invoice) => sum + (invoice.credit_card_installments || []).reduce((inner, installment) => inner + Number(installment.amount), 0), 0);
 
   return (
     <main className="management-page">
