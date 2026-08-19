@@ -154,7 +154,7 @@ export function DashboardPage() {
     };
   }, [accounts, categories, transactions, month, nextMonth]);
 
-  if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
+  if (loading || !workspace) return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
 
   return <main className="dashboard-shell">
     <Nav />

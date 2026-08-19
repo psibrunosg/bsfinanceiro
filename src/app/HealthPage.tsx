@@ -54,7 +54,7 @@ export function HealthPage() {
     [month, transactions, categories, commitments, availableBalance],
   );
 
-  if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
+  if (loading || !workspace) return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
 
   const counts = report.reduce(
     (acc, indicator) => ({ ...acc, [indicator.status]: acc[indicator.status] + 1 }),
@@ -63,7 +63,7 @@ export function HealthPage() {
   const hasData = transactions.length > 0;
 
   return (
-    <main className="management-page">
+    <main className="dashboard-shell">
       <Nav />
       <PageHeader title="Saúde financeira" subtitle="Seu exame de sangue financeiro, com faixas de referência" workspaceName={workspace.name} />
 

@@ -127,7 +127,7 @@ export default function GastosPage() {
   }, [loadHub]);
 
   if (loading || !workspace || hubLoading) {
-    return <main className="management-page"><p className="muted">Carregando...</p></main>;
+    return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
   }
 
   const expenseCategories = categories.filter((c) => c.kind === "expense");
@@ -243,7 +243,7 @@ export default function GastosPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <main className="management-page">
+    <main className="dashboard-shell">
       <Nav />
       <PageHeader
         title="Gastos"

@@ -220,16 +220,17 @@
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
   transition: background 140ms ease;
 }
 .account-row:last-child {
-  border-bottom: 0;
+  border-bottom: 1px solid var(--border); /* override legacy behavior */
 }
 .account-row:hover {
-  background: var(--row-hover);
+  background: var(--surface-2);
 }
 /* Ícone da linha, quando houver. */
 .account-row > span:first-child {
@@ -396,17 +397,18 @@
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-5);
-  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
   font-size: 0.9rem;
   transition: background 140ms ease;
 }
 .account-list .list > li:last-child {
-  border-bottom: 0;
+  border-bottom: 1px solid var(--border);
 }
 .account-list .list > li:hover {
-  background: var(--row-hover);
+  background: var(--surface-2);
 }
 
 /* --- Estado vazio -------------------------------------------------------- */
@@ -443,10 +445,10 @@
 .simple-form select,
 .simple-form textarea {
   width: 100%;
-  min-height: 44px;
-  padding: 0 var(--space-3);
+  min-height: 48px;
+  padding: 0 16px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   background: var(--surface);
   color: var(--text);
   transition: border-color 160ms ease;
@@ -456,7 +458,7 @@
   border-color: var(--muted);
 }
 .simple-form input[type="file"] {
-  padding: var(--space-2);
+  padding: 12px 16px;
   min-height: 0;
 }
 .simple-form input[type="date"],
@@ -467,13 +469,18 @@
 .simple-form > button,
 .simple-form fieldset > button {
   margin-top: var(--space-5);
-  min-height: 46px;
-  padding: 0 var(--space-5);
+  min-height: 48px;
+  padding: 0 24px;
   border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: var(--accent-contrast);
-  font-weight: 700;
+  border-radius: 12px;
+  background: var(--primary);
+  color: var(--bg);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 .simple-form > button:hover,
 .simple-form fieldset > button:hover {
@@ -496,29 +503,29 @@
   gap: var(--space-2);
 }
 .finance-form select {
-  min-height: 36px;
-  padding: 0 var(--space-2);
+  min-height: 48px;
+  padding: 0 16px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   background: var(--surface);
   color: var(--text);
 }
 .finance-form button {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  min-height: 36px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 12px;
   background: var(--surface-2);
   color: var(--text);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+  cursor: pointer;
 }
-.finance-form button svg {
-  width: 16px;
-  height: 16px;
+.finance-form button:hover {
+  background: var(--border);
 }
 
 /* --- Chip de status ------------------------------------------------------ */
@@ -795,13 +802,13 @@
 .transaction-filter input,
 .transaction-filter select,
 .finance-form select {
-  min-height: 3.125rem;
+  min-height: 48px;
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 0.625rem;
+  border-radius: 12px;
   background: var(--surface);
   color: var(--text);
-  padding: 0 0.75rem;
+  padding: 0 16px;
   font: inherit;
 }
 

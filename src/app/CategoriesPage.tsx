@@ -58,7 +58,7 @@ export function CategoriesPage() {
 
   if (loading || !workspace)
     return (
-      <main className="management-page">
+      <main className="dashboard-shell">
         <p className="muted">Carregando...</p>
       </main>
     );
@@ -79,7 +79,7 @@ export function CategoriesPage() {
   }
 
   return (
-    <main className="management-page">
+    <main className="dashboard-shell">
       <PageHeader
         title="Categorias"
         subtitle="Classifique receitas e despesas."

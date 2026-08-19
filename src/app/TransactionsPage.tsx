@@ -41,7 +41,7 @@ function TransactionsPageInner() {
     transactionPage: page,
   });
 
-  if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
+  if (loading || !workspace) return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
 
   async function submitTransaction(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
@@ -61,7 +61,7 @@ function TransactionsPageInner() {
   const total = transactionTotal ?? transactions.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  return <main className="management-page">
+  return <main className="dashboard-shell">
     <PageHeader 
       title="Movimentações" 
       subtitle="Registre entradas, saídas e transferências." 
@@ -204,5 +204,5 @@ function TransactionsPageInner() {
 }
 
 export function TransactionsPage() {
-  return <Suspense fallback={<main className="management-page"><p className="muted">Carregando...</p></main>}><TransactionsPageInner /></Suspense>;
+  return <Suspense fallback={<main className="dashboard-shell"><p className="muted">Carregando...</p></main>}><TransactionsPageInner /></Suspense>;
 }

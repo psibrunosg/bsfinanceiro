@@ -20,7 +20,7 @@ export function AccountsPage() {
 
   if (loading || !workspace)
     return (
-      <main className="management-page">
+      <main className="dashboard-shell">
         <p className="muted">Carregando...</p>
       </main>
     );
@@ -59,7 +59,7 @@ export function AccountsPage() {
   }
 
   return (
-    <main className="management-page">
+    <main className="dashboard-shell">
       <Nav />
       <PageHeader
         title="Contas"
@@ -72,13 +72,15 @@ export function AccountsPage() {
       />
       {message && <p className="form-success">{message}</p>}
       
-      <section className="hub-overview">
+      <div className="bento-row" style={{ gridTemplateColumns: '1fr' }}>
         <article className="metric-card metric-card--positive">
-          <Wallet aria-hidden="true" />
+          <div className="metric-card__head">
+            <span className="muted">Saldo total consolidado</span>
+            <span className="metric-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6" }}><Wallet size={18} aria-hidden="true" /></span>
+          </div>
           <strong>{money(totalBalance)}</strong>
-          <span className="muted">Saldo total consolidado</span>
         </article>
-      </section>
+      </div>
 
       <section className="management-grid" style={{ gridTemplateColumns: '1fr' }}>
         <List title="Contas ativas">

@@ -46,7 +46,7 @@ function CardsPageInner() {
 
   if (loading || !workspace)
     return (
-      <main className="management-page">
+      <main className="dashboard-shell">
         <p className="muted">Carregando...</p>
       </main>
     );
@@ -182,7 +182,7 @@ function CardsPageInner() {
   };
 
   return (
-    <main className="management-page">
+    <main className="dashboard-shell">
       <Nav />
       <PageHeader
         title={selectedCard ? selectedCard.name : "Cartões"}
@@ -450,7 +450,7 @@ function CardsPageInner() {
 
 export function CardsPage() {
   return (
-    <Suspense fallback={<main className="management-page"><p className="muted">Carregando...</p></main>}>
+    <Suspense fallback={<main className="dashboard-shell"><p className="muted">Carregando...</p></main>}>
       <CardsPageInner />
     </Suspense>
   );

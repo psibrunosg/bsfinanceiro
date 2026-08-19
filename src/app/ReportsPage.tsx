@@ -80,10 +80,10 @@ export function ReportsPage() {
     };
   }, [clean, accounts, month]);
 
-  if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
+  if (loading || !workspace) return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
 
   return (
-    <main className="management-page">
+    <main className="dashboard-shell">
       <Nav />
       <PageHeader title="Relatórios" subtitle="Seus gastos mês a mês, agrupados por categoria" workspaceName={workspace.name} />
 

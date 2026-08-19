@@ -10,7 +10,7 @@ export default function MaisPage() {
   const { workspace, loading } = useFinance("dashboard");
 
   if (loading || !workspace) {
-    return <main className="management-page"><p className="muted">Carregando...</p></main>;
+    return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
   }
 
   const moreLinks = [
@@ -23,7 +23,7 @@ export default function MaisPage() {
   ];
 
   return (
-    <main className="management-page">
+    <main className="dashboard-shell">
       <Nav />
       <PageHeader
         title="Mais"

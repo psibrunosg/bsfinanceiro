@@ -22,7 +22,7 @@ function PlanningPageInner() {
     if (!loading && focus === "choose-goal" && goals.length > 1) document.getElementById("goals-list")?.focus();
   }, [focus, goals.length, loading]);
 
-  if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
+  if (loading || !workspace) return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
 
   const expenseCategories = categories.filter((c) => c.kind === "expense");
   const statusLabel: Record<string, string> = { ok: "No limite", attention: "Atenção", exceeded: "Estourou" };
@@ -59,7 +59,7 @@ function PlanningPageInner() {
   }
 
   return (
-    <main className="management-page">
+    <main className="dashboard-shell">
       <PageHeader title="Planejamento" subtitle="Orçamento do mês e metas financeiras." workspaceName={workspace.name} />
       <Nav />
       {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
@@ -140,5 +140,5 @@ function PlanningPageInner() {
 }
 
 export function PlanningPage() {
-  return <Suspense fallback={<main className="management-page"><p className="muted">Carregando...</p></main>}><PlanningPageInner /></Suspense>;
+  return <Suspense fallback={<main className="dashboard-shell"><p className="muted">Carregando...</p></main>}><PlanningPageInner /></Suspense>;
 }

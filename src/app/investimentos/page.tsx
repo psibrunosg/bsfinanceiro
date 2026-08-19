@@ -9,7 +9,7 @@ import { SimpleForm } from "../components/SimpleForm";
 import { List } from "../components/List";
 import { money, parseMoney, dateFmt } from "../components/Money";
 import { createClient } from "@/lib/supabase/client";
-import { WalletCards } from "lucide-react";
+import { WalletCards, TrendingUp, TrendingDown, PiggyBank } from "lucide-react";
 
 const ASSET_TYPES: Record<string, string> = {
   stock: "Ações",
@@ -108,7 +108,7 @@ export default function InvestimentosPage() {
   }, [loadHub]);
 
   if (loading || !workspace || hubLoading) {
-    return <main className="management-page"><p className="muted">Carregando...</p></main>;
+    return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
   }
 
   // Posição por ativo: quantidade líquida, custo médio e custo total.
@@ -218,7 +218,7 @@ export default function InvestimentosPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <main className="management-page">
+    <main className="dashboard-shell">
       <Nav />
       <PageHeader
         title="Investimentos"
@@ -228,21 +228,31 @@ export default function InvestimentosPage() {
       />
       {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
 
-      <section className="hub-overview">
+      <div className="bento-row" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         <article className="metric-card metric-card--positive">
-          <WalletCards aria-hidden="true" />
+          <div className="metric-card__head">
+            <span className="muted">Patrimônio investido</span>
+            <span className="metric-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6" }}><WalletCards size={18} aria-hidden="true" /></span>
+          </div>
           <strong>{money(currentCents / 100)}</strong>
-          <span className="muted">Patrimônio investido</span>
         </article>
         <article className="metric-card">
+          <div className="metric-card__head">
+            <span className="muted">Custo total</span>
+            <span className="metric-icon-badge" style={{ background: "rgba(59,130,246,.15)", color: "#3B82F6" }}><PiggyBank size={18} aria-hidden="true" /></span>
+          </div>
           <strong>{money(investedCents / 100)}</strong>
-          <span className="muted">Custo total</span>
         </article>
         <article className={`metric-card ${gainCents >= 0 ? "metric-card--positive" : "metric-card--negative"}`}>
+          <div className="metric-card__head">
+            <span className="muted">{gainCents >= 0 ? "Ganho" : "Perda"}</span>
+            <span className="metric-icon-badge" style={{ background: gainCents >= 0 ? "rgba(34,197,94,.15)" : "rgba(239,68,68,.15)", color: gainCents >= 0 ? "#22C55E" : "#EF4444" }}>
+              {gainCents >= 0 ? <TrendingUp size={18} aria-hidden="true" /> : <TrendingDown size={18} aria-hidden="true" />}
+            </span>
+          </div>
           <strong>{money(Math.abs(gainCents) / 100)} ({gainPct >= 0 ? "+" : ""}{gainPct.toFixed(1)}%)</strong>
-          <span className="muted">{gainCents >= 0 ? "Ganho" : "Perda"}</span>
         </article>
-      </section>
+      </div>
 
       <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
         <List title="Ativos">

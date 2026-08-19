@@ -146,7 +146,7 @@ export default function GanhosPage() {
   }, [loadHub]);
 
   if (loading || !workspace || hubLoading) {
-    return <main className="management-page"><p className="muted">Carregando...</p></main>;
+    return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
   }
 
   const action =
@@ -374,7 +374,7 @@ export default function GanhosPage() {
   }
 
   return (
-    <main className="management-page">
+    <main className="dashboard-shell">
       <Nav />
       <PageHeader
         title="Ganhos"

@@ -6,9 +6,11 @@ export function List({
   children: React.ReactNode;
 }) {
   return (
-    <div className="account-list">
-      <h2>{title}</h2>
-      {children || <p className="muted">Nada por aqui ainda.</p>}
+    <div className="dashboard-card">
+      <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>{title}</h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {children || <p className="muted">Nada por aqui ainda.</p>}
+      </div>
     </div>
   );
 }

@@ -16,7 +16,7 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("Aparência");
 
-  if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
+  if (loading || !workspace) return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
 
   const TABS = ["Aparência", "Painel", "Contextos", "Ganhos", "Gastos", "Alertas", "Privacidade", "Dados"];
 
@@ -71,7 +71,7 @@ export function SettingsPage() {
   const wp = workspacePrefs ?? ({} as NonNullable<typeof workspacePrefs>);
 
   return (
-    <main className="management-page">
+    <main className="dashboard-shell">
       <PageHeader title="Configurações" subtitle="Preferências e alertas." workspaceName={workspace.name} />
       <Nav />
       {message && <p className="form-success">{message}</p>}
