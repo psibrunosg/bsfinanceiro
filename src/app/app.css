@@ -1268,3 +1268,6 @@ body:has(.install-prompt) .toast-viewport {
     bottom: calc(152px + env(safe-area-inset-bottom));
   }
 }
+
+.metric-card--positive { background: linear-gradient(135deg, #059669 0%, #10B981 100%); color: #ffffff; border: none; }
+.metric-card--positive .muted { color: rgba(255,255,255,0.9); }
