@@ -225,3 +225,30 @@
 :root[data-theme="neumorphism"] .metric-card--negative strong {
   color: #EF4444 !important;
 }
+
+/* Bento Box Dashboard Grid */
+.dashboard-bento-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 24px;
+  margin-top: 32px;
+}
+
+.bento-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-bento-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .bento-row {
+    grid-template-columns: 1fr;
+  }
+}
+
