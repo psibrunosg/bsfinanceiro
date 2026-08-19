@@ -50,3 +50,27 @@
 .tx-row__body strong{display:block;font-size:.92rem}
 .tx-row__body small{color:var(--muted)}
 .tx-row__amount{font-weight:700;white-space:nowrap}
+
+/* Cabeçalho de hub (Ganhos/Gastos): breadcrumb + título + ação + avatar */
+.hub-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.hub-header .eyebrow{display:flex;align-items:center;gap:4px}
+.hub-header h1{margin:0 0 4px;font-size:1.75rem}
+.hub-header__actions{display:flex;align-items:center;gap:16px}
+.hub-header__actions .page-header__action{padding:12px 20px;border-radius:12px;font-size:.95rem}
+
+/* Card "Período": rótulo pequeno + seletor de mês */
+.filter-card{border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:8px;justify-content:center}
+.filter-card > span{font-size:.8rem;color:var(--muted);font-weight:600}
+
+/* Tabela de dados (receitas/gastos do mês selecionado) */
+.data-table{width:100%;border-collapse:separate;border-spacing:0}
+.data-table th{text-align:left;font-size:.8rem;color:var(--muted);font-weight:600;padding:0 12px 12px}
+.data-table td{padding:14px 12px;border-top:1px solid var(--border)}
+.data-table tbody tr:hover{background:var(--surface-2)}
+.data-table .cell-source{display:flex;align-items:center;gap:12px}
+.data-table .cell-source strong{display:block;font-size:.92rem}
+.data-table .cell-source small{color:var(--muted)}
+.data-table .type-pill{display:inline-block;padding:4px 10px;border-radius:100px;font-size:.75rem;font-weight:700}
+.data-table .amount-discount{color:var(--danger)}
+.data-table .amount-net{font-weight:700}
+.data-table td.num{text-align:right;font-variant-numeric:tabular-nums}

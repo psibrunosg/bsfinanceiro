@@ -12,7 +12,22 @@ import { DashboardChart } from "../components/DashboardChart";
 import { MonthPicker } from "../components/MonthPicker";
 import { useMonth } from "../components/MonthContext";
 import { createClient } from "@/lib/supabase/client";
-import { ReceiptText, Check } from "lucide-react";
+import { addMonths } from "@/lib/finance/local-date";
+import { ArrowDownRight, ArrowUpRight, Check, LayoutGrid, ReceiptText, Repeat } from "lucide-react";
+
+const DONUT_COLORS = ["#8B5CF6", "#3B82F6", "#F97316", "#F5A623", "#22C55E"];
+
+function Trend({ pct, invert = false }: { pct: number | null; invert?: boolean }) {
+  if (pct === null) return null;
+  const up = pct >= 0;
+  const good = invert ? !up : up;
+  return (
+    <span className={`metric-card__trend ${good ? "up" : "down"}`}>
+      {up ? <ArrowUpRight size={14} aria-hidden="true" /> : <ArrowDownRight size={14} aria-hidden="true" />}
+      {up ? "+" : ""}{pct.toFixed(1)}% vs mês anterior
+    </span>
+  );
+}
 
 type Tab = "overview" | "launches" | "recurrent";
 
@@ -142,11 +157,13 @@ export default function GastosPage() {
     }))
     .filter((x) => x.value > 0)
     .sort((a, b) => b.value - a.value);
+  const byCategoryTotal = byCategory.reduce((s, c) => s + c.value, 0);
+  const topCategory = byCategory[0]?.label ?? null;
 
   const byMonth: { label: string; value: number }[] = [];
-  // Janela de 6 meses terminando no mês selecionado.
+  // Janela de 12 meses terminando no mês selecionado.
   const anchor = new Date(`${month}T12:00:00`);
-  for (let i = 5; i >= 0; i--) {
+  for (let i = 11; i >= 0; i--) {
     const d = new Date(anchor.getFullYear(), anchor.getMonth() - i, 1);
     const start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 1).toISOString().slice(0, 10);
@@ -158,6 +175,12 @@ export default function GastosPage() {
       value,
     });
   }
+
+  // Comparativo com o mês anterior, pro badge de trend dos cards.
+  const prevMonth = addMonths(month, -1);
+  const prevMonthExpenses = filteredExpenses.filter((t) => t.competence_date >= prevMonth && t.competence_date < month);
+  const prevTotalMonth = prevMonthExpenses.reduce((s, t) => s + Number(t.amount), 0);
+  const totalTrend = prevTotalMonth > 0 ? ((totalMonth - prevTotalMonth) / prevTotalMonth) * 100 : null;
 
   const action =
     tab === "recurrent"
@@ -254,39 +277,114 @@ export default function GastosPage() {
 
       {tab === "overview" && (
         <section>
-          <section className="hub-overview">
+          <div className="bento-row" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
             <article className="metric-card metric-card--negative">
-              <ReceiptText aria-hidden="true" />
+              <div className="metric-card__head">
+                <span className="muted">Gasto no mês</span>
+                <span className="metric-icon-badge" style={{ background: "rgba(239,68,68,.15)", color: "#EF4444" }}><ReceiptText size={18} aria-hidden="true" /></span>
+              </div>
               <strong>{money(totalMonth)}</strong>
-              <span className="muted">Gasto no mês</span>
+              <Trend pct={totalTrend} invert />
             </article>
             <article className="metric-card">
+              <div className="metric-card__head">
+                <span className="muted">Compromissos fixos/mês</span>
+                <span className="metric-icon-badge" style={{ background: "rgba(59,130,246,.15)", color: "#3B82F6" }}><Repeat size={18} aria-hidden="true" /></span>
+              </div>
               <strong>{money(totalRecurrent)}</strong>
-              <span className="muted">Compromissos fixos/mês</span>
             </article>
-          </section>
-          <section className="dashboard-columns" style={{ marginTop: 18 }}>
-            {byCategory.length > 0 && (
+            <article className="metric-card">
+              <div className="metric-card__head">
+                <span className="muted">Maior categoria</span>
+                <span className="metric-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6" }}><LayoutGrid size={18} aria-hidden="true" /></span>
+              </div>
+              <strong style={{ fontSize: '1.3rem' }}>{topCategory ?? "—"}</strong>
+              {topCategory && <span className="muted" style={{ fontSize: '.85rem' }}>{money(byCategory[0].value)} este mês</span>}
+            </article>
+          </div>
+
+          <div className="dashboard-bento-grid" style={{ marginTop: '24px' }}>
+            <div className="bento-main">
               <article className="dashboard-card">
-                <h3>Por categoria (mês)</h3>
-                <div className="chart-wrap">
-                  <DashboardChart type="doughnut" label="Gastos" labels={byCategory.map((x) => x.label)} values={byCategory.map((x) => x.value)} color="var(--accent)" />
+                <h3 style={{ marginBottom: '2px', fontSize: '1.2rem' }}>Evolução mensal</h3>
+                <p className="muted" style={{ marginBottom: '16px', fontSize: '.85rem' }}>Últimos 12 meses</p>
+                <div className="chart-wrap" style={{ height: '280px' }}>
+                  {filteredExpenses.length > 0 ? (
+                    <DashboardChart type="line" labels={byMonth.map((x) => x.label)} legend={false} compactY series={[{ label: "Gastos", values: byMonth.map((x) => x.value), color: "#8B5CF6" }]} />
+                  ) : (
+                    <p className="dashboard-empty">Nenhum gasto registrado ainda.{" "}
+                      <button type="button" onClick={() => setDialog({ kind: "expense" })}>Registrar primeiro gasto</button>
+                    </p>
+                  )}
                 </div>
               </article>
-            )}
-            <article className="dashboard-card">
-              <h3>Evolução mensal</h3>
-              <div className="chart-wrap">
-                {filteredExpenses.length > 0 ? (
-                  <DashboardChart type="bar" label="Gastos" labels={byMonth.map((x) => x.label)} values={byMonth.map((x) => x.value)} color="var(--accent)" />
+            </div>
+            <div className="bento-sidebar">
+              <article className="dashboard-card">
+                <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Por categoria (mês)</h3>
+                {byCategory.length > 0 ? (
+                  <div className="donut-layout" style={{ height: '200px' }}>
+                    <div className="chart-wrap">
+                      <DashboardChart type="doughnut" label="Gastos" legend={false} labels={byCategory.map((x) => x.label)} values={byCategory.map((x) => x.value)} color="var(--accent)" />
+                    </div>
+                    <div className="donut-legend">
+                      {byCategory.slice(0, 5).map((c, index) => (
+                        <span className="donut-legend__item" key={c.label}>
+                          <span className="chart-legend__dot" style={{ background: DONUT_COLORS[index % DONUT_COLORS.length] }} />
+                          {c.label}
+                          <strong>{byCategoryTotal > 0 ? Math.round((c.value / byCategoryTotal) * 100) : 0}%</strong>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 ) : (
-                  <p className="dashboard-empty">Nenhum gasto registrado ainda.{" "}
-                    <button type="button" onClick={() => setDialog({ kind: "expense" })}>Registrar primeiro gasto</button>
-                  </p>
+                  <p className="dashboard-empty">Sem gastos categorizados neste mês.</p>
                 )}
+              </article>
+            </div>
+          </div>
+
+          <article className="dashboard-card" style={{ marginTop: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Gastos do mês selecionado ({monthLabel})</h3>
+                <p className="muted" style={{ margin: '2px 0 0', fontSize: '.85rem' }}>Apenas itens deste mês</p>
               </div>
-            </article>
-          </section>
+              <div style={{ textAlign: 'right' }}>
+                <strong style={{ fontSize: '1.3rem', color: 'var(--danger)' }}>{money(totalMonth)}</strong>
+                <div className="muted" style={{ fontSize: '.8rem' }}>Total do mês</div>
+              </div>
+            </div>
+            {currentMonthExpenses.length ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Descrição</th>
+                      <th>Categoria</th>
+                      <th>Competência</th>
+                      <th className="num">Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentMonthExpenses.map((t) => {
+                      const cat = expenseCategories.find((c) => c.id === t.category_id);
+                      return (
+                        <tr key={t.id}>
+                          <td className="cell-source"><strong>{t.description}</strong></td>
+                          <td>{cat ? <span className="type-pill" style={{ background: "rgba(239,68,68,.15)", color: "#EF4444" }}>{cat.name}</span> : <span className="muted">Sem categoria</span>}</td>
+                          <td>{dateFmt.format(new Date(`${t.competence_date}T12:00:00`))}</td>
+                          <td className="num amount-net">{money(t.amount)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="dashboard-empty">Nenhum gasto neste mês.</p>
+            )}
+          </article>
         </section>
       )}
 

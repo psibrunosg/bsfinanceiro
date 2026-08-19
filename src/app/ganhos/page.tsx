@@ -12,7 +12,22 @@ import { DashboardChart } from "../components/DashboardChart";
 import { MonthPicker } from "../components/MonthPicker";
 import { useMonth } from "../components/MonthContext";
 import { createClient } from "@/lib/supabase/client";
-import { TrendingUp } from "lucide-react";
+import { addMonths } from "@/lib/finance/local-date";
+import { lastNMonths } from "@/lib/finance/aggregations";
+import { ArrowDownRight, ArrowUpRight, Briefcase, HeartPulse, Wallet } from "lucide-react";
+
+const SERIES_COLORS = ["#8B5CF6", "#3B82F6", "#22C55E", "#F5A623", "#EF4444"];
+
+function Trend({ pct }: { pct: number | null }) {
+  if (pct === null) return null;
+  const up = pct >= 0;
+  return (
+    <span className={`metric-card__trend ${up ? "up" : "down"}`}>
+      {up ? <ArrowUpRight size={14} aria-hidden="true" /> : <ArrowDownRight size={14} aria-hidden="true" />}
+      {up ? "+" : ""}{pct.toFixed(1)}% vs mês anterior
+    </span>
+  );
+}
 
 type Tab = "overview" | "payslips" | "patients" | "other";
 
@@ -159,6 +174,7 @@ export default function GanhosPage() {
   // Agregados da visão geral seguem o mês global; as listas por aba continuam
   // sendo o registro completo (pacientes, arquivo de contracheques).
   const inMonth = (date: string | null) => !!date && date >= month && date < nextMonth;
+  const inRange = (date: string | null, from: string, to: string) => !!date && date >= from && date < to;
   const payslipReceived = payslips.filter((p) => p.transaction_id && inMonth(p.received_date));
   // ponytail: patient_earnings não guarda data de recebimento; due_date é o eixo
   // de caixa disponível. Trocar por received_date se a coluna for criada.
@@ -169,12 +185,67 @@ export default function GanhosPage() {
     .filter((t) => inMonth(t.competence_date))
     .reduce((s, t) => s + Number(t.amount), 0);
   const totalIncome = payslipTotal + patientTotal + otherTotal;
-  const composition = [
-    { label: "Contracheques", value: payslipTotal },
-    { label: "Atendimentos", value: patientTotal },
-    { label: "Outras receitas", value: otherTotal },
-  ];
   const today = new Date().toISOString().slice(0, 10);
+
+  // Comparativo com o mês anterior, pro badge de trend dos cards.
+  const prevMonth = addMonths(month, -1);
+  const prevPayslipReceived = payslips.filter((p) => p.transaction_id && inRange(p.received_date, prevMonth, month));
+  const prevEarningsReceived = earnings.filter((e) => e.status === "received" && inRange(e.due_date, prevMonth, month));
+  const prevOtherTotal = otherIncome.filter((t) => inRange(t.competence_date, prevMonth, month)).reduce((s, t) => s + Number(t.amount), 0);
+  const prevPayslipTotal = prevPayslipReceived.reduce((s, p) => s + Number(p.net_amount), 0);
+  const prevPatientTotal = prevEarningsReceived.reduce((s, e) => s + Number(e.amount), 0);
+  const prevTotalIncome = prevPayslipTotal + prevPatientTotal + prevOtherTotal;
+  const pct = (curr: number, prev: number) => (prev > 0 ? ((curr - prev) / prev) * 100 : null);
+  const totalTrend = pct(totalIncome, prevTotalIncome);
+  const payslipCountTrend = pct(payslipReceived.length, prevPayslipReceived.length);
+  const patientTrend = pct(patientTotal, prevPatientTotal);
+
+  // Comparativo mensal por fonte de receita (últimos 12 meses).
+  const employers = Array.from(new Set(payslips.map((p) => p.employer)));
+  const { months: seriesMonths, labels: seriesLabels } = lastNMonths(12);
+  const monthlySeries = [
+    ...employers.map((employer, index) => ({
+      label: employer,
+      color: SERIES_COLORS[index % SERIES_COLORS.length],
+      values: seriesMonths.map((m) => {
+        const from = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-01`;
+        const to = addMonths(from, 1);
+        return payslips
+          .filter((p) => p.employer === employer && p.transaction_id && inRange(p.received_date, from, to))
+          .reduce((s, p) => s + Number(p.net_amount), 0);
+      }),
+    })),
+    {
+      label: "Clínica",
+      color: SERIES_COLORS[employers.length % SERIES_COLORS.length],
+      values: seriesMonths.map((m) => {
+        const from = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-01`;
+        const to = addMonths(from, 1);
+        return earnings
+          .filter((e) => e.status === "received" && inRange(e.due_date, from, to))
+          .reduce((s, e) => s + Number(e.amount), 0);
+      }),
+    },
+    {
+      label: "Outras receitas",
+      color: SERIES_COLORS[(employers.length + 1) % SERIES_COLORS.length],
+      values: seriesMonths.map((m) => {
+        const from = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-01`;
+        const to = addMonths(from, 1);
+        return otherIncome
+          .filter((t) => inRange(t.competence_date, from, to))
+          .reduce((s, t) => s + Number(t.amount), 0);
+      }),
+    },
+  ];
+
+  // Tabela "Receitas do mês selecionado": une as 3 fontes num único extrato.
+  type IncomeRow = { id: string; source: string; kind: string; competence: string; receivedAt: string | null; gross: number; discounts: number; net: number };
+  const monthRows: IncomeRow[] = [
+    ...payslipReceived.map((p) => ({ id: p.id, source: p.employer, kind: "Emprego", competence: p.competence, receivedAt: p.received_date, gross: Number(p.gross_amount), discounts: Number(p.discounts_amount), net: Number(p.net_amount) })),
+    ...earningsReceived.map((e) => ({ id: e.id, source: patients.find((p) => p.id === e.patient_id)?.full_name ?? "Paciente", kind: "Clínica", competence: e.due_date, receivedAt: e.due_date, gross: Number(e.amount), discounts: 0, net: Number(e.amount) })),
+    ...otherIncome.filter((t) => inMonth(t.competence_date)).map((t) => ({ id: t.id, source: t.description, kind: "Outras", competence: t.competence_date, receivedAt: t.competence_date, gross: Number(t.amount), discounts: 0, net: Number(t.amount) })),
+  ].sort((a, b) => (a.competence < b.competence ? 1 : -1));
   const incomeCategories = categories.filter((c) => c.kind === "income");
 
   async function submitPatient(form: FormData) {
@@ -322,42 +393,120 @@ export default function GanhosPage() {
 
       {tab === "overview" && (
         <section>
-          <div className="hub-filters">
-            <MonthPicker />
-            <span className="muted">As abas de contracheques, pacientes e outras receitas mostram o histórico completo.</span>
-          </div>
-          <section className="hub-overview">
+          <div className="bento-row" style={{ gridTemplateColumns: '1fr 1fr 1fr 220px', alignItems: 'stretch' }}>
             <article className="metric-card metric-card--positive">
-              <TrendingUp aria-hidden="true" />
-              <strong>{money(totalIncome)}</strong>
-              <span className="muted">Recebido em {monthLabel}</span>
-            </article>
-          </section>
-          <section className="dashboard-columns" style={{ marginTop: 18 }}>
-            <article className="dashboard-card">
-              <h3>Composição dos ganhos</h3>
-              <div className="chart-wrap">
-                {totalIncome > 0 ? (
-                  <DashboardChart type="doughnut" label="Ganhos" labels={composition.map((c) => c.label)} values={composition.map((c) => c.value)} color="var(--accent)" />
-                ) : (
-                  <p className="dashboard-empty">Nenhum ganho recebido em {monthLabel}.{" "}
-                    <button type="button" onClick={() => setDialog({ kind: "other" })}>Registrar primeiro ganho</button>
-                  </p>
-                )}
+              <div className="metric-card__head">
+                <span className="muted">Total de ganhos do mês</span>
+                <span className="metric-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6" }}><Wallet size={18} aria-hidden="true" /></span>
               </div>
+              <strong>{money(totalIncome)}</strong>
+              <Trend pct={totalTrend} />
             </article>
+            <article className="metric-card">
+              <div className="metric-card__head">
+                <span className="muted">Contracheques recebidos</span>
+                <span className="metric-icon-badge" style={{ background: "rgba(59,130,246,.15)", color: "#3B82F6" }}><Briefcase size={18} aria-hidden="true" /></span>
+              </div>
+              <strong>{payslipReceived.length}</strong>
+              <Trend pct={payslipCountTrend} />
+            </article>
+            <article className="metric-card">
+              <div className="metric-card__head">
+                <span className="muted">Atendimentos recebidos</span>
+                <span className="metric-icon-badge" style={{ background: "rgba(34,197,94,.15)", color: "#22C55E" }}><HeartPulse size={18} aria-hidden="true" /></span>
+              </div>
+              <strong>{money(patientTotal)}</strong>
+              <Trend pct={patientTrend} />
+            </article>
+            <div className="filter-card">
+              <span>Período</span>
+              <MonthPicker />
+            </div>
+          </div>
+
+          <div className="dashboard-bento-grid" style={{ gridTemplateColumns: '1fr', marginTop: '24px' }}>
             <article className="dashboard-card">
-              <h3>Fontes</h3>
-              <ul className="list">
-                {composition.map((c) => (
-                  <li key={c.label}>
-                    <span>{c.label}</span>
-                    <b>{money(c.value)}</b>
-                  </li>
-                ))}
-              </ul>
+              <h3 style={{ marginBottom: '2px', fontSize: '1.2rem' }}>Comparativo mensal por fonte de receita</h3>
+              <p className="muted" style={{ marginBottom: '16px', fontSize: '.85rem' }}>Últimos 12 meses</p>
+              {totalIncome > 0 || monthlySeries.some((s) => s.values.some((v) => v > 0)) ? (
+                <>
+                  <div className="chart-wrap" style={{ height: '280px' }}>
+                    <DashboardChart type="line" labels={seriesLabels} legend={false} compactY series={monthlySeries} />
+                  </div>
+                  <div className="chart-legend">
+                    {monthlySeries.map((s) => (
+                      <span className="chart-legend__item" key={s.label}><span className="chart-legend__dot" style={{ background: s.color }} />{s.label}</span>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="dashboard-empty">Nenhum ganho recebido ainda.{" "}
+                  <button type="button" onClick={() => setDialog({ kind: "other" })}>Registrar primeiro ganho</button>
+                </p>
+              )}
             </article>
-          </section>
+          </div>
+
+          <article className="dashboard-card" style={{ marginTop: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Receitas do mês selecionado ({monthLabel})</h3>
+                <p className="muted" style={{ margin: '2px 0 0', fontSize: '.85rem' }}>Apenas itens deste mês</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <strong style={{ fontSize: '1.3rem', color: 'var(--primary)' }}>{money(totalIncome)}</strong>
+                <div className="muted" style={{ fontSize: '.8rem' }}>Total do mês</div>
+              </div>
+            </div>
+            {monthRows.length ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Fonte de receita</th>
+                      <th>Tipo</th>
+                      <th>Competência</th>
+                      <th>Recebido em</th>
+                      <th className="num">Bruto</th>
+                      <th className="num">Descontos</th>
+                      <th className="num">Líquido</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthRows.map((row) => (
+                      <tr key={`${row.kind}-${row.id}`}>
+                        <td className="cell-source"><strong>{row.source}</strong></td>
+                        <td>
+                          <span
+                            className="type-pill"
+                            style={
+                              row.kind === "Emprego"
+                                ? { background: "rgba(139,92,246,.15)", color: "#8B5CF6" }
+                                : row.kind === "Clínica"
+                                  ? { background: "rgba(34,197,94,.15)", color: "#22C55E" }
+                                  : { background: "rgba(245,166,35,.15)", color: "#F5A623" }
+                            }
+                          >
+                            {row.kind}
+                          </span>
+                        </td>
+                        <td>{dateFmt.format(new Date(`${row.competence}T12:00:00`))}</td>
+                        <td>{row.receivedAt ? dateFmt.format(new Date(`${row.receivedAt}T12:00:00`)) : "—"}</td>
+                        <td className="num">{money(row.gross)}</td>
+                        <td className="num amount-discount">{row.discounts > 0 ? `- ${money(row.discounts)}` : "—"}</td>
+                        <td className="num amount-net">{money(row.net)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="dashboard-empty">Nenhuma receita neste mês.</p>
+            )}
+            <p className="muted" style={{ marginTop: '16px', fontSize: '.8rem' }}>
+              Os valores exibidos referem-se exclusivamente ao mês selecionado: {monthLabel}.
+            </p>
+          </article>
         </section>
       )}
 

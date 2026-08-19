@@ -130,6 +130,11 @@ export function DashboardPage() {
 
     const { months: evolutionMonths, labels: evolutionLabels } = lastNMonths(12);
     const { flowIn, flowOut } = computeMonthlyFlow(transactions, evolutionMonths, { categories });
+    const monthFmt = new Intl.DateTimeFormat("pt-BR", { month: "short" });
+    const evolutionTooltipTitles = evolutionMonths.map((d) => {
+      const month = monthFmt.format(d).replace(".", "");
+      return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${d.getFullYear()}`;
+    });
 
     return {
       balance,
@@ -143,6 +148,7 @@ export function DashboardPage() {
       uncategorizedCount,
       recentTransactions,
       evolutionLabels,
+      evolutionTooltipTitles,
       flowIn,
       flowOut,
     };
@@ -220,6 +226,7 @@ export function DashboardPage() {
             <DashboardChart
               type="line"
               labels={metrics.evolutionLabels}
+              tooltipTitles={metrics.evolutionTooltipTitles}
               legend={false}
               compactY
               series={[
