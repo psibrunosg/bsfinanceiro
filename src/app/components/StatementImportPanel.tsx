@@ -20,8 +20,7 @@ type StatementImportPanelProps = {
   accounts: Account[];
   batches: TransactionImportBatch[];
   onReload: () => Promise<void>;
-  /** O tipo do aviso vem do código chamador, nunca do texto da mensagem. */
-  onMessage: (message: string, kind?: "success" | "error") => void;
+  onMessage: (message: string) => void;
 };
 
 type ClassifiedValidItem = StatementCsvValidItem & { duplicate?: true; duplicateSource?: "existing" | "file"; reason?: string };
@@ -97,7 +96,7 @@ export function StatementImportPanel({
       const cleaned = batchId ? await discardFailedBatch(batchId) : true;
       onMessage(cleaned
         ? "Não foi possível preparar a prévia do CSV."
-        : "Não foi possível preparar a prévia do CSV e limpar o lote pendente.", "error");
+        : "Não foi possível preparar a prévia do CSV e limpar o lote pendente.");
     } finally {
       setPendingAction(null);
     }
@@ -114,7 +113,7 @@ export function StatementImportPanel({
       setSelectedBatchId(null);
       await reloadAfterSuccess(action === "apply" ? `Importação ${batch.fileName} confirmada.` : `Importação ${batch.fileName} descartada.`);
     } catch {
-      onMessage(action === "apply" ? "Não foi possível confirmar a importação." : "Não foi possível descartar a importação.", "error");
+      onMessage(action === "apply" ? "Não foi possível confirmar a importação." : "Não foi possível descartar a importação.");
     } finally {
       setPendingAction(null);
     }

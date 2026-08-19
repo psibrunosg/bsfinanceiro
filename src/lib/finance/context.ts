@@ -1,0 +1,2 @@
+import{redirect}from"next/navigation";import{createClient}from"@/lib/supabase/server";
+export async function requireFinanceContext(){const supabase=await createClient();const{data}=await supabase.auth.getClaims();const userId=data?.claims?.sub;if(typeof userId!=="string")redirect("/entrar");const{data:workspace}=await supabase.from("workspaces").select("id,name").eq("owner_id",userId).eq("kind","personal").order("created_at").limit(1).maybeSingle();if(!workspace)redirect("/onboarding");return{supabase,userId,workspace};}

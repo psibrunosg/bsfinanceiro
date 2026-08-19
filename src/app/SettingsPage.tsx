@@ -7,11 +7,10 @@ import { createClient } from "@/lib/supabase/client";
 import { appPath } from "@/lib/app-path";
 import { useMemo, useState } from "react";
 import { useThemePreference } from "./components/ThemeProvider";
-import { useToast } from "./components/Toast";
+import type { WorkspacePreference } from "./components/types";
 
 export function SettingsPage() {
-  const { workspace, alertPrefs, workspacePrefs, contexts = [], categories, loading, reload } = useFinance("settings");
-  const { toast } = useToast();
+  const { workspace, alertPrefs, workspacePrefs, contexts = [], categories, loading, message, setMessage, reload } = useFinance("settings");
   const supabase = useMemo(() => createClient(), []);
   const { preference, updateThemePreference } = useThemePreference();
   const [saving, setSaving] = useState(false);
@@ -40,25 +39,23 @@ export function SettingsPage() {
         weekly_digest_day: Number(form.get("weekly_digest_day") || 1),
       };
       const { error } = await supabase.from("alert_preferences").upsert(p, { onConflict: "workspace_id,owner_id" });
-      if (error) toast("Não foi possível salvar alertas.", "error");
-      else toast("Preferências de alerta salvas.");
+      setMessage(error ? "Não foi possível salvar alertas." : "Preferências de alerta salvas.");
     } else {
-      const p: Record<string, unknown> = {
+      const p: Partial<WorkspacePreference> & { workspace_id: string; owner_id?: string } = {
         workspace_id: workspace.id,
         owner_id: userData.user?.id,
       };
       if (form.has("compact_mode")) p.compact_mode = form.get("compact_mode") === "true";
-      if (form.has("personal_color")) p.personal_color = form.get("personal_color");
-      if (form.has("default_period")) p.default_period = form.get("default_period");
+      if (form.has("personal_color")) p.personal_color = form.get("personal_color") as string | null;
+      if (form.has("default_period")) p.default_period = form.get("default_period") as string;
       if (form.has("hide_values")) p.hide_values = form.get("hide_values") === "true";
-      if (form.has("default_context_id")) p.default_context_id = form.get("default_context_id") || null;
+      if (form.has("default_context_id")) p.default_context_id = (form.get("default_context_id") as string) || null;
       if (form.has("default_appointment_value")) p.default_appointment_value = parseFloat(String(form.get("default_appointment_value")).replace(/\./g, "").replace(",", ".")) || 0;
       if (form.has("default_billing_deadline_days")) p.default_billing_deadline_days = Number(form.get("default_billing_deadline_days")) || 30;
-      if (form.has("default_category_id")) p.default_category_id = form.get("default_category_id") || null;
+      if (form.has("default_category_id")) p.default_category_id = (form.get("default_category_id") as string) || null;
       
       const { error } = await supabase.from("workspace_preferences").upsert(p, { onConflict: "workspace_id,owner_id" });
-      if (error) toast("Não foi possível salvar preferências.", "error");
-      else toast("Preferências salvas.");
+      setMessage(error ? "Não foi possível salvar preferências." : "Preferências salvas.");
     }
     
     setSaving(false);
@@ -77,25 +74,21 @@ export function SettingsPage() {
     <main className="management-page">
       <PageHeader title="Configurações" subtitle="Preferências e alertas." workspaceName={workspace.name} />
       <Nav />
-      <div className="tabs-nav" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '16px', borderBottom: '1px solid var(--border)', marginBottom: '24px' }}>
+      {message && <p className="form-success">{message}</p>}
+      
+      <nav className="hub-tabs" aria-label="Abas de configurações">
         {TABS.map(tab => (
-          <button 
-            key={tab} 
+          <button
+            key={tab}
+            type="button"
+            aria-pressed={activeTab === tab}
+            className={activeTab === tab ? "active" : ""}
             onClick={() => setActiveTab(tab)}
-            style={{ 
-              background: activeTab === tab ? 'var(--accent)' : 'transparent', 
-              color: activeTab === tab ? '#fff' : 'var(--text-color)',
-              border: 'none',
-              padding: '6px 16px',
-              borderRadius: '20px',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
           >
             {tab}
           </button>
         ))}
-      </div>
+      </nav>
 
       <section className="settings-page">
         <form className="settings-card" onSubmit={async (e) => { e.preventDefault(); await savePreferences(new FormData(e.currentTarget)); }}>

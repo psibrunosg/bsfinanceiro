@@ -1,12 +1,11 @@
 "use client";
 
-import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { BarChart3, CirclePlus, CreditCard, Landmark, LogOut, Menu, ReceiptText, Target, TrendingUp, WalletCards } from "lucide-react";
+import { Activity, BarChart3, ChartColumn, CirclePlus, CreditCard, Landmark, LogOut, Menu, Moon, ReceiptText, Sun, Target, TrendingUp, WalletCards } from "lucide-react";
 import { appPath } from "@/lib/app-path";
 import { createClient } from "@/lib/supabase/client";
-
+import { useThemePreference } from "./ThemeProvider";
 
 const desktopLinks = [
   { href: "/", label: "Painel", icon: BarChart3 },
@@ -16,63 +15,57 @@ const desktopLinks = [
   { href: "/cartoes", label: "Cartões", icon: CreditCard },
   { href: "/investimentos", label: "Investimentos", icon: WalletCards },
   { href: "/planejamento", label: "Planejamento", icon: Target },
+  { href: "/relatorios", label: "Relatórios", icon: ChartColumn },
+  { href: "/saude", label: "Saúde financeira", icon: Activity },
   { href: "/categorias", label: "Categorias", icon: ReceiptText },
   { href: "/configuracoes", label: "Mais", icon: Menu },
 ];
 
-function NavLinks({ pathname, isGastosRecorrentes }: { pathname: string | null; isGastosRecorrentes: boolean }) {
-  const isCompromissos = pathname === "/compromissos";
-
-  return (
-    <nav>
-      {desktopLinks.map(({ href, label, icon: Icon }) => (
-        <Link
-          key={href}
-          href={href}
-          className={(pathname === href || (isGastosRecorrentes && href === "/gastos")) ? "active" : ""}
-          aria-current={(pathname === href || (isGastosRecorrentes && href === "/gastos")) ? "page" : undefined}
-        >
-          <Icon aria-hidden="true" />
-          {label}
-        </Link>
-      ))}
-      {isCompromissos && (
-        <Link
-          href="/gastos?tab=recorrentes"
-          className="active"
-          aria-current="page"
-        >
-          <Target aria-hidden="true" />
-          Compromissos
-        </Link>
-      )}
-    </nav>
-  );
-}
-
-function NavLinksWithSearchParams({ pathname }: { pathname: string | null }) {
-  const searchParams = useSearchParams();
-  const isGastosRecorrentes = pathname === "/gastos" && searchParams?.get("tab") === "recorrentes";
-
-  return <NavLinks pathname={pathname} isGastosRecorrentes={isGastosRecorrentes} />;
-}
-
 export function Nav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { preference, updateThemePreference } = useThemePreference();
+  const nextTheme = preference === "dark" ? "light" : "dark";
 
   async function signOut() {
     await createClient().auth.signOut();
     window.location.replace(appPath("/entrar"));
   }
 
+  const isCompromissos = pathname === "/compromissos";
+  const isGastosRecorrentes = pathname === "/gastos" && searchParams?.get("tab") === "recorrentes";
+
   return <>
     <aside className="app-nav" aria-label="Navegação principal">
       <Link className="nav-brand" href="/"><span>BS</span><strong>Financeiro</strong></Link>
-      <Suspense fallback={<NavLinks pathname={pathname} isGastosRecorrentes={false} />}>
-        <NavLinksWithSearchParams pathname={pathname} />
-      </Suspense>
+      <nav>
+        {desktopLinks.map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            className={(pathname === href || (isGastosRecorrentes && href === "/gastos")) ? "active" : ""}
+            aria-current={(pathname === href || (isGastosRecorrentes && href === "/gastos")) ? "page" : undefined}
+          >
+            <Icon aria-hidden="true" />
+            {label}
+          </Link>
+        ))}
+        {isCompromissos && (
+          <Link
+            href="/gastos?tab=recorrentes"
+            className="active"
+            aria-current="page"
+          >
+            <Target aria-hidden="true" />
+            Compromissos
+          </Link>
+        )}
+      </nav>
       <div className="nav-bottom">
-
+        <button aria-label="Alternar tema" onClick={() => void updateThemePreference(nextTheme)}>
+          {preference === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+          <span>Tema</span>
+        </button>
         <button onClick={() => void signOut()}><LogOut aria-hidden="true" /><span>Sair</span></button>
       </div>
     </aside>

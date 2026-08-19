@@ -10,6 +10,9 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardPage } from "./DashboardPage";
+import { MonthProvider } from "./components/MonthContext";
+
+const renderDashboard = () => render(<MonthProvider><DashboardPage /></MonthProvider>);
 
 vi.mock("./components/Dialog", () => ({
   Dialog: ({ children, open }: { children: React.ReactNode; open: boolean }) => open ? <div data-testid="dialog">{children}</div> : null
@@ -92,9 +95,9 @@ afterEach(() => {
 
 describe("DashboardPage quick transaction integration", () => {
   it("keeps success after reload, then clears it before an invalid retry", async () => {
-    render(<DashboardPage />);
-    
-    fireEvent.click(screen.getByRole("button", { name: "+ Nova movimentação" }));
+    renderDashboard();
+
+    fireEvent.click(screen.getByRole("button", { name: "Nova movimentação" }));
     
     // Wait for the Dialog to mount (since it's lazy loaded via import)
     const valorInput = await screen.findByLabelText("Valor");
@@ -109,7 +112,8 @@ describe("DashboardPage quick transaction integration", () => {
     fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
 
     await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText("Carregando...")).toBeTruthy();
+    const loadingText = await screen.findByText("Carregando...");
+    expect(loadingText.nodeName).toBe("P");
     expect(screen.queryByRole("button", { name: "Registrar" })).toBeNull();
 
     act(() => mocks.resolveReload?.());
@@ -118,7 +122,7 @@ describe("DashboardPage quick transaction integration", () => {
       "Movimentação registrada",
     );
     
-    fireEvent.click(screen.getByRole("button", { name: "+ Nova movimentação" }));
+    fireEvent.click(screen.getByRole("button", { name: "Nova movimentação" }));
     const retryButton = await screen.findByRole("button", { name: "Registrar" });
     fireEvent.click(retryButton);
 

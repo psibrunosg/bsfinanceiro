@@ -22,6 +22,24 @@ export function monthStartsForSaoPauloDate(today: string): [string, string] {
   ];
 }
 
+/** Shifts a `YYYY-MM-01` month start by `delta` months. */
+export function addMonths(monthStart: string, delta: number): string {
+  const [year, month] = monthStart.split("-").map(Number);
+  const total = year * 12 + (month - 1) + delta;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}-01`;
+}
+
+/** Half-open range for a month start: `from <= date < toExclusive`. */
+export function monthRangeOf(monthStart: string): { from: string; toExclusive: string } {
+  return { from: monthStart, toExclusive: addMonths(monthStart, 1) };
+}
+
+/** `2026-08-01` -> `ago/2026`. */
+export function monthLabel(monthStart: string): string {
+  return new Intl.DateTimeFormat("pt-BR", { month: "short", year: "numeric", timeZone: "UTC" })
+    .format(new Date(`${monthStart}T12:00:00Z`));
+}
+
 /** Lists every calendar month intersecting an inclusive ISO date interval. */
 export function monthStartsThroughDate(from: string, through: string): string[] {
   const [fromYear, fromMonth] = from.split("-").map(Number);

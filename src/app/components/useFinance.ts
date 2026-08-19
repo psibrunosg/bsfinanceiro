@@ -37,7 +37,7 @@ import type {
 } from "./types";
 
 const TRANSACTION_SELECT =
-  "id,account_id,destination_account_id,type,status,description,amount,competence_date";
+  "id,account_id,destination_account_id,type,status,description,amount,competence_date,category_id";
 const DASHBOARD_QUERY_BATCH_SIZE = 500;
 export const TRANSACTION_HISTORY_PAGE_SIZE = 25;
 
@@ -233,7 +233,7 @@ export function useFinance(
     let historyTotal = 0;
     let importBatchRows: TransactionImportBatch[] = [];
 
-    if (route === "dashboard" || route === "accounts") {
+    if (route === "dashboard") {
       const { data: nextIncomeData } = await supabase
         .from("transactions")
         .select(TRANSACTION_SELECT)
@@ -406,7 +406,7 @@ export function useFinance(
           .limit(12),
         supabase
           .from("credit_card_statement_imports")
-          .select("id,file_name,status,error_code,declared_total_cents,created_at,credit_card_statement_import_items(ordinal,purchased_on,description,installment_amount_cents,installment_number,installment_count,total_amount_cents,needs_review,source_fingerprint)")
+          .select("id,file_name,status,error_code,created_at")
           .eq("credit_card_id", cardId)
           .order("created_at", { ascending: false })
           .limit(5),

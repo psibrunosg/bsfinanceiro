@@ -1,18 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useWorkspaceBasics } from "../components/useWorkspaceBasics";
+import { useFinance } from "../components/useFinance";
 import { Nav } from "../components/Nav";
 import { PageHeader } from "../components/PageHeader";
 import { Dialog } from "../components/Dialog";
 import { SimpleForm } from "../components/SimpleForm";
 import { List } from "../components/List";
-import { money, parseMoney, dateFmt, monthStart } from "../components/Money";
-import { PeriodFilter, periodRange, type PeriodKey } from "../components/PeriodFilter";
+import { money, parseMoney, dateFmt } from "../components/Money";
 import { DashboardChart } from "../components/DashboardChart";
-import { useToast } from "../components/Toast";
+import { MonthPicker } from "../components/MonthPicker";
+import { useMonth } from "../components/MonthContext";
 import { createClient } from "@/lib/supabase/client";
-import { ReceiptText, Check, Pencil, Trash2 } from "lucide-react";
+import { ReceiptText, Check } from "lucide-react";
 
 type Tab = "overview" | "launches" | "recurrent";
 
@@ -21,16 +21,9 @@ type ExpenseTx = {
   description: string;
   amount: number;
   competence_date: string;
-  account_id: string | null;
   category_id: string | null;
   context_id: string | null;
   status: string;
-};
-
-type FinancialContext = {
-  id: string;
-  kind: string;
-  name: string | null;
 };
 
 type Commitment = {
@@ -39,13 +32,6 @@ type Commitment = {
   amount: number;
   due_day: number;
   category_id: string | null;
-  context_id: string | null;
-};
-/** Cartão de crédito e a conta técnica que recebe os lançamentos dele. */
-type CreditCard = {
-  id: string;
-  name: string;
-  account_id: string | null;
 };
 type Occurrence = {
   id: string;
@@ -56,36 +42,13 @@ type Occurrence = {
   status: string;
 };
 
-type DialogState =
-  | { kind: "expense" }
-  | { kind: "recurrent" }
-  | { kind: "edit"; tx: ExpenseTx }
-  | { kind: "delete"; tx: ExpenseTx }
-  | null;
-
-/** Valor em pt-BR sem símbolo, pronto para o input de edição. */
-const amountInput = new Intl.NumberFormat("pt-BR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-const DIALOG_TITLES: Record<NonNullable<DialogState>["kind"], string> = {
-  expense: "Registrar gasto",
-  recurrent: "Novo compromisso",
-  edit: "Editar lançamento",
-  delete: "Excluir lançamento",
-};
-
-/** Rótulo do contexto: usa o nome cadastrado e cai para o tipo quando vazio. */
-function contextLabel(context: FinancialContext) {
-  if (context.name) return context.name;
-  return context.kind === "clinica" ? "Clínica" : "Pessoal";
-}
+type DialogState = { kind: "expense" } | { kind: "recurrent" } | null;
 
 export default function GastosPage() {
   const { workspace, accounts, categories, defaultCashAccountId, loading } =
-    useWorkspaceBasics();
+    useFinance("dashboard");
   const supabase = useMemo(() => createClient(), []);
+  const { month, nextMonth, label: monthLabel } = useMonth();
   // Lido no cliente apenas para a aba inicial; evita useSearchParams para
   // manter a página estática sem suspense boundary.
   const [tab, setTab] = useState<Tab>(() =>
@@ -97,131 +60,83 @@ export default function GastosPage() {
   const [expenses, setExpenses] = useState<ExpenseTx[]>([]);
   const [commitments, setCommitments] = useState<Commitment[]>([]);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
-  const [cards, setCards] = useState<CreditCard[]>([]);
-  const [contexts, setContexts] = useState<FinancialContext[]>([]);
+  const [defaultContextId, setDefaultContextId] = useState<string | null>(null);
   const [contextFilter, setContextFilter] = useState<"all" | "pessoal" | "clinica">("all");
-  const [period, setPeriod] = useState<PeriodKey>("month");
   const [dialog, setDialog] = useState<DialogState>(null);
+  const [message, setMessage] = useState("");
   const [hubLoading, setHubLoading] = useState(true);
-  const { toast } = useToast();
 
   const loadHub = useCallback(async () => {
     if (!workspace) return;
     try {
-      const [
-        { data: contextRows },
-        { data: expenseRows },
-        { data: commitmentRows },
-        { data: occurrenceData },
-        { data: cardRows },
-      ] =
+      const [{ data: contextRows }, { data: expenseRows }, { data: commitmentRows }, { data: occurrenceData }] =
         await Promise.all([
           supabase
             .from("financial_contexts")
-            .select("id,kind,name")
+            .select("id,kind")
             .eq("workspace_id", workspace.id)
             .eq("active", true),
           supabase
             .from("transactions")
-            .select("id,description,amount,competence_date,account_id,category_id,context_id,status")
+            .select("id,description,amount,competence_date,category_id,context_id,status")
             .eq("workspace_id", workspace.id)
             .eq("type", "expense")
-            // Exclusão por texto de descrição removida: escondia gastos reais.
+            // Pagamentos de fatura saem da composição por categoria para evitar
+            // dupla contagem com as parcelas do cartão.
+            .not("description", "ilike", "Pagamento de fatura%")
+            .not("description", "ilike", "Fatura %")
             .order("competence_date", { ascending: false })
             .limit(500),
           supabase
             .from("fixed_commitments")
-            .select("id,description,amount,due_day,category_id,context_id")
+            .select("id,description,amount,due_day,category_id")
             .eq("workspace_id", workspace.id)
             .eq("active", true)
             .order("due_day"),
           supabase.rpc("materialize_fixed_commitment_occurrences", {
             p_workspace_id: workspace.id,
-            p_month: monthStart(),
+            p_month: month,
           }),
-          // As contas técnicas dos cartões não vêm em `accounts` (is_system),
-          // então buscamos os cartões para poder pagar com cartão.
-          supabase
-            .from("credit_cards")
-            .select("id,name,account_id")
-            .eq("workspace_id", workspace.id)
-            .eq("active", true)
-            .order("name"),
         ]);
-      setContexts((contextRows ?? []) as FinancialContext[]);
+      setDefaultContextId((contextRows ?? []).find((c: { kind: string }) => c.kind === "pessoal")?.id ?? null);
       setExpenses(expenseRows ?? []);
       setCommitments(commitmentRows ?? []);
       setOccurrences(occurrenceData ?? []);
-      setCards((cardRows ?? []) as CreditCard[]);
     } finally {
       setHubLoading(false);
     }
-  }, [supabase, workspace]);
+  }, [supabase, workspace, month]);
 
   useEffect(() => {
     void loadHub();
   }, [loadHub]);
 
   if (loading || !workspace || hubLoading) {
-    // Mantém a navegação e o cabeçalho visíveis durante o carregamento.
-    return (
-      <main className="management-page">
-        <Nav />
-        <PageHeader
-          title="Gastos"
-          subtitle="Visão geral, lançamentos e recorrentes"
-          workspaceName=""
-        />
-        <p className="muted">Carregando...</p>
-      </main>
-    );
+    return <main className="management-page"><p className="muted">Carregando...</p></main>;
   }
 
-  // Capturado após o guard: funções declaradas não herdam o narrowing de `workspace`.
-  const activeWorkspace = workspace;
   const expenseCategories = categories.filter((c) => c.kind === "expense");
-  const defaultContextId = contexts.find((c) => c.kind === "pessoal")?.id ?? null;
-  // Cada cartão é oferecido pelo id da sua conta técnica, que é o que a RPC
-  // de pagamento e a tabela de transações esperam em `account_id`.
-  const cardOptions = cards.flatMap((c) =>
-    c.account_id ? [{ id: c.id, name: c.name, accountId: c.account_id }] : []
-  );
-  // Ids reais do contexto escolhido; lançamentos antigos sem contexto contam
-  // como pessoais para não sumirem do filtro.
-  const filterContextIds = contexts.filter((c) => c.kind === contextFilter).map((c) => c.id);
-  const matchesContext = (contextId: string | null) =>
-    contextFilter === "all" ||
-    (contextId === null ? contextFilter === "pessoal" : filterContextIds.includes(contextId));
-  const filteredExpenses = expenses.filter((t) => matchesContext(t.context_id));
-  const filteredCommitments = commitments.filter((c) => matchesContext(c.context_id));
-  // Uma ocorrência herda o contexto do compromisso que a originou. Se esse
-  // compromisso foi desativado (não vem mais na lista), a ocorrência é tratada
-  // como pessoal — nunca escondida, pois é ela que carrega o botão de pagar.
-  const occurrenceContextId = (commitmentId: string) =>
-    commitments.find((c) => c.id === commitmentId)?.context_id ?? null;
-  const filteredOccurrences = occurrences.filter(
-    (o) => contextFilter === "all" || matchesContext(occurrenceContextId(o.fixed_commitment_id))
-  );
+  const filteredExpenses =
+    contextFilter === "all"
+      ? expenses
+      : expenses.filter((t) =>
+          t.context_id === null
+            ? contextFilter === "pessoal"
+            : t.context_id === defaultContextId
+              ? contextFilter === "pessoal"
+              : contextFilter === "clinica"
+        );
 
-  // O período escolhido governa cards, gráfico por categoria e lançamentos.
-  const { start: periodStart, end: periodEnd, label: periodLabel } = periodRange(period);
-  const periodExpenses = filteredExpenses.filter(
-    (t) =>
-      (periodStart === null || t.competence_date >= periodStart) &&
-      (periodEnd === null || t.competence_date < periodEnd)
+  const currentMonthExpenses = filteredExpenses.filter(
+    (t) => t.competence_date >= month && t.competence_date < nextMonth
   );
-  // Realizado (pago) e previsto (pendente) do período são somados separadamente.
-  const paidPeriodExpenses = periodExpenses.filter((t) => t.status === "paid");
-  const totalMonthPaid = paidPeriodExpenses.reduce((s, t) => s + Number(t.amount), 0);
-  const totalMonthPending = periodExpenses
-    .filter((t) => t.status !== "paid")
-    .reduce((s, t) => s + Number(t.amount), 0);
-  const totalRecurrent = filteredCommitments.reduce((s, c) => s + Number(c.amount), 0);
+  const totalMonth = currentMonthExpenses.reduce((s, t) => s + Number(t.amount), 0);
+  const totalRecurrent = commitments.reduce((s, c) => s + Number(c.amount), 0);
 
   const byCategory = expenseCategories
     .map((c) => ({
       label: c.name,
-      value: paidPeriodExpenses
+      value: currentMonthExpenses
         .filter((t) => t.category_id === c.id)
         .reduce((s, t) => s + Number(t.amount), 0),
     }))
@@ -229,9 +144,10 @@ export default function GastosPage() {
     .sort((a, b) => b.value - a.value);
 
   const byMonth: { label: string; value: number }[] = [];
-  const now = new Date();
+  // Janela de 6 meses terminando no mês selecionado.
+  const anchor = new Date(`${month}T12:00:00`);
   for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const d = new Date(anchor.getFullYear(), anchor.getMonth() - i, 1);
     const start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 1).toISOString().slice(0, 10);
     const value = filteredExpenses
@@ -251,11 +167,11 @@ export default function GastosPage() {
   async function submitExpense(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("transactions").insert({
-      workspace_id: activeWorkspace.id,
+      workspace_id: workspace.id,
       owner_id: userData.user?.id,
       account_id: form.get("account_id"),
       category_id: form.get("category_id") || null,
-      context_id: form.get("context_id") || null,
+      context_id: defaultContextId,
       type: "expense",
       amount: parseMoney(form.get("amount")),
       description: form.get("description"),
@@ -264,81 +180,31 @@ export default function GastosPage() {
       status: "paid",
       idempotency_key: crypto.randomUUID(),
     });
-    if (error) {
-      toast("Não foi possível registrar o gasto.", "error");
-    } else {
-      toast("Gasto registrado.");
-      setDialog(null);
-    }
-    await loadHub();
-  }
-
-  async function submitEdit(tx: ExpenseTx, form: FormData) {
-    const competenceDate = form.get("competence_date") as string;
-    const { error } = await supabase
-      .from("transactions")
-      .update({
-        description: form.get("description"),
-        amount: parseMoney(form.get("amount")),
-        account_id: form.get("account_id"),
-        category_id: form.get("category_id") || null,
-        context_id: form.get("context_id") || null,
-        competence_date: competenceDate,
-        paid_at: tx.status === "paid" ? competenceDate : null,
-      })
-      .eq("id", tx.id)
-      .eq("workspace_id", activeWorkspace.id);
-    // O motivo real importa: a falha pode ser de permissão ou de restrição.
-    if (error) {
-      toast(`Não foi possível salvar: ${error.message}`, "error");
-    } else {
-      toast("Lançamento atualizado.");
-      setDialog(null);
-    }
-    await loadHub();
-  }
-
-  async function deleteExpense(tx: ExpenseTx) {
-    const { error } = await supabase
-      .from("transactions")
-      .delete()
-      .eq("id", tx.id)
-      .eq("workspace_id", activeWorkspace.id);
-    // Exclusões podem ser barradas por chave estrangeira; mostre o motivo.
-    if (error) {
-      toast(`Não foi possível excluir: ${error.message}`, "error");
-    } else {
-      toast("Lançamento excluído.");
-      setDialog(null);
-    }
+    setMessage(error ? "Não foi possível registrar o gasto." : "Gasto registrado.");
+    if (!error) setDialog(null);
     await loadHub();
   }
 
   async function submitRecurrent(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("fixed_commitments").insert({
-      workspace_id: activeWorkspace.id,
+      workspace_id: workspace.id,
       owner_id: userData.user?.id,
       description: form.get("description"),
       amount: parseMoney(form.get("amount")),
       due_day: Number(form.get("due_day")),
       account_id: form.get("account_id") || null,
       category_id: form.get("category_id") || null,
-      context_id: form.get("context_id") || null,
     });
-    if (error) {
-      toast("Não foi possível criar o compromisso.", "error");
-    } else {
-      toast("Compromisso criado.");
-      setDialog(null);
-    }
+    setMessage(error ? "Não foi possível criar o compromisso." : "Compromisso criado.");
+    if (!error) setDialog(null);
     await loadHub();
   }
 
   async function payOccurrence(occurrenceId: string, form: FormData) {
     const accountId = form.get("account_id");
     if (!accountId) {
-      toast("Escolha uma conta para pagar.", "error");
+      setMessage("Escolha uma conta para pagar.");
       return;
     }
     const { error } = await supabase.rpc("pay_fixed_commitment_occurrence", {
@@ -347,23 +213,11 @@ export default function GastosPage() {
       p_paid_on: new Date().toISOString().slice(0, 10),
       p_idempotency_key: crypto.randomUUID(),
     });
-    if (error) toast("Não foi possível pagar o compromisso.", "error");
-    else toast("Compromisso pago.");
+    setMessage(error ? "Não foi possível pagar o compromisso." : "Compromisso pago.");
     await loadHub();
   }
 
   const today = new Date().toISOString().slice(0, 10);
-
-  // Exibe primeiro o que já aconteceu (mais recente antes) e depois os futuros
-  // (mais próximos antes), para a lista abrir perto de hoje.
-  const displayExpenses = [...periodExpenses].sort((a, b) => {
-    const aFuture = a.competence_date > today;
-    const bFuture = b.competence_date > today;
-    if (aFuture !== bFuture) return aFuture ? 1 : -1;
-    return aFuture
-      ? a.competence_date.localeCompare(b.competence_date)
-      : b.competence_date.localeCompare(a.competence_date);
-  });
 
   return (
     <main className="management-page">
@@ -374,6 +228,7 @@ export default function GastosPage() {
         workspaceName={workspace.name}
         action={action}
       />
+      {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
 
       <nav className="hub-tabs" aria-label="Abas de gastos">
         <button type="button" aria-pressed={tab === "overview"} onClick={() => setTab("overview")} className={tab === "overview" ? "active" : ""}>Visão geral</button>
@@ -381,7 +236,8 @@ export default function GastosPage() {
         <button type="button" aria-pressed={tab === "recurrent"} onClick={() => setTab("recurrent")} className={tab === "recurrent" ? "active" : ""}>Recorrentes</button>
       </nav>
 
-      <div className="hub-filters" style={{ display: "flex", gap: 8, alignItems: "center", margin: "12px 0" }}>
+      <div className="hub-filters">
+        <MonthPicker />
         <label className="muted" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           Contexto
           <select
@@ -394,7 +250,6 @@ export default function GastosPage() {
             <option value="clinica">Clínica</option>
           </select>
         </label>
-        <PeriodFilter value={period} onChange={setPeriod} />
       </div>
 
       {tab === "overview" && (
@@ -402,24 +257,18 @@ export default function GastosPage() {
           <section className="hub-overview">
             <article className="metric-card metric-card--negative">
               <ReceiptText aria-hidden="true" />
-              <strong>{money(totalMonthPaid)}</strong>
-              <span className="muted">{`Gasto · ${periodLabel}`}</span>
+              <strong>{money(totalMonth)}</strong>
+              <span className="muted">Gasto no mês</span>
             </article>
             <article className="metric-card">
               <strong>{money(totalRecurrent)}</strong>
               <span className="muted">Compromissos fixos/mês</span>
             </article>
-            {totalMonthPending > 0 && (
-              <article className="metric-card">
-                <strong>{money(totalMonthPending)}</strong>
-                <span className="muted">{`Previsto · ${periodLabel}`}</span>
-              </article>
-            )}
           </section>
           <section className="dashboard-columns" style={{ marginTop: 18 }}>
             {byCategory.length > 0 && (
               <article className="dashboard-card">
-                <h3>{`Por categoria · ${periodLabel}`}</h3>
+                <h3>Por categoria (mês)</h3>
                 <div className="chart-wrap">
                   <DashboardChart type="doughnut" label="Gastos" labels={byCategory.map((x) => x.label)} values={byCategory.map((x) => x.value)} color="var(--accent)" />
                 </div>
@@ -444,33 +293,21 @@ export default function GastosPage() {
       {tab === "launches" && (
         <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
           <List title="Lançamentos">
-            {displayExpenses.length === 0 ? (
+            {filteredExpenses.length === 0 ? (
               <p className="dashboard-empty">Nenhum gasto registrado.{" "}
                 <button type="button" onClick={() => setDialog({ kind: "expense" })}>Registrar primeiro gasto</button>
               </p>
             ) : (
-              <ul className="list" style={{ display: "grid", gap: 6 }}>
-                {displayExpenses.map((t) => {
+              <ul className="list">
+                {filteredExpenses.map((t) => {
                   const cat = expenseCategories.find((c) => c.id === t.category_id);
                   return (
-                    <li key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                    <li key={t.id}>
                       <span>
-                        {t.description}
-                        {t.status !== "paid" && <span className="chip chip--pending">Previsto</span>}
-                        {" · "}{dateFmt.format(new Date(`${t.competence_date}T12:00:00`))}
+                        {t.description} · {dateFmt.format(new Date(`${t.competence_date}T12:00:00`))}
                         {cat ? ` · ${cat.name}` : ""}
                       </span>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                        <b>{money(t.amount)}</b>
-                        <span className="row-actions">
-                          <button type="button" aria-label="Editar lançamento" title="Editar lançamento" onClick={() => setDialog({ kind: "edit", tx: t })}>
-                            <Pencil aria-hidden="true" />
-                          </button>
-                          <button type="button" className="danger" aria-label="Excluir lançamento" title="Excluir lançamento" onClick={() => setDialog({ kind: "delete", tx: t })}>
-                            <Trash2 aria-hidden="true" />
-                          </button>
-                        </span>
-                      </span>
+                      <b>{money(t.amount)}</b>
                     </li>
                   );
                 })}
@@ -483,15 +320,15 @@ export default function GastosPage() {
       {tab === "recurrent" && (
         <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
           <List title={`Compromissos fixos · ${money(totalRecurrent)}/mês`}>
-            {filteredCommitments.length === 0 && (
+            {commitments.length === 0 && (
               <p className="dashboard-empty">Nenhum compromisso fixo.{" "}
                 <button type="button" onClick={() => setDialog({ kind: "recurrent" })}>Criar primeiro compromisso</button>
               </p>
             )}
-            {filteredCommitments.map((c) => {
+            {commitments.map((c) => {
               const cat = expenseCategories.find((x) => x.id === c.category_id);
               return (
-                <article className="account-row" key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <article className="account-row" key={c.id}>
                   <div>
                     <strong>{c.description}</strong>
                     <small>vence dia {c.due_day}{cat ? ` · ${cat.name}` : ""}</small>
@@ -502,13 +339,13 @@ export default function GastosPage() {
             })}
           </List>
 
-          <List title={`Ocorrências · ${new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date())}`}>
-            {filteredOccurrences.length === 0 && <p className="muted">Nenhuma ocorrência neste mês.</p>}
-            {filteredOccurrences.map((o) => {
+          <List title={`Ocorrências · ${monthLabel}`}>
+            {occurrences.length === 0 && <p className="muted">Nenhuma ocorrência neste mês.</p>}
+            {occurrences.map((o) => {
               const paid = o.status === "paid";
               const payable = o.status === "planned";
               return (
-                <article className="account-row" key={o.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <article className="account-row" key={o.id}>
                   <div>
                     <strong>{o.description}</strong>
                     <small>
@@ -518,6 +355,7 @@ export default function GastosPage() {
                     {payable && (
                       <form
                         className="finance-form"
+                        style={{ display: "flex", gap: 8, marginTop: 6 }}
                         onSubmit={async (e) => {
                           e.preventDefault();
                           const f = new FormData(e.currentTarget);
@@ -525,28 +363,13 @@ export default function GastosPage() {
                           await payOccurrence(o.id, f);
                         }}
                       >
-                        <div className="finance-form__row">
-                          <select name="account_id" required aria-label="Conta para pagamento">
-                            <option value="">Pagar com...</option>
-                            <optgroup label="Contas">
-                              {accounts.map((a) => (
-                                <option key={a.id} value={a.id}>{a.name}</option>
-                              ))}
-                            </optgroup>
-                            {cardOptions.length > 0 && (
-                              <optgroup label="Cartões">
-                                {cardOptions.map((c) => (
-                                  <option key={c.id} value={c.accountId}>{c.name}</option>
-                                ))}
-                              </optgroup>
-                            )}
-                          </select>
-                          <button><Check aria-hidden="true" /> Pagar</button>
-                        </div>
-                        <small className="muted">
-                          Ao escolher um cartão, a despesa entra na conta do cartão e não sai do seu
-                          saldo em banco — mas ela não é incluída automaticamente na fatura.
-                        </small>
+                        <select name="account_id" required aria-label="Conta para pagamento">
+                          <option value="">Pagar com...</option>
+                          {accounts.map((a) => (
+                            <option key={a.id} value={a.id}>{a.name}</option>
+                          ))}
+                        </select>
+                        <button><Check aria-hidden="true" /> Pagar</button>
                       </form>
                     )}
                   </div>
@@ -558,7 +381,7 @@ export default function GastosPage() {
         </section>
       )}
 
-      <Dialog open={dialog !== null} onClose={() => setDialog(null)} title={dialog ? DIALOG_TITLES[dialog.kind] : "Registrar gasto"}>
+      <Dialog open={dialog !== null} onClose={() => setDialog(null)} title={dialog?.kind === "recurrent" ? "Novo compromisso" : "Registrar gasto"}>
         {dialog?.kind === "expense" && (
           <SimpleForm key="expense" onSubmit={submitExpense}>
             <label htmlFor="expense-description">Descrição</label>
@@ -579,58 +402,10 @@ export default function GastosPage() {
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
-            <label htmlFor="expense-context">Contexto</label>
-            <select id="expense-context" name="context_id" defaultValue={defaultContextId ?? ""}>
-              {contexts.map((c) => (
-                <option key={c.id} value={c.id}>{contextLabel(c)}</option>
-              ))}
-            </select>
             <label htmlFor="expense-date">Data</label>
             <input id="expense-date" name="competence_date" type="date" defaultValue={today} required />
             <button>Registrar gasto</button>
           </SimpleForm>
-        )}
-        {dialog?.kind === "edit" && (
-          <SimpleForm key={`edit-${dialog.tx.id}`} onSubmit={(form) => submitEdit(dialog.tx, form)}>
-            <label htmlFor="edit-description">Descrição</label>
-            <input id="edit-description" name="description" maxLength={160} defaultValue={dialog.tx.description} required autoFocus />
-            <label htmlFor="edit-amount">Valor</label>
-            <input id="edit-amount" name="amount" defaultValue={amountInput.format(Number(dialog.tx.amount))} required />
-            <label htmlFor="edit-account">Conta</label>
-            <select id="edit-account" name="account_id" defaultValue={dialog.tx.account_id ?? defaultCashAccountId ?? ""} required>
-              <option value="">Escolha uma conta</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-            <label htmlFor="edit-category">Categoria</label>
-            <select id="edit-category" name="category_id" defaultValue={dialog.tx.category_id ?? ""}>
-              <option value="">Sem categoria</option>
-              {expenseCategories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <label htmlFor="edit-context">Contexto</label>
-            <select id="edit-context" name="context_id" defaultValue={dialog.tx.context_id ?? defaultContextId ?? ""}>
-              {contexts.map((c) => (
-                <option key={c.id} value={c.id}>{contextLabel(c)}</option>
-              ))}
-            </select>
-            <label htmlFor="edit-date">Data</label>
-            <input id="edit-date" name="competence_date" type="date" defaultValue={dialog.tx.competence_date} required />
-            <button>Salvar</button>
-          </SimpleForm>
-        )}
-        {dialog?.kind === "delete" && (
-          <div className="simple-form">
-            <p>
-              Excluir <strong>{dialog.tx.description}</strong> de <b>{money(dialog.tx.amount)}</b>? Esta ação não pode ser desfeita.
-            </p>
-            <div className="finance-form__row">
-              <button type="button" className="danger" onClick={() => { void deleteExpense(dialog.tx); }}>Excluir</button>
-              <button type="button" onClick={() => setDialog(null)}>Cancelar</button>
-            </div>
-          </div>
         )}
         {dialog?.kind === "recurrent" && (
           <SimpleForm key="recurrent" onSubmit={submitRecurrent}>
@@ -643,30 +418,15 @@ export default function GastosPage() {
             <label htmlFor="recurrent-account">Conta</label>
             <select id="recurrent-account" name="account_id">
               <option value="">Conta (opcional)</option>
-              <optgroup label="Contas">
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </optgroup>
-              {cardOptions.length > 0 && (
-                <optgroup label="Cartões">
-                  {cardOptions.map((c) => (
-                    <option key={c.id} value={c.accountId}>{c.name}</option>
-                  ))}
-                </optgroup>
-              )}
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
             </select>
             <label htmlFor="recurrent-category">Categoria</label>
             <select id="recurrent-category" name="category_id">
               <option value="">Categoria (opcional)</option>
               {expenseCategories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <label htmlFor="recurrent-context">Contexto</label>
-            <select id="recurrent-context" name="context_id" defaultValue={defaultContextId ?? ""}>
-              {contexts.map((c) => (
-                <option key={c.id} value={c.id}>{contextLabel(c)}</option>
               ))}
             </select>
             <button>Adicionar</button>
@@ -676,4 +436,3 @@ export default function GastosPage() {
     </main>
   );
 }
-

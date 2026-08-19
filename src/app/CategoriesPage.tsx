@@ -6,13 +6,12 @@ import { PageHeader } from "./components/PageHeader";
 import { List } from "./components/List";
 import { SimpleForm } from "./components/SimpleForm";
 import { CATEGORY_KIND_LABEL } from "./components/types";
-import { useToast } from "./components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { useMemo } from "react";
 
 export function CategoriesPage() {
-  const { workspace, categories, loading, reload } = useFinance("categories");
-  const { toast } = useToast();
+  const { workspace, categories, loading, message, setMessage, reload } =
+    useFinance("categories");
   const supabase = useMemo(() => createClient(), []);
 
   if (loading || !workspace)
@@ -31,8 +30,9 @@ export function CategoriesPage() {
       kind: form.get("kind"),
       color: form.get("color") || "#087f5b",
     });
-    if (error) toast("Não foi possível criar a categoria.", "error");
-    else toast("Categoria criada.");
+    setMessage(
+      error ? "Não foi possível criar a categoria." : "Categoria criada."
+    );
     await reload();
   }
 
@@ -44,6 +44,7 @@ export function CategoriesPage() {
         workspaceName={workspace.name}
       />
       <Nav />
+      {message && <p className="form-success">{message}</p>}
       <section className="management-grid">
         <List title="Categorias">
           {categories.map((c) => (

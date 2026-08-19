@@ -1,25 +1,35 @@
 /**
- * Pure aggregation functions extracted from DashboardPage.
+ * Pure aggregation functions extracted from DashboardPage and DRE reports.
  * All monetary values are in the original unit (reais, not centavos) for
  * compatibility with the existing useFinance hook which stores amounts as strings.
  */
 
-type Transaction = {
-  id: string;
-  type: string;
-  amount: string | number;
-  competence_date: string;
-  category_id?: string | null;
-};
+import { addMonths } from "./local-date";
+import {
+  isTransferTransaction,
+  filterOutTransfers,
+  calculateNetCashFlowExcludingTransfers,
+  TransferTransaction,
+} from "./transfers";
 
-type Category = {
+export type Transaction = TransferTransaction;
+
+export type Category = {
   id: string;
   name: string;
   kind: string;
 };
 
+export { calculateNetCashFlowExcludingTransfers };
+
+/** `Date` -> `YYYY-MM-01` (calendário local, igual ao resto do app). */
+const monthStartOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+
 /**
- * Aggregate expenses by category for a given month range.
+ * Aggregate expenses by category for a given month range `[currentMonth, nextMonth)`.
+ * `nextMonth` é opcional para não quebrar chamadores antigos — sem ele o intervalo
+ * fica aberto à direita (soma tudo a partir de `currentMonth`).
+ * Neutralizes inter-account transfers from category expense calculations.
  * Returns the top N categories sorted by value descending.
  */
 export function aggregateExpensesByCategory(
@@ -27,13 +37,17 @@ export function aggregateExpensesByCategory(
   categories: Category[],
   currentMonth: string,
   topN = 5,
+  nextMonth?: string,
 ): { label: string; value: number }[] {
+  const filteredTxs = transactions.filter((t) => !isTransferTransaction(t, categories));
+  const inRange = (date: string) => date >= currentMonth && (!nextMonth || date < nextMonth);
+
   return categories
     .filter((c) => c.kind === "expense")
     .map((category) => ({
       label: category.name,
-      value: transactions
-        .filter((t) => t.type === "expense" && t.competence_date >= currentMonth && t.category_id === category.id)
+      value: filteredTxs
+        .filter((t) => t.type === "expense" && inRange(t.competence_date) && t.category_id === category.id)
         .reduce((sum, t) => sum + Number(t.amount), 0),
     }))
     .filter((item) => item.value > 0)
@@ -43,45 +57,33 @@ export function aggregateExpensesByCategory(
 
 /**
  * Compute income vs expense flow for an array of month start dates.
+ * Neutralizes inter-account transfers when options.excludeTransfers is true (default).
  * months should be Date objects representing the first day of each month.
  */
 export function computeMonthlyFlow(
   transactions: Transaction[],
   months: Date[],
+  options: { excludeTransfers?: boolean; categories?: Category[] } = {}
 ): { flowIn: number[]; flowOut: number[] } {
-  const toKey = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const excludeTransfers = options.excludeTransfers ?? true;
+  const categories = options.categories ?? [];
+  const activeTxs = excludeTransfers ? filterOutTransfers(transactions, categories) : transactions;
 
-  const flowIn = months.map((month) => {
-    const key = toKey(month);
-    return transactions
-      .filter(
-        (t) =>
-          t.type === "income" &&
-          t.competence_date >= `${key}-01` &&
-          t.competence_date <= `${key}-31`,
-      )
+  const sumIn = (type: "income" | "expense") => (month: Date) => {
+    const from = monthStartOf(month);
+    const toExclusive = addMonths(from, 1);
+    return activeTxs
+      .filter((t) => t.type === type && t.competence_date >= from && t.competence_date < toExclusive)
       .reduce((sum, t) => sum + Number(t.amount), 0);
-  });
+  };
 
-  const flowOut = months.map((month) => {
-    const key = toKey(month);
-    return transactions
-      .filter(
-        (t) =>
-          t.type === "expense" &&
-          t.competence_date >= `${key}-01` &&
-          t.competence_date <= `${key}-31`,
-      )
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-  });
-
-  return { flowIn, flowOut };
+  return { flowIn: months.map(sumIn("income")), flowOut: months.map(sumIn("expense")) };
 }
 
 /**
  * Compute cumulative balance evolution over months.
  * Starts from the sum of account initial balances.
+ * Maintains individual account balance movements correctly.
  */
 export function computeEvolution(
   transactions: Transaction[],
@@ -91,7 +93,7 @@ export function computeEvolution(
   return months.map(
     (month) =>
       transactions
-        .filter((t) => t.competence_date <= `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-31`)
+        .filter((t) => t.competence_date < addMonths(monthStartOf(month), 1))
         .reduce(
           (sum, t) =>
             sum +
@@ -120,13 +122,16 @@ export function lastNMonths(n = 6): { months: Date[]; labels: string[] } {
 
 /**
  * Aggregate income by source: payslips, patients, other.
- * Expects transactions with type === "income" and optional category metadata.
+ * Neutralizes inter-account transfer inflows.
  */
 export function aggregateIncomeBySource(
   transactions: Transaction[],
   categories: Category[],
 ): { labels: string[]; values: number[] } {
-  const income = transactions.filter((t) => t.type === "income");
+  const income = transactions.filter(
+    (t) => t.type === "income" && !isTransferTransaction(t, categories)
+  );
+
   const byCategory = categories
     .filter((c) => c.kind === "income")
     .map((cat) => ({
@@ -149,5 +154,54 @@ export function aggregateIncomeBySource(
   return {
     labels: byCategory.map((item) => item.label),
     values: byCategory.map((item) => item.value),
+  };
+}
+
+export type DailyDecisionResult = {
+  daysRemaining: number;
+  dailyLimit: number;
+  trajectory: { day: number; date?: string; remaining: number }[];
+  status: "safe" | "warning" | "critical";
+};
+
+/**
+ * Compute recommended daily spend limit and trajectory (Decisão Diária)
+ * based on remaining available funds and target days (or date cutoff).
+ */
+export function computeDailyDecision(
+  availableAmount: number,
+  daysRemaining = 30,
+  startDate?: string
+): DailyDecisionResult {
+  const validDays = Math.max(1, Math.round(daysRemaining));
+  const dailyLimit = availableAmount > 0 ? availableAmount / validDays : 0;
+
+  let status: "safe" | "warning" | "critical" = "safe";
+  if (availableAmount <= 0) {
+    status = "critical";
+  } else if (dailyLimit < 30) {
+    status = "warning";
+  }
+
+  const trajectory = Array.from({ length: validDays }, (_, i) => {
+    let dateStr: string | undefined = undefined;
+    if (startDate) {
+      const d = new Date(`${startDate}T12:00:00.000Z`);
+      d.setUTCDate(d.getUTCDate() + i);
+      dateStr = d.toISOString().slice(0, 10);
+    }
+    const remaining = Math.max(0, availableAmount - dailyLimit * i);
+    return {
+      day: i + 1,
+      date: dateStr,
+      remaining: Math.round(remaining * 100) / 100,
+    };
+  });
+
+  return {
+    daysRemaining: validDays,
+    dailyLimit: Math.round(dailyLimit * 100) / 100,
+    trajectory,
+    status,
   };
 }

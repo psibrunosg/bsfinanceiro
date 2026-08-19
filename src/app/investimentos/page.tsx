@@ -1,14 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useWorkspaceBasics } from "../components/useWorkspaceBasics";
+import { useFinance } from "../components/useFinance";
 import { Nav } from "../components/Nav";
 import { PageHeader } from "../components/PageHeader";
 import { Dialog } from "../components/Dialog";
 import { SimpleForm } from "../components/SimpleForm";
 import { List } from "../components/List";
 import { money, parseMoney, dateFmt } from "../components/Money";
-import { useToast } from "../components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { WalletCards } from "lucide-react";
 
@@ -51,15 +50,15 @@ type DialogState =
 
 export default function InvestimentosPage() {
   const { workspace, accounts, defaultCashAccountId, loading } =
-    useWorkspaceBasics();
+    useFinance("dashboard");
   const supabase = useMemo(() => createClient(), []);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [operations, setOperations] = useState<Operation[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [defaultContextId, setDefaultContextId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
+  const [message, setMessage] = useState("");
   const [hubLoading, setHubLoading] = useState(true);
-  const { toast } = useToast();
 
   const loadHub = useCallback(async () => {
     if (!workspace) return;
@@ -156,7 +155,7 @@ export default function InvestimentosPage() {
         : dialog?.kind === "sell" ? "Registrar venda"
           : dialog?.kind === "quote" ? "Atualizar cotação" : "";
 
-  const submitAsset = async (form: FormData) => {
+  async function submitAsset(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("investment_assets").insert({
       workspace_id: workspace.id,
@@ -166,19 +165,15 @@ export default function InvestimentosPage() {
       type: form.get("type"),
       exchange: form.get("exchange") || null,
     });
-    if (error) {
-      toast("Não foi possível cadastrar o ativo.", "error");
-    } else {
-      toast("Ativo cadastrado.");
-      setDialog(null);
-    }
+    setMessage(error ? "Não foi possível cadastrar o ativo." : "Ativo cadastrado.");
+    if (!error) setDialog(null);
     await loadHub();
-  };
+  }
 
   async function submitOperation(assetId: string, kind: "buy" | "sell", form: FormData) {
     const accountId = form.get("account_id");
     if (!accountId) {
-      toast("Escolha uma conta para a operação.", "error");
+      setMessage("Escolha uma conta para a operação.");
       return;
     }
     const quantity = Number(String(form.get("quantity")).replace(",", "."));
@@ -193,16 +188,16 @@ export default function InvestimentosPage() {
       p_amount: amount,
       p_date: form.get("operation_date"),
     });
-    if (error) {
-      toast(`Não foi possível registrar a ${kind === "buy" ? "compra" : "venda"}.`, "error");
-    } else {
-      toast(`${kind === "buy" ? "Compra" : "Venda"} registrada.`);
-      setDialog(null);
-    }
+    setMessage(
+      error
+        ? `Não foi possível registrar a ${kind === "buy" ? "compra" : "venda"}.`
+        : `${kind === "buy" ? "Compra" : "Venda"} registrada.`
+    );
+    if (!error) setDialog(null);
     await loadHub();
   }
 
-  const submitQuote = async (assetId: string, form: FormData) => {
+  async function submitQuote(assetId: string, form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("investment_quotes").insert({
       workspace_id: workspace.id,
@@ -212,14 +207,10 @@ export default function InvestimentosPage() {
       quote_date: form.get("quote_date"),
       unit_price: parseMoney(form.get("unit_price")),
     });
-    if (error) {
-      toast("Não foi possível atualizar a cotação.", "error");
-    } else {
-      toast("Cotação atualizada.");
-      setDialog(null);
-    }
+    setMessage(error ? "Não foi possível atualizar a cotação." : "Cotação atualizada.");
+    if (!error) setDialog(null);
     await loadHub();
-  };
+  }
 
   const buyDialog = dialog?.kind === "buy" ? dialog : null;
   const sellDialog = dialog?.kind === "sell" ? dialog : null;
@@ -235,6 +226,7 @@ export default function InvestimentosPage() {
         workspaceName={workspace.name}
         action={action}
       />
+      {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
 
       <section className="hub-overview">
         <article className="metric-card metric-card--positive">

@@ -9,7 +9,6 @@ import { List } from "./components/List";
 import { SimpleForm } from "./components/SimpleForm";
 import { Dialog } from "./components/Dialog";
 import { StatementImportPanel } from "./components/StatementImportPanel";
-import { useToast } from "./components/Toast";
 import { money, parseMoney } from "./components/Money";
 import { createClient } from "@/lib/supabase/client";
 import { todayInSaoPaulo } from "@/lib/finance/local-date";
@@ -33,17 +32,17 @@ function TransactionsPageInner() {
     transactionTotal,
     transactionPageSize,
     loading,
+    message,
+    setMessage,
     reload,
     transactionImportBatches,
   } = useFinance("transactions", undefined, {
     transactionFilters: { query, type, from, to },
     transactionPage: page,
   });
-  const { toast } = useToast();
 
   if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
 
-  /** Devolve se a gravação deu certo, para o diálogo fechar só no sucesso. */
   async function submitTransaction(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
     const type = String(form.get("type"));
@@ -52,12 +51,11 @@ function TransactionsPageInner() {
       category_id: type === "transfer" ? null : form.get("category_id"), destination_account_id: type === "transfer" ? form.get("destination_account_id") : null,
       description: form.get("description") || (type === "transfer" ? "Transferência" : "Movimentação"), competence_date: form.get("competence_date"), paid_at: form.get("competence_date"), status: "paid", idempotency_key: crypto.randomUUID(),
     });
-    if (error) toast("Não foi possível salvar.", "error");
-    else toast("Movimentação adicionada.");
+    setMessage(error ? "Não foi possível salvar." : "Movimentação adicionada.");
     await reload();
-    return !error;
   }
 
+  const messageIsError = message.startsWith("Não");
   const hasActiveFilters = Boolean(query.trim() || type || from || to);
   const pageSize = transactionPageSize || 25;
   const total = transactionTotal ?? transactions.length;
@@ -71,13 +69,14 @@ function TransactionsPageInner() {
       action={{ label: "Nova movimentação", onClick: () => setOpenDialog(true) }} 
     />
     <Nav />
+    {message && <p className={messageIsError ? "form-error" : "form-success"} role={messageIsError ? "alert" : "status"}>{message}</p>}
     <StatementImportPanel
       workspaceId={workspace.id}
       ownerId={ownerId}
       accounts={accounts}
       batches={transactionImportBatches}
       onReload={reload}
-      onMessage={toast}
+      onMessage={setMessage}
     />
     <section className="management-grid" style={{ gridTemplateColumns: '1fr' }}>
       <List title="Histórico">
@@ -179,7 +178,8 @@ function TransactionsPageInner() {
       {openDialog && (
         <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title="Nova movimentação">
           <SimpleForm onSubmit={async (form) => {
-            if (await submitTransaction(form)) setOpenDialog(false);
+            await submitTransaction(form);
+            if (!messageIsError) setOpenDialog(false);
           }}>
             <label htmlFor="transaction-type">Tipo de movimentação</label>
             <select id="transaction-type" name="type" defaultValue={presetType}><option value="expense">Despesa</option><option value="income">Receita</option><option value="transfer">Transferência</option></select>
