@@ -9,14 +9,14 @@
   --text: #F8FAFC !important;
   --muted: #94A3B8 !important;
   --border: rgba(255, 255, 255, 0.08) !important;
-  --primary: #10B981 !important;
-  --primary-2: #059669 !important;
-  --accent: #10B981 !important;
+  --primary: #8B5CF6 !important;
+  --primary-2: #7C3AED !important;
+  --accent: #8B5CF6 !important;
   --accent-contrast: #FFFFFF !important;
-  --positive: #10B981 !important;
+  --positive: #22C55E !important;
   --warning: #F59E0B !important;
   --danger: #EF4444 !important;
-  --gold: #F59E0B !important;
+  --gold: #F5A623 !important;
   --focus: #3B82F6 !important;
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
   --radius: 24px !important;
@@ -38,7 +38,7 @@ body {
 }
 
 .nav-brand span {
-  background: linear-gradient(135deg, #10B981, #059669) !important;
+  background: linear-gradient(135deg, #8B5CF6, #7C3AED) !important;
   color: #ffffff !important;
   border-radius: 11px !important;
 }
@@ -55,8 +55,8 @@ body {
 }
 
 .app-nav nav a.active {
-  background-color: rgba(16, 185, 129, 0.1) !important;
-  color: #10B981 !important;
+  background-color: #8B5CF6 !important;
+  color: #FFFFFF !important;
 }
 
 /* Glassmorphism primitives */
@@ -79,14 +79,10 @@ body {
   padding: 16px 20px !important;
 }
 
-.metric-card--positive {
-  background: linear-gradient(135deg, #059669 0%, #10B981 100%) !important;
-  border: none !important;
-}
-
+.metric-card--positive,
 .metric-card--negative {
-  background: linear-gradient(135deg, #EF4444 0%, #B91C1C 100%) !important;
-  border: none !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 .metric-card strong {

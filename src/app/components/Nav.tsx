@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { Activity, BarChart3, ChartColumn, ChevronLeft, ChevronRight, CirclePlus, CreditCard, Landmark, LogOut, Menu, ReceiptText, Target, TrendingUp, WalletCards } from "lucide-react";
-import { appPath } from "@/lib/app-path";
-import { createClient } from "@/lib/supabase/client";
-import { useCurrentUser } from "./useCurrentUser";
+import { useEffect, useState } from "react";
+import { Activity, BarChart3, ChartColumn, ChevronLeft, ChevronRight, CirclePlus, CreditCard, Landmark, Menu, ReceiptText, Target, TrendingUp, WalletCards } from "lucide-react";
 
 const desktopLinks = [
   { href: "/", label: "Painel", icon: BarChart3 },
@@ -29,23 +26,12 @@ const SIDEBAR_COLLAPSED = "84px";
 export function Nav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { displayName, initials } = useCurrentUser();
   const [collapsed, setCollapsed] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(COLLAPSE_KEY) === "true";
     setCollapsed(stored);
     document.documentElement.style.setProperty("--sidebar", stored ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED);
-  }, []);
-
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
   function toggleCollapsed() {
@@ -55,11 +41,6 @@ export function Nav() {
       document.documentElement.style.setProperty("--sidebar", next ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED);
       return next;
     });
-  }
-
-  async function signOut() {
-    await createClient().auth.signOut();
-    window.location.replace(appPath("/entrar"));
   }
 
   const isCompromissos = pathname === "/compromissos";
@@ -103,23 +84,6 @@ export function Nav() {
           </Link>
         )}
       </nav>
-      <div className="nav-bottom" ref={menuRef}>
-        {menuOpen && (
-          <div className="nav-user-menu">
-            <button type="button" onClick={() => void signOut()}><LogOut aria-hidden="true" /><span>Sair</span></button>
-          </div>
-        )}
-        <button
-          type="button"
-          className="nav-user-trigger"
-          onClick={() => setMenuOpen((v) => !v)}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-        >
-          <span className="nav-user-avatar" aria-hidden="true">{initials}</span>
-          <span className="nav-user-name">{displayName}</span>
-        </button>
-      </div>
     </aside>
     <nav className="mobile-nav" aria-label="Navegação móvel">
       <Link href="/" className={pathname === "/" ? "active" : ""}><BarChart3 aria-hidden="true" /><span>Painel</span></Link>

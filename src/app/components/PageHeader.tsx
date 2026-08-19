@@ -1,6 +1,7 @@
 ﻿import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
 import { LOGO_URL } from "@/lib/app-path";
+import { UserMenu } from "./UserMenu";
 
 type PageHeaderProps = {
   title: string;
@@ -46,6 +47,7 @@ export function PageHeader({
           <span>{action.label}</span>
         </button>
       )}
+      <UserMenu />
     </header>
   );
 }

@@ -7,8 +7,14 @@ Chart.register(ArcElement, BarController, BarElement, CategoryScale, DoughnutCon
 
 type Series = { label: string; values: number[]; color: string };
 type Props =
-  | { type: "bar" | "line" | "doughnut"; labels: string[]; values: number[]; label: string; color: string; series?: undefined }
-  | { type: "line"; labels: string[]; series: Series[]; values?: undefined; label?: undefined; color?: undefined };
+  | { type: "bar" | "line" | "doughnut"; labels: string[]; values: number[]; label: string; color: string; series?: undefined; legend?: boolean; compactY?: boolean }
+  | { type: "line"; labels: string[]; series: Series[]; values?: undefined; label?: undefined; color?: undefined; legend?: boolean; compactY?: boolean };
+
+function formatCompact(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1000) return `${(value / 1000).toFixed(abs >= 10000 ? 0 : 1).replace(/\.0$/, "")}k`;
+  return String(value);
+}
 
 const FALLBACK: Record<string, string> = {
   "--muted": "#60716c",
@@ -30,7 +36,8 @@ function readTokens() {
 }
 
 export function DashboardChart(props: Props) {
-  const { type, labels } = props;
+  const { type, labels, compactY } = props;
+  const legendOverride = props.legend;
   const ref = useRef<HTMLCanvasElement>(null);
   const series: Series[] = props.series ?? [{ label: props.label, values: props.values, color: props.color }];
   const seriesKey = series.map((s) => `${s.label}:${s.color}:${s.values.join(",")}`).join("|");
@@ -47,11 +54,14 @@ export function DashboardChart(props: Props) {
       borderWidth: type === "line" ? 2 : 0,
       fill: type === "line" && series.length === 1,
       tension: .35,
+      pointRadius: type === "line" ? 3 : undefined,
+      pointBackgroundColor: s.color,
     }));
-    const chart = new Chart(ref.current, { type, data: { labels, datasets }, options: { maintainAspectRatio: false, plugins: { legend: { display: type === "doughnut" || series.length > 1, labels: { color: token["--muted"] } }, tooltip: { callbacks: { label: (item) => `${item.dataset.label}: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(item.raw))}` } } }, scales: type === "doughnut" ? {} : { x: { ticks: { color: token["--muted"], maxTicksLimit: 7 }, grid: { display: false } }, y: { ticks: { color: token["--muted"], callback: (value) => `R$ ${value}` }, grid: { color: token["--border"] } } } } });
+    const showLegend = legendOverride ?? (type === "doughnut" || series.length > 1);
+    const chart = new Chart(ref.current, { type, data: { labels, datasets }, options: { maintainAspectRatio: false, plugins: { legend: { display: showLegend, labels: { color: token["--muted"] } }, tooltip: { callbacks: { label: (item) => `${item.dataset.label}: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(item.raw))}` } } }, scales: type === "doughnut" ? {} : { x: { ticks: { color: token["--muted"], maxTicksLimit: 7 }, grid: { display: false } }, y: { ticks: { color: token["--muted"], callback: (value) => compactY ? formatCompact(Number(value)) : `R$ ${value}` }, grid: { color: token["--border"] } } } } });
     return () => chart.destroy();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, labels, seriesKey]);
+  }, [type, labels, seriesKey, legendOverride, compactY]);
   const ariaLabel = series.map((s) => `${s.label}: ${labels.map((item, index) => `${item} ${s.values[index]}`).join(", ")}`).join(" | ");
   return <canvas ref={ref} role="img" aria-label={ariaLabel} />;
 }

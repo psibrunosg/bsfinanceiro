@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, CircleAlert, DollarSign, Plus, PiggyBank, Target, TrendingDown, WalletCards } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ChevronDown, CircleAlert, DollarSign, PiggyBank, Receipt, Target, TrendingDown, Utensils, WalletCards } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
@@ -9,10 +9,10 @@ import { currentMonthStart, useMonth } from "./components/MonthContext";
 import { MonthPicker } from "./components/MonthPicker";
 import { money } from "./components/Money";
 import { DashboardChart } from "./components/DashboardChart";
-import { QuickTransactionForm } from "./components/QuickTransactionForm";
+import { UserMenu } from "./components/UserMenu";
 import { useCurrentUser } from "./components/useCurrentUser";
 import { createClient } from "@/lib/supabase/client";
-import { appPath } from "@/lib/app-path";
+import { addMonths } from "@/lib/finance/local-date";
 import { aggregateExpensesByCategory, computeMonthlyFlow, lastNMonths } from "@/lib/finance/aggregations";
 import { generateInsights } from "@/lib/finance/insights";
 
@@ -24,17 +24,27 @@ const ASSET_TYPE_LABEL: Record<string, string> = {
   real_estate: "Imóveis",
 };
 
+const DONUT_COLORS = ["#8B5CF6", "#3B82F6", "#F97316", "#F5A623", "#22C55E"];
+
 type InvestmentAsset = { id: string; type: string };
-type InvestmentOperation = { asset_id: string; operation_type: "buy" | "sell"; quantity: number; unit_price: number };
+type InvestmentOperation = { asset_id: string; operation_type: "buy" | "sell"; quantity: number; unit_price: number; operation_date: string };
+
+function Trend({ pct }: { pct: number | null }) {
+  if (pct === null) return null;
+  const up = pct >= 0;
+  return (
+    <span className={`metric-card__trend ${up ? "up" : "down"}`}>
+      {up ? <ArrowUpRight size={14} aria-hidden="true" /> : <ArrowDownRight size={14} aria-hidden="true" />}
+      {up ? "+" : ""}{pct.toFixed(1)}% esse mês
+    </span>
+  );
+}
 
 export function DashboardPage() {
-  const { ownerId, workspace, accounts, transactions, categories, goals, defaultCashAccountId, loading, reload } = useFinance("dashboard");
+  const { workspace, accounts, transactions, categories, goals, loading } = useFinance("dashboard");
   const { month, nextMonth } = useMonth();
-  const { displayName, initials } = useCurrentUser();
+  const { displayName } = useCurrentUser();
   const supabase = useMemo(() => createClient(), []);
-  const [quickTransactionStatus, setQuickTransactionStatus] = useState("");
-  const [openQuickForm, setOpenQuickForm] = useState(false);
-  const [Dialog, setDialog] = useState<React.ElementType | null>(null);
   const [assets, setAssets] = useState<InvestmentAsset[]>([]);
   const [operations, setOperations] = useState<InvestmentOperation[]>([]);
 
@@ -42,7 +52,7 @@ export function DashboardPage() {
     if (!workspace) return;
     const [{ data: assetRows }, { data: operationRows }] = await Promise.all([
       supabase.from("investment_assets").select("id,type").eq("workspace_id", workspace.id).eq("active", true),
-      supabase.from("investment_operations").select("asset_id,operation_type,quantity,unit_price").eq("workspace_id", workspace.id),
+      supabase.from("investment_operations").select("asset_id,operation_type,quantity,unit_price,operation_date").eq("workspace_id", workspace.id),
     ]);
     setAssets(assetRows ?? []);
     setOperations(operationRows ?? []);
@@ -52,25 +62,36 @@ export function DashboardPage() {
     void loadInvestments();
   }, [loadInvestments]);
 
+  const investedAsOf = useCallback(
+    (cutoff: string | null) => {
+      // ponytail: custo investido (compras - vendas), não valor de mercado —
+      // evoluir pra cotação atual quando o dashboard também consumir investment_quotes.
+      const principalByAsset = new Map<string, number>();
+      for (const op of operations) {
+        if (cutoff && op.operation_date >= cutoff) continue;
+        const amount = op.quantity * op.unit_price * (op.operation_type === "buy" ? 1 : -1);
+        principalByAsset.set(op.asset_id, (principalByAsset.get(op.asset_id) ?? 0) + amount);
+      }
+      const byType = new Map<string, number>();
+      for (const asset of assets) {
+        const principal = principalByAsset.get(asset.id) ?? 0;
+        if (principal <= 0) continue;
+        byType.set(asset.type, (byType.get(asset.type) ?? 0) + principal);
+      }
+      return byType;
+    },
+    [assets, operations],
+  );
+
   const investments = useMemo(() => {
-    // ponytail: custo investido (compras - vendas), não valor de mercado —
-    // evoluir pra cotação atual quando o dashboard também consumir investment_quotes.
-    const principalByAsset = new Map<string, number>();
-    for (const op of operations) {
-      const amount = op.quantity * op.unit_price * (op.operation_type === "buy" ? 1 : -1);
-      principalByAsset.set(op.asset_id, (principalByAsset.get(op.asset_id) ?? 0) + amount);
-    }
-    const byType = new Map<string, number>();
-    for (const asset of assets) {
-      const principal = principalByAsset.get(asset.id) ?? 0;
-      if (principal <= 0) continue;
-      byType.set(asset.type, (byType.get(asset.type) ?? 0) + principal);
-    }
+    const byType = investedAsOf(null);
     const allocation = Array.from(byType, ([type, value]) => ({ label: ASSET_TYPE_LABEL[type] ?? type, value }))
       .sort((a, b) => b.value - a.value);
     const total = allocation.reduce((sum, item) => sum + item.value, 0);
-    return { allocation, total };
-  }, [assets, operations]);
+    const prevTotal = Array.from(investedAsOf(month).values()).reduce((sum, v) => sum + v, 0);
+    const trend = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : null;
+    return { allocation, total, trend };
+  }, [investedAsOf, month]);
 
   const metrics = useMemo(() => {
     // Saldo real depende do mês corrente de verdade ("tudo antes de hoje está liquidado"),
@@ -84,6 +105,15 @@ export function DashboardPage() {
     const paidIncome = income.filter((t) => t.status === "paid" || t.competence_date < realMonth).reduce((sum, t) => sum + Number(t.amount), 0);
     const paidExpenses = expenses.filter((t) => t.status === "paid" || t.competence_date < realMonth).reduce((sum, t) => sum + Number(t.amount), 0);
     const balance = initialBalance + paidIncome - paidExpenses;
+
+    const prevMonth = addMonths(month, -1);
+    const prevMonthIncome = income.filter((t) => t.competence_date >= prevMonth && t.competence_date < month).reduce((sum, t) => sum + Number(t.amount), 0);
+    const prevMonthExpense = expenses.filter((t) => t.competence_date >= prevMonth && t.competence_date < month).reduce((sum, t) => sum + Number(t.amount), 0);
+    const incomeTrend = prevMonthIncome > 0 ? ((monthIncome - prevMonthIncome) / prevMonthIncome) * 100 : null;
+    const expenseTrend = prevMonthExpense > 0 ? ((monthExpense - prevMonthExpense) / prevMonthExpense) * 100 : null;
+    const netFlow = monthIncome - monthExpense;
+    const balanceAtMonthStart = balance - netFlow;
+    const balanceTrend = balanceAtMonthStart !== 0 ? (netFlow / Math.abs(balanceAtMonthStart)) * 100 : null;
 
     const monthTransactions = transactions.filter((t) => t.competence_date >= month && t.competence_date < nextMonth);
     const expensesByCategory = aggregateExpensesByCategory(monthTransactions, categories, month, 5, nextMonth);
@@ -105,6 +135,9 @@ export function DashboardPage() {
       balance,
       monthIncome,
       monthExpense,
+      incomeTrend,
+      expenseTrend,
+      balanceTrend,
       expensesByCategory,
       insights,
       uncategorizedCount,
@@ -117,56 +150,20 @@ export function DashboardPage() {
 
   if (loading || !workspace) return <main className="management-page"><p className="muted">Carregando...</p></main>;
 
-  async function reloadAfterQuickTransaction() {
-    setQuickTransactionStatus("Movimentação registrada.");
-    setOpenQuickForm(false);
-    await reload();
-  }
-
-  async function signOut() {
-    await supabase.auth.signOut();
-    window.location.replace(appPath("/entrar"));
-  }
-
   return <main className="dashboard-shell">
     <Nav />
+
+    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
+      <UserMenu />
+    </div>
 
     <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
       <div>
         <h1 style={{ fontSize: '1.75rem', margin: '0 0 4px' }}>Olá, {displayName}! 👋</h1>
-        <p className="muted" style={{ margin: '0 0 16px' }}>Aqui está o resumo das suas finanças</p>
-        <MonthPicker />
+        <p className="muted" style={{ margin: 0 }}>Aqui está o resumo das suas finanças</p>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-        <button type="button" style={{ padding: '12px 24px', borderRadius: '12px', background: 'var(--primary)', color: 'var(--bg)', border: 'none', fontWeight: 600, display: 'flex', gap: '8px', alignItems: 'center', cursor: 'pointer' }} onClick={() => {
-            if (!Dialog) import("./components/Dialog").then(m => setDialog(() => m.Dialog));
-            setOpenQuickForm(true);
-        }}>
-          <Plus size={18} aria-hidden="true" />
-          <span>Nova Movimentação</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => void signOut()}
-          title="Sair da conta"
-          style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 16px', background: 'var(--surface)', borderRadius: '100px', border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', cursor: 'pointer' }}
-        >
-          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', color: 'var(--bg)', display: 'grid', placeItems: 'center', fontWeight: 'bold', fontSize: '14px' }}>
-            {initials}
-          </div>
-          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{displayName}</span>
-          <ChevronDown size={16} className="muted" />
-        </button>
-      </div>
+      <MonthPicker />
     </div>
-
-    {quickTransactionStatus ? <p className="form-success" role="status">{quickTransactionStatus}</p> : null}
-    {ownerId && openQuickForm && Dialog ? (
-      <Dialog open={openQuickForm} onClose={() => setOpenQuickForm(false)} title="Nova movimentação rápida">
-        <QuickTransactionForm workspaceId={workspace.id} ownerId={ownerId} defaultCashAccountId={defaultCashAccountId} accounts={accounts} categories={categories} onSubmitStart={() => setQuickTransactionStatus("")} onSaved={reloadAfterQuickTransaction} />
-      </Dialog>
-    ) : null}
 
     {metrics.uncategorizedCount > 0 ? (
       <Link href="/categorias" className="insight-link" style={{ marginBottom: "16px" }}>
@@ -181,94 +178,132 @@ export function DashboardPage() {
 
     <div className="bento-row" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
       <article className="metric-card metric-card--positive">
-        <WalletCards size={32} opacity={0.5} style={{ marginBottom: 16 }} />
-        <span className="muted">Patrimônio líquido</span>
+        <div className="metric-card__head">
+          <span className="muted">Patrimônio líquido</span>
+          <span className="metric-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6" }}><WalletCards size={18} aria-hidden="true" /></span>
+        </div>
         <strong>{money(metrics.balance + investments.total)}</strong>
+        <Trend pct={metrics.balanceTrend} />
       </article>
       <article className="metric-card">
-        <DollarSign size={32} opacity={0.5} style={{ marginBottom: 16 }} />
-        <span className="muted">Receitas do mês</span>
+        <div className="metric-card__head">
+          <span className="muted">Receitas</span>
+          <span className="metric-icon-badge" style={{ background: "rgba(34,197,94,.15)", color: "#22C55E" }}><DollarSign size={18} aria-hidden="true" /></span>
+        </div>
         <strong>{money(metrics.monthIncome)}</strong>
+        <Trend pct={metrics.incomeTrend} />
       </article>
       <article className="metric-card metric-card--negative">
-        <TrendingDown size={32} opacity={0.5} style={{ marginBottom: 16 }} />
-        <span className="muted">Despesas do mês</span>
+        <div className="metric-card__head">
+          <span className="muted">Despesas</span>
+          <span className="metric-icon-badge" style={{ background: "rgba(239,68,68,.15)", color: "#EF4444" }}><TrendingDown size={18} aria-hidden="true" /></span>
+        </div>
         <strong>{money(metrics.monthExpense)}</strong>
+        <Trend pct={metrics.expenseTrend === null ? null : -metrics.expenseTrend} />
       </article>
       <article className="metric-card">
-        <PiggyBank size={32} opacity={0.5} style={{ marginBottom: 16 }} />
-        <span className="muted">Investimentos</span>
+        <div className="metric-card__head">
+          <span className="muted">Investimentos</span>
+          <span className="metric-icon-badge" style={{ background: "rgba(245,166,35,.15)", color: "#F5A623" }}><PiggyBank size={18} aria-hidden="true" /></span>
+        </div>
         <strong>{money(investments.total)}</strong>
+        <Trend pct={investments.trend} />
       </article>
     </div>
 
     <div className="dashboard-bento-grid">
       <div className="bento-main">
         <article className="dashboard-card">
-          <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Evolução do patrimônio</h3>
-          <p className="muted" style={{ marginBottom: '24px' }}>Ganhos e gastos nos últimos 12 meses.</p>
-          <div className="chart-wrap" style={{ height: '300px' }}>
+          <h3 style={{ marginBottom: '2px', fontSize: '1.2rem' }}>Evolução do patrimônio</h3>
+          <p className="muted" style={{ marginBottom: '16px', fontSize: '.85rem' }}>Últimos 12 meses</p>
+          <div className="chart-wrap" style={{ height: '280px' }}>
             <DashboardChart
               type="line"
               labels={metrics.evolutionLabels}
+              legend={false}
+              compactY
               series={[
-                { label: "Ganhos", values: metrics.flowIn, color: "var(--accent)" },
-                { label: "Gastos", values: metrics.flowOut, color: "var(--gold)" },
+                { label: "Ganhos", values: metrics.flowIn, color: "#8B5CF6" },
+                { label: "Gastos", values: metrics.flowOut, color: "#F5A623" },
               ]}
             />
+          </div>
+          <div className="chart-legend">
+            <span className="chart-legend__item"><span className="chart-legend__dot" style={{ background: "#8B5CF6" }} />Ganhos</span>
+            <span className="chart-legend__item"><span className="chart-legend__dot" style={{ background: "#F5A623" }} />Gastos</span>
           </div>
         </article>
       </div>
 
       <div className="bento-sidebar">
         <article className="dashboard-card">
-          <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Alocação de investimentos</h3>
-          <div className="chart-wrap" style={{ height: '220px' }}>
-            {investments.allocation.length ? (
-              <DashboardChart type="doughnut" label="Investimentos" labels={investments.allocation.map((item) => item.label)} values={investments.allocation.map((item) => item.value)} color="var(--accent)" />
-            ) : (
-              <p className="dashboard-empty">Nenhum investimento cadastrado. <Link href="/investimentos">Cadastrar ativo</Link></p>
-            )}
-          </div>
+          <h3 style={{ marginBottom: '2px', fontSize: '1.2rem' }}>Alocação de investimentos</h3>
+          {investments.allocation.length > 0 && <p className="muted" style={{ marginBottom: '16px', fontSize: '.85rem' }}>Total: {money(investments.total)}</p>}
+          {investments.allocation.length ? (
+            <div className="donut-layout" style={{ height: '200px' }}>
+              <div className="chart-wrap">
+                <DashboardChart type="doughnut" label="Investimentos" legend={false} labels={investments.allocation.map((item) => item.label)} values={investments.allocation.map((item) => item.value)} color="var(--accent)" />
+              </div>
+              <div className="donut-legend">
+                {investments.allocation.map((item, index) => (
+                  <span className="donut-legend__item" key={item.label}>
+                    <span className="chart-legend__dot" style={{ background: DONUT_COLORS[index % DONUT_COLORS.length] }} />
+                    {item.label}
+                    <strong>{investments.total > 0 ? Math.round((item.value / investments.total) * 100) : 0}%</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="dashboard-empty">Nenhum investimento cadastrado. <Link href="/investimentos">Cadastrar ativo</Link></p>
+          )}
         </article>
       </div>
     </div>
 
     <div className="dashboard-bento-grid" style={{ marginTop: '24px', gridTemplateColumns: '1fr 1fr' }}>
       <article className="dashboard-card">
-        <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}><Target size={18} aria-hidden="true" style={{ marginRight: 6, verticalAlign: '-3px' }} />Metas</h3>
-        <div className="insight-list">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <h3 style={{ fontSize: '1.2rem', margin: 0 }}>Metas</h3>
+          <Target size={18} aria-hidden="true" className="muted" />
+        </div>
+        <div>
           {goals.length ? goals.slice(0, 4).map((goal) => {
             const percent = Number(goal.target_amount) > 0 ? Math.min(100, (Number(goal.current_amount) / Number(goal.target_amount)) * 100) : 0;
             return (
-              <Link href="/planejamento" className="insight-link" key={goal.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
-                <span style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                  {goal.name}
-                  <small>{money(goal.current_amount)} de {money(goal.target_amount)}</small>
-                </span>
-                <div style={{ height: 6, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${percent}%`, background: 'var(--accent)', borderRadius: 999 }} />
+              <div className="goal-row" key={goal.id}>
+                <div className="goal-row__top">
+                  <span>{goal.name}<br /><small>{money(goal.current_amount)} de {money(goal.target_amount)}</small></span>
+                  <span className="goal-row__percent">{percent.toFixed(1)}%</span>
                 </div>
-              </Link>
+                <div className="goal-row__bar"><div className="goal-row__bar-fill" style={{ width: `${percent}%` }} /></div>
+              </div>
             );
           }) : <p className="dashboard-empty">Crie uma meta para acompanhar seu progresso.</p>}
         </div>
       </article>
 
       <article className="dashboard-card">
-        <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Transações Recentes</h3>
+        <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Transações recentes</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {metrics.recentTransactions.map(t => (
-            <div key={t.id} className="transaction-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: '1px solid var(--border)', borderRadius: '12px' }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>{t.description}</div>
-                <div className="muted" style={{ fontSize: '0.85rem' }}>{new Date(t.competence_date).toLocaleDateString('pt-BR')}</div>
+          {metrics.recentTransactions.map(t => {
+            const isExpense = t.type === 'expense';
+            const category = categories.find((c) => c.id === t.category_id)?.name ?? (t.type === 'income' ? 'Receita' : 'Sem categoria');
+            return (
+              <div key={t.id} className="tx-row">
+                <span className="tx-icon-badge" style={isExpense ? { background: "rgba(239,68,68,.15)", color: "#EF4444" } : { background: "rgba(34,197,94,.15)", color: "#22C55E" }}>
+                  {isExpense ? <Utensils size={16} aria-hidden="true" /> : <Receipt size={16} aria-hidden="true" />}
+                </span>
+                <span className="tx-row__body">
+                  <strong>{t.description}</strong>
+                  <small>{category}</small>
+                </span>
+                <span className="tx-row__amount" style={{ color: isExpense ? 'var(--danger)' : 'var(--positive)' }}>
+                  {isExpense ? '-' : '+'}{money(Number(t.amount))}
+                </span>
               </div>
-              <div style={{ fontWeight: 600, color: t.type === 'expense' ? 'var(--danger)' : 'var(--positive)' }}>
-                {t.type === 'expense' ? '-' : '+'}{money(Number(t.amount))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {!metrics.recentTransactions.length && <p className="muted">Nenhuma transação recente.</p>}
         </div>
       </article>
