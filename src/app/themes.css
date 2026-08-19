@@ -252,3 +252,57 @@
   }
 }
 
+
+/* ==========================================================================
+   TYPOGRAPHY & PIXEL-PERFECT MOCKUP ALIGNMENTS
+   ========================================================================== */
+
+/* Huge numbers for the metric cards to match mockups */
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px !important;
+}
+
+.metric-card strong {
+  font-size: 2.25rem !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  margin-top: 8px !important;
+  margin-bottom: 8px !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* Cyberpunk specific text glows */
+:root[data-theme=\"cyberpunk\"] .metric-card--positive strong {
+  background: linear-gradient(135deg, #10B981, #34D399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+}
+
+:root[data-theme=\"cyberpunk\"] .dashboard-card h3 {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.9rem !important;
+  color: #94A3B8;
+}
+
+/* Corporate specific clean text */
+:root[data-theme=\"corporate\"] .metric-card strong {
+  color: #0F172A !important;
+  font-weight: 800 !important;
+}
+
+:root[data-theme=\"corporate\"] .dashboard-card h3 {
+  font-weight: 700 !important;
+  color: #1E293B !important;
+}
+
+/* Neumorphism specific deboss */
+:root[data-theme=\"neumorphism\"] .metric-card strong {
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.4), -1px -1px 2px rgba(255,255,255,0.05) !important;
+}
+
+
