@@ -14,7 +14,7 @@ import { aggregateExpensesByCategory, computeDailyDecision } from "@/lib/finance
 import { generateInsights } from "@/lib/finance/insights";
 
 export function DashboardPage() {
-  const { ownerId, workspace, accounts, transactions, categories, budgets = [], goals, monthSpent = {}, commitments = [], occurrences = [], invoices = [], defaultCashAccountId, loading, reload } = useFinance("dashboard");
+  const { ownerId, workspace, accounts, transactions, categories, defaultCashAccountId, loading, reload } = useFinance("dashboard");
   const { month, nextMonth } = useMonth();
   const [quickTransactionStatus, setQuickTransactionStatus] = useState("");
   const [openQuickForm, setOpenQuickForm] = useState(false);
@@ -39,8 +39,14 @@ export function DashboardPage() {
     const uncategorizedCount = monthTransactions.filter(
       (t) => !t.category_id && (t.type === "expense" || t.type === "income"),
     ).length;
+    // useFinance("dashboard") retorna o histórico completo paginado (não mais
+    // truncado às 30 mais recentes), em ordem crescente de competência — para
+    // exibir "recentes" é preciso ordenar decrescente antes de recortar.
+    const recentTransactions = [...transactions]
+      .sort((a, b) => (a.competence_date < b.competence_date ? 1 : a.competence_date > b.competence_date ? -1 : 0))
+      .slice(0, 5);
 
-    return { balance, monthIncome, monthExpense, expensesByCategory, insights, uncategorizedCount };
+    return { balance, monthIncome, monthExpense, expensesByCategory, insights, uncategorizedCount, recentTransactions };
   }, [accounts, categories, transactions, month, nextMonth]);
 
   const dailyDecision = useMemo(() => {
@@ -55,29 +61,34 @@ export function DashboardPage() {
     await reload();
   }
 
-  const alerts = [
-    ...occurrences.filter((item) => item.status !== "paid").slice(0, 2).map((item) => ({ href: "/gastos?tab=recorrentes", title: item.description, text: `Vence em ${new Date(`${item.due_date}T12:00:00`).toLocaleDateString("pt-BR")}` })),
-    ...invoices.slice(0, 1).map((item) => ({ href: "/cartoes", title: "Fatura de cartão", text: `Vence em ${new Date(`${item.due_date}T12:00:00`).toLocaleDateString("pt-BR")}` })),
-    ...budgets.filter((budget) => (monthSpent[budget.category_id] || 0) >= Number(budget.amount) * .8).slice(0, 1).map(() => ({ href: "/planejamento", title: "Orçamento perto do limite", text: "Revise seus gastos deste mês" })),
-  ].slice(0, 3);
-
   return <main className="dashboard-shell">
     <Nav />
-    <section className="dashboard-hero">
+
+    <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
       <div>
         <p className="eyebrow">{workspace.name}</p>
-        <h1>Visão financeira completa</h1>
-        <p className="muted">Decisões melhores, sem planilhas complicadas.</p>
+        <h1 style={{ fontSize: '2rem', margin: '4px 0 16px' }}>Visão Global Financeira</h1>
         <MonthPicker />
-        <button type="button" className="page-header__action" onClick={() => {
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+        <button type="button" style={{ padding: '12px 24px', borderRadius: '12px', background: 'var(--primary)', color: 'var(--bg)', border: 'none', fontWeight: 600, display: 'flex', gap: '8px', alignItems: 'center', cursor: 'pointer' }} onClick={() => {
             if (!Dialog) import("./components/Dialog").then(m => setDialog(() => m.Dialog));
             setOpenQuickForm(true);
-        }}><Plus size={18} aria-hidden="true" /><span>Nova movimentação</span></button>
-        <Link href="/relatorios" className="insight-link">Ver relatórios completos</Link>
+        }}>
+          <Plus size={18} aria-hidden="true" />
+          <span>Nova Movimentação</span>
+        </button>
+
+        <div className="user-profile-header" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 16px', background: 'var(--surface)', borderRadius: '100px', border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', color: 'var(--bg)', display: 'grid', placeItems: 'center', fontWeight: 'bold', fontSize: '14px' }}>
+            {workspace?.name?.charAt(0).toUpperCase() || 'U'}
+          </div>
+          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{workspace?.name || 'Usuário'}</span>
+          <ChevronDown size={16} className="muted" />
+        </div>
       </div>
-      <WalletCards aria-hidden="true" size={42} />
-    </section>
-    
+    </div>
+
     {quickTransactionStatus ? <p className="form-success" role="status">{quickTransactionStatus}</p> : null}
     {ownerId && openQuickForm && Dialog ? (
       <Dialog open={openQuickForm} onClose={() => setOpenQuickForm(false)} title="Nova movimentação rápida">
@@ -85,33 +96,72 @@ export function DashboardPage() {
       </Dialog>
     ) : null}
 
-    <div className="dashboard-columns" style={{ marginBottom: "24px" }}>
-      <article className="dashboard-card" style={{ borderLeft: `4px solid ${dailyDecision.status === "critical" ? "#e53e3e" : dailyDecision.status === "warning" ? "#d97706" : "#087f5b"}` }}>
-        <div>
-          <p className="eyebrow" style={{ color: "var(--muted)" }}>DECISÃO DIÁRIA · TETO DE GASTOS</p>
-          <h2 style={{ fontSize: "1.75rem", margin: "4px 0" }}>{money(dailyDecision.dailyLimit)} <small style={{ fontSize: "0.9rem", fontWeight: "normal", color: "var(--muted)" }}>/ dia recomendável</small></h2>
-          <p className="muted">Projeção remanescente para manter seu saldo positivo nos próximos {dailyDecision.daysRemaining} dias com base no disponível de {money(metrics.balance)}.</p>
-        </div>
-        <div className="chart-wrap" style={{ height: "140px", marginTop: "16px" }}>
-          <DashboardChart type="line" label="Saldo Recomendado" labels={dailyDecision.trajectory.map((item) => `Dia ${item.day}`)} values={dailyDecision.trajectory.map((item) => item.remaining)} color={dailyDecision.status === "critical" ? "#e53e3e" : dailyDecision.status === "warning" ? "#d97706" : "#087f5b"} />
-        </div>
-      </article>
-    </div>
-
     {metrics.uncategorizedCount > 0 ? (
       <Link href="/categorias" className="insight-link" style={{ marginBottom: "16px" }}>
-        <span>{metrics.uncategorizedCount} lançamento{metrics.uncategorizedCount > 1 ? "s" : ""} sem categoria este mês<small>Categorize para relatórios e insights precisos</small></span>
+        <span>
+          <CircleAlert aria-hidden="true" size={16} style={{ marginRight: 6, verticalAlign: "-2px" }} />
+          {metrics.uncategorizedCount} lançamento{metrics.uncategorizedCount > 1 ? "s" : ""} sem categoria este mês
+          <small>Categorize para relatórios e insights precisos</small>
+        </span>
         <ChevronDown aria-hidden="true" />
       </Link>
     ) : null}
 
-    <details className="dashboard-section" open><summary><div><p className="eyebrow">SAÚDE DO MÊS</p><strong>{money(metrics.balance)} disponível</strong></div><ChevronDown aria-hidden="true" /></summary><div className="dashboard-section__body">
-      <div className="metric-grid"><article className="metric positive"><span>Entradas</span><strong>{money(metrics.monthIncome)}</strong></article><article className="metric"><span>Saídas</span><strong>{money(metrics.monthExpense)}</strong></article><article className="metric"><span>Saldo do mês</span><strong>{money(metrics.monthIncome - metrics.monthExpense)}</strong></article></div>
-      <div className="dashboard-columns">
-        <article className="dashboard-card"><h3>Gastos por categoria</h3><div className="chart-wrap">{metrics.expensesByCategory.length ? <DashboardChart type="doughnut" label="Gastos" labels={metrics.expensesByCategory.map((item) => item.label)} values={metrics.expensesByCategory.map((item) => item.value)} color="var(--accent)" /> : <p className="dashboard-empty">Registre despesas para ver categorias.</p>}</div></article>
-        <article className="dashboard-card"><h3><CircleAlert aria-hidden="true" /> Insights automáticos</h3><div className="insight-list">{metrics.insights.length ? metrics.insights.map((insight) => <div className="insight-link" key={insight.id}><span>{insight.icon} {insight.text}</span></div>) : alerts.length ? alerts.map((alert) => <Link className="insight-link" href={alert.href} key={`${alert.href}-${alert.title}`}><span>{alert.title}<small>{alert.text}</small></span><ChevronDown aria-hidden="true" /></Link>) : <p className="dashboard-empty">Nenhuma pendência urgente.</p>}</div></article>
+    <div className="dashboard-bento-grid">
+      <div className="bento-main">
+        <div className="bento-row">
+          <article className="metric-card metric-card--positive">
+            <WalletCards size={32} opacity={0.5} style={{ marginBottom: 16 }} />
+            <span className="muted">Saldo Atual</span>
+            <strong>{money(metrics.balance)}</strong>
+          </article>
+          <article className="metric-card">
+            <Target size={32} opacity={0.5} style={{ marginBottom: 16 }} />
+            <span className="muted">Entradas do Mês</span>
+            <strong>{money(metrics.monthIncome)}</strong>
+          </article>
+          <article className="metric-card metric-card--negative">
+            <CircleAlert size={32} opacity={0.5} style={{ marginBottom: 16 }} />
+            <span className="muted">Saídas do Mês</span>
+            <strong>{money(metrics.monthExpense)}</strong>
+          </article>
+        </div>
+
+        <article className="dashboard-card" style={{ marginTop: '24px' }}>
+          <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Evolução de Saldo Recomendado (30 dias)</h3>
+          <p className="muted" style={{ marginBottom: '24px' }}>Baseado no teto diário de {money(dailyDecision.dailyLimit)} para manter o saldo positivo.</p>
+          <div className="chart-wrap" style={{ height: '300px' }}>
+            <DashboardChart type="line" label="Projeção" labels={dailyDecision.trajectory.map((item) => `Dia ${item.day}`)} values={dailyDecision.trajectory.map((item) => item.remaining)} color={dailyDecision.status === "critical" ? "#ef4444" : dailyDecision.status === "warning" ? "#f59e0b" : "#10b981"} />
+          </div>
+        </article>
       </div>
-    </div></details>
-    <details className="dashboard-section"><summary><div><p className="eyebrow">PLANEJAMENTO</p><strong>{goals.length} metas e {commitments.length} compromissos</strong></div><ChevronDown aria-hidden="true" /></summary><div className="dashboard-section__body"><div className="dashboard-columns"><article className="dashboard-card"><h3>Metas financeiras</h3><div className="insight-list">{goals.length ? goals.slice(0, 4).map((goal) => <Link href="/planejamento" className="insight-link" key={goal.id}><span>{goal.name}<small>{money(goal.current_amount)} de {money(goal.target_amount)}</small></span><Target aria-hidden="true" /></Link>) : <p className="dashboard-empty">Crie uma meta para acompanhar seu progresso.</p>}</div></article><article className="dashboard-card"><h3>Compromissos do mês</h3><div className="insight-list">{commitments.length ? commitments.slice(0, 4).map((item) => <Link href="/gastos?tab=recorrentes" className="insight-link" key={item.id}><span>{item.description}<small>Dia {item.due_day}</small></span><strong>{money(item.amount)}</strong></Link>) : <p className="dashboard-empty">Cadastre despesas recorrentes para planejar melhor.</p>}</div></article></div></div></details>
+
+      <div className="bento-sidebar">
+        <article className="dashboard-card" style={{ marginBottom: '24px' }}>
+          <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Alocação de Gastos</h3>
+          <div className="chart-wrap" style={{ height: '220px' }}>
+            {metrics.expensesByCategory.length ? <DashboardChart type="doughnut" label="Gastos" labels={metrics.expensesByCategory.map((item) => item.label)} values={metrics.expensesByCategory.map((item) => item.value)} color="var(--accent)" /> : <p className="muted">Sem dados suficientes no mês.</p>}
+          </div>
+        </article>
+
+        <article className="dashboard-card">
+          <h3 style={{ marginBottom: '16px', fontSize: '1.2rem' }}>Transações Recentes</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {metrics.recentTransactions.map(t => (
+              <div key={t.id} className="transaction-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: '1px solid var(--border)', borderRadius: '12px' }}>
+                <div>
+                  <div style={{ fontWeight: 600 }}>{t.description}</div>
+                  <div className="muted" style={{ fontSize: '0.85rem' }}>{new Date(t.competence_date).toLocaleDateString('pt-BR')}</div>
+                </div>
+                <div style={{ fontWeight: 600, color: t.type === 'expense' ? 'var(--danger)' : 'var(--positive)' }}>
+                  {t.type === 'expense' ? '-' : '+'}{money(Number(t.amount))}
+                </div>
+              </div>
+            ))}
+            {!metrics.recentTransactions.length && <p className="muted">Nenhuma transação recente.</p>}
+          </div>
+        </article>
+      </div>
+    </div>
   </main>;
 }

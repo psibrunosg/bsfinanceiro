@@ -6,7 +6,7 @@ import { PageHeader } from "./components/PageHeader";
 import { createClient } from "@/lib/supabase/client";
 import { appPath } from "@/lib/app-path";
 import { useMemo, useState } from "react";
-import { useThemePreference } from "./components/ThemeProvider";
+import { useThemePreference, type ThemePreference } from "./components/ThemeProvider";
 import type { WorkspacePreference } from "./components/types";
 
 export function SettingsPage() {
@@ -137,11 +137,14 @@ export function SettingsPage() {
                   <select
                     name="theme"
                     value={preference}
-                    onChange={(e) => void updateThemePreference(e.target.value as "system" | "light" | "dark")}
+                    onChange={(e) => void updateThemePreference(e.target.value as ThemePreference)}
                   >
                     <option value="system">Sistema</option>
-                    <option value="light">Claro</option>
-                    <option value="dark">Escuro</option>
+                    <option value="light">Claro (Padrão)</option>
+                    <option value="dark">Escuro (Padrão)</option>
+                    <option value="cyberpunk">Cyberpunk Dark</option>
+                    <option value="corporate">Corporate Clean (Claro)</option>
+                    <option value="neumorphism">Neumorphism Dark</option>
                   </select>
                 </label>
                 <label>Modo Compacto

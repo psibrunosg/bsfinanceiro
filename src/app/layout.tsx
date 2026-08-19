@@ -15,6 +15,8 @@ import "./dialog.css";
 import "./compromissos/commitments.css";
 import "./components.css";
 import "./reports.css";
+import "./dark-override.css";
+import "./themes.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { MonthProvider } from "./components/MonthContext";
 

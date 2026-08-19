@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Activity, BarChart3, ChartColumn, CirclePlus, CreditCard, Landmark, LogOut, Menu, Moon, ReceiptText, Sun, Target, TrendingUp, WalletCards } from "lucide-react";
+import { Activity, BarChart3, ChartColumn, CirclePlus, CreditCard, Landmark, LogOut, Menu, ReceiptText, Target, TrendingUp, WalletCards } from "lucide-react";
 import { appPath } from "@/lib/app-path";
 import { createClient } from "@/lib/supabase/client";
-import { useThemePreference } from "./ThemeProvider";
 
 const desktopLinks = [
   { href: "/", label: "Painel", icon: BarChart3 },
@@ -24,8 +23,6 @@ const desktopLinks = [
 export function Nav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { preference, updateThemePreference } = useThemePreference();
-  const nextTheme = preference === "dark" ? "light" : "dark";
 
   async function signOut() {
     await createClient().auth.signOut();
@@ -62,10 +59,6 @@ export function Nav() {
         )}
       </nav>
       <div className="nav-bottom">
-        <button aria-label="Alternar tema" onClick={() => void updateThemePreference(nextTheme)}>
-          {preference === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
-          <span>Tema</span>
-        </button>
         <button onClick={() => void signOut()}><LogOut aria-hidden="true" /><span>Sair</span></button>
       </div>
     </aside>

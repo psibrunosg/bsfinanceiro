@@ -5,8 +5,13 @@ out
 !.env.example
 coverage
 test-results
+e2e/.auth
 *.log
 .vercel
 *.tsbuildinfo
 .DS_Store
 supabase/.temp/
+
+graphify-out
+.claude-flow
+work/
