@@ -254,64 +254,68 @@ export default function InvestimentosPage() {
         </article>
       </div>
 
-      <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
-        <List title="Ativos">
-          {assets.length === 0 && (
-            <p className="dashboard-empty">Nenhum ativo cadastrado.{" "}
-              <button type="button" onClick={() => setDialog({ kind: "asset" })}>Cadastrar primeiro investimento</button>
-            </p>
-          )}
-          {assets.map((a) => {
-            const pos = positionByAsset[a.id];
-            const price = latestQuote[a.id] ?? null;
-            const current = pos && price ? pos.quantity * price : null;
+      <List title="Ativos">
+        {assets.length === 0 && (
+          <p className="dashboard-empty">Nenhum ativo cadastrado.{" "}
+            <button type="button" onClick={() => setDialog({ kind: "asset" })}>Cadastrar primeiro investimento</button>
+          </p>
+        )}
+        {assets.map((a) => {
+          const pos = positionByAsset[a.id];
+          const price = latestQuote[a.id] ?? null;
+          const current = pos && price ? pos.quantity * price : null;
+          return (
+            <article className="account-row" key={a.id} style={{ flexWrap: "wrap" }}>
+              <span className="metric-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6", marginLeft: 0 }}>
+                <WalletCards size={18} aria-hidden="true" />
+              </span>
+              <div className="tx-row__body">
+                <strong>{a.name}</strong>
+                <small>
+                  {ASSET_TYPES[a.type] ?? a.type}
+                  {a.exchange ? ` · ${a.exchange}` : ""}
+                </small>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <b>{current != null ? money(current) : money(pos?.costCents ? pos.costCents / 100 : 0)}</b>
+                <small className="muted" style={{ display: "block" }}>
+                  {pos ? `${pos.quantity} · custo médio ${money(pos.quantity > 0 ? pos.costCents / 100 / pos.quantity : 0)}` : "Sem operações"}
+                </small>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" onClick={() => setDialog({ kind: "buy", assetId: a.id })}>Comprar</button>
+                <button type="button" onClick={() => setDialog({ kind: "sell", assetId: a.id })}>Vender</button>
+                <button type="button" onClick={() => setDialog({ kind: "quote", assetId: a.id })}>Cotação</button>
+              </div>
+            </article>
+          );
+        })}
+      </List>
+
+      {operations.length > 0 && (
+        <List title="Operações recentes">
+          {operations.slice(0, 30).map((op) => {
+            const asset = assets.find((x) => x.id === op.asset_id);
+            const isBuy = op.operation_type === "buy";
             return (
-              <article className="account-row" key={a.id} style={{ display: "grid", gap: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                  <div>
-                    <strong>{a.name}</strong>
-                    <small>
-                      {ASSET_TYPES[a.type] ?? a.type}
-                      {a.exchange ? ` · ${a.exchange}` : ""}
-                    </small>
-                  </div>
-                  <div style={{ textAlign: "right", display: "grid", gap: 4 }}>
-                    <b>{current != null ? money(current) : money(pos?.costCents ? pos.costCents / 100 : 0)}</b>
-                    <small className="muted">
-                      {pos ? `${pos.quantity} · custo médio ${money(pos.quantity > 0 ? pos.costCents / 100 / pos.quantity : 0)}` : "Sem operações"}
-                    </small>
-                  </div>
+              <article className="account-row" key={op.id}>
+                <span
+                  className="metric-icon-badge"
+                  style={isBuy
+                    ? { background: "rgba(34,197,94,.15)", color: "#22C55E", marginLeft: 0 }
+                    : { background: "rgba(245,166,35,.15)", color: "#F5A623", marginLeft: 0 }}
+                >
+                  {isBuy ? <TrendingUp size={18} aria-hidden="true" /> : <TrendingDown size={18} aria-hidden="true" />}
+                </span>
+                <div className="tx-row__body">
+                  <strong>{isBuy ? "Compra" : "Venda"} · {asset?.name ?? "Ativo"}</strong>
+                  <small>{dateFmt.format(new Date(`${op.operation_date}T12:00:00`))}</small>
                 </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button type="button" onClick={() => setDialog({ kind: "buy", assetId: a.id })}>Comprar</button>
-                  <button type="button" onClick={() => setDialog({ kind: "sell", assetId: a.id })}>Vender</button>
-                  <button type="button" onClick={() => setDialog({ kind: "quote", assetId: a.id })}>Cotação</button>
-                </div>
+                <b style={{ whiteSpace: "nowrap" }}>{money(op.quantity * op.unit_price)}</b>
               </article>
             );
           })}
         </List>
-      </section>
-
-      {operations.length > 0 && (
-        <section className="management-grid" style={{ gridTemplateColumns: "1fr", marginTop: 16 }}>
-          <List title="Operações recentes">
-            <ul className="list" style={{ display: "grid", gap: 6 }}>
-              {operations.slice(0, 30).map((op) => {
-                const asset = assets.find((x) => x.id === op.asset_id);
-                return (
-                  <li key={op.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                    <span>
-                      <b>{op.operation_type === "buy" ? "Compra" : "Venda"}</b> · {asset?.name ?? "Ativo"} ·{" "}
-                      {dateFmt.format(new Date(`${op.operation_date}T12:00:00`))}
-                    </span>
-                    <b>{money(op.quantity * op.unit_price)}</b>
-                  </li>
-                );
-              })}
-            </ul>
-          </List>
-        </section>
       )}
 
       <Dialog open={dialog !== null} onClose={() => setDialog(null)} title={dialogTitle}>

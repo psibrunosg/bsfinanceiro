@@ -11,6 +11,7 @@ import { money, parseMoney, dateFmt } from "./components/Money";
 import { BrandLogo, CARD_BRANDS } from "./brand-logo";
 import { createClient } from "@/lib/supabase/client";
 import { useMemo, Suspense, useState } from "react";
+import { CalendarClock, CreditCard, TrendingDown, Wallet } from "lucide-react";
 
 function statementImportErrorMessage(errorCode: string | null) {
   switch (errorCode) {
@@ -56,6 +57,51 @@ function CardsPageInner() {
   const statementImportDescribedBy = statementImportFeedback
     ? "statement-import-help statement-import-feedback"
     : "statement-import-help";
+
+  // ponytail: agregação client-side sobre os dados que a página já carregou; sem query nova.
+  const invoiceTotal = (inv: (typeof invoices)[number]) =>
+    (inv.credit_card_installments || []).reduce((s, i) => s + Number(i.amount), 0);
+  const scopedCards = selectedCard ? [selectedCard] : cards;
+  const openInvoices = invoices.filter((inv) => inv.status !== "paid");
+  const limitTotal = scopedCards.reduce((s, c) => s + Number(c.credit_limit), 0);
+  const usedTotal = openInvoices.reduce((s, inv) => s + invoiceTotal(inv), 0);
+  const nextInvoice = [...openInvoices].sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
+
+  const renderInvoice = (inv: (typeof invoices)[number], cardName?: string) => {
+    const items = inv.credit_card_installments || [];
+    return (
+      <article className="account-row" key={inv.id}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+            <strong>
+              {cardName ? `${cardName} · vence ` : "Vence "}
+              {dateFmt.format(new Date(`${inv.due_date}T12:00:00`))}
+            </strong>
+            <b>{money(invoiceTotal(inv))}</b>
+          </div>
+          <small className="muted" data-status={inv.status}>
+            {inv.status === "paid" ? "Paga" : "Em aberto"}
+          </small>
+          <ul className="list" style={{ marginTop: 8 }}>
+            {items.map((i, n) => {
+              const p = Array.isArray(i.credit_card_purchases)
+                ? i.credit_card_purchases[0]
+                : i.credit_card_purchases;
+              return (
+                <li key={n}>
+                  <span>
+                    {p?.description || "Compra"} · {i.installment_number}/
+                    {p?.installment_count || 1}
+                  </span>
+                  <b>{money(i.amount)}</b>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </article>
+    );
+  };
 
   async function submitCard(form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
@@ -195,8 +241,42 @@ function CardsPageInner() {
       />
       {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
 
+      <div className="bento-row" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <article className="metric-card">
+          <div className="metric-card__head">
+            <span className="muted">Limite total</span>
+            <span className="metric-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6" }}><CreditCard size={18} aria-hidden="true" /></span>
+          </div>
+          <strong>{money(limitTotal)}</strong>
+        </article>
+        <article className="metric-card metric-card--negative">
+          <div className="metric-card__head">
+            <span className="muted">Total usado</span>
+            <span className="metric-icon-badge" style={{ background: "rgba(239,68,68,.15)", color: "#EF4444" }}><TrendingDown size={18} aria-hidden="true" /></span>
+          </div>
+          <strong>{money(usedTotal)}</strong>
+        </article>
+        <article className="metric-card metric-card--positive">
+          <div className="metric-card__head">
+            <span className="muted">Disponível</span>
+            <span className="metric-icon-badge" style={{ background: "rgba(34,197,94,.15)", color: "#22C55E" }}><Wallet size={18} aria-hidden="true" /></span>
+          </div>
+          <strong>{money(limitTotal - usedTotal)}</strong>
+        </article>
+        <article className="metric-card">
+          <div className="metric-card__head">
+            <span className="muted">Próxima fatura</span>
+            <span className="metric-icon-badge" style={{ background: "rgba(245,166,35,.15)", color: "#F5A623" }}><CalendarClock size={18} aria-hidden="true" /></span>
+          </div>
+          <strong>{money(nextInvoice ? invoiceTotal(nextInvoice) : 0)}</strong>
+          <small className="muted">
+            {nextInvoice ? `Vence ${dateFmt.format(new Date(`${nextInvoice.due_date}T12:00:00`))}` : "Sem fatura em aberto"}
+          </small>
+        </article>
+      </div>
+
       {!selectedCardId && (
-        <section className="management-grid" style={{ gridTemplateColumns: '1fr' }}>
+        <section className="bento-row" style={{ gridTemplateColumns: '1fr' }}>
           <List title="Cartões ativos">
             {cards.map((c) => {
               const cardInvoices = invoices.filter(inv => inv.credit_card_id === c.id);
@@ -296,48 +376,15 @@ function CardsPageInner() {
       )}
 
       {selectedCardId && (
-        <section className="management-grid">
+        <section className="bento-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
           <List title="Faturas">
             {invoices.length === 0 && (
-              <p className="muted">Nenhuma fatura para este cartão.</p>
+              <p className="dashboard-empty">Nenhuma fatura para este cartão.</p>
             )}
-            {invoices.map((inv) => {
-              const items = inv.credit_card_installments || [];
-              const total = items.reduce((s, i) => s + Number(i.amount), 0);
-              return (
-                <article className="invoice-card" key={inv.id}>
-                  <header>
-                    <strong>
-                      Vence{" "}
-                      {dateFmt.format(new Date(`${inv.due_date}T12:00:00`))}
-                    </strong>
-                    <b>{money(total)}</b>
-                    <span data-status={inv.status}>
-                      {inv.status === "paid" ? "Paga" : "Em aberto"}
-                    </span>
-                  </header>
-                  <ul>
-                    {items.map((i, n) => {
-                      const p = Array.isArray(i.credit_card_purchases)
-                        ? i.credit_card_purchases[0]
-                        : i.credit_card_purchases;
-                      return (
-                        <li key={n}>
-                          <span>
-                            {p?.description || "Compra"} ·{" "}
-                            {i.installment_number}/{p?.installment_count || 1}
-                          </span>
-                          <b>{money(i.amount)}</b>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </article>
-              );
-            })}
+            {invoices.map((inv) => renderInvoice(inv))}
           </List>
-          <aside className="form-card">
-            <h2>Nova compra</h2>
+          <aside className="dashboard-card">
+            <h3>Nova compra</h3>
             <SimpleForm onSubmit={submitPurchase}>
               <label htmlFor="purchase-description">Descrição</label>
               <input id="purchase-description" name="description" placeholder="Descrição" required />
@@ -381,12 +428,12 @@ function CardsPageInner() {
       )}
 
       {selectedCardId && (
-        <section className="card-import" aria-labelledby="statement-import-title">
+        <section className="dashboard-card" aria-labelledby="statement-import-title">
           <div>
-            <h2 id="statement-import-title">Importar fatura experimental</h2>
+            <h3 id="statement-import-title">Importar fatura experimental</h3>
             <p className="muted">Aceita apenas a fixture sintética documentada. PDFs e layouts reais serão recusados sem criar compras.</p>
           </div>
-          <form className="finance-form" aria-busy={importingStatement} onSubmit={(event) => { event.preventDefault(); void submitStatementImport(new FormData(event.currentTarget)); }}>
+          <form className="simple-form" aria-busy={importingStatement} onSubmit={(event) => { event.preventDefault(); void submitStatementImport(new FormData(event.currentTarget)); }}>
             <label htmlFor="statement-file">Arquivo de fatura</label>
             <input id="statement-file" name="statement" type="file" accept="application/pdf,text/plain,.txt,.bsf-fixture" required disabled={importingStatement} aria-invalid={statementImportFailed || undefined} aria-describedby={statementImportDescribedBy} />
             <small id="statement-import-help">Até 5 MB. Apenas a fixture sintética é processada nesta etapa.</small>
@@ -394,7 +441,7 @@ function CardsPageInner() {
             {statementImportFeedback && <p id="statement-import-feedback" className={statementImportFailed ? "form-error" : "form-success"} role={statementImportFailed ? "alert" : "status"}>{statementImportFeedback}</p>}
           </form>
           {statementImports.length > 0 && (
-            <ul className="statement-import-list" aria-label="Importações recentes">
+            <ul className="list" style={{ marginTop: 16 }} aria-label="Importações recentes">
               {statementImports.map((item) => <li key={item.id}><span>{item.file_name}</span><strong data-status={item.status}>{item.status === "failed" ? "Falhou: formato não suportado" : item.status}</strong></li>)}
             </ul>
           )}
@@ -402,46 +449,16 @@ function CardsPageInner() {
       )}
 
       {!selectedCardId && (
-        <section className="account-list">
-          <h2>Faturas</h2>
+        <section className="dashboard-card">
+          <h3>Faturas</h3>
           {invoices.length === 0 && (
-            <p className="muted">Nenhuma fatura registrada.</p>
+            <p className="dashboard-empty">Nenhuma fatura registrada.</p>
           )}
-          {invoices.map((inv) => {
-            const card = cards.find((c) => c.id === inv.credit_card_id);
-            const items = inv.credit_card_installments || [];
-            const total = items.reduce((s, i) => s + Number(i.amount), 0);
-            return (
-              <article className="invoice-card" key={inv.id}>
-                <header>
-                  <strong>
-                    {card?.name || "Cartão"} · vence{" "}
-                    {dateFmt.format(new Date(`${inv.due_date}T12:00:00`))}
-                  </strong>
-                  <b>{money(total)}</b>
-                  <span data-status={inv.status}>
-                    {inv.status === "paid" ? "Paga" : "Em aberto"}
-                  </span>
-                </header>
-                <ul>
-                  {items.map((i, n) => {
-                    const p = Array.isArray(i.credit_card_purchases)
-                      ? i.credit_card_purchases[0]
-                      : i.credit_card_purchases;
-                    return (
-                      <li key={n}>
-                        <span>
-                          {p?.description || "Compra"} · {i.installment_number}/
-                          {p?.installment_count || 1}
-                        </span>
-                        <b>{money(i.amount)}</b>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </article>
-            );
-          })}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {invoices.map((inv) =>
+              renderInvoice(inv, cards.find((c) => c.id === inv.credit_card_id)?.name || "Cartão"),
+            )}
+          </div>
         </section>
       )}
     </main>

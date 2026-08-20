@@ -6,14 +6,13 @@ import { Nav } from "../components/Nav";
 import { PageHeader } from "../components/PageHeader";
 import { Dialog } from "../components/Dialog";
 import { SimpleForm } from "../components/SimpleForm";
-import { List } from "../components/List";
 import { money, parseMoney, dateFmt } from "../components/Money";
 import { DashboardChart } from "../components/DashboardChart";
 import { MonthPicker } from "../components/MonthPicker";
 import { useMonth } from "../components/MonthContext";
 import { createClient } from "@/lib/supabase/client";
 import { addMonths } from "@/lib/finance/local-date";
-import { ArrowDownRight, ArrowUpRight, Check, LayoutGrid, ReceiptText, Repeat } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Check, Clock, LayoutGrid, ReceiptText, Repeat } from "lucide-react";
 
 const DONUT_COLORS = ["#8B5CF6", "#3B82F6", "#F97316", "#F5A623", "#22C55E"];
 
@@ -389,93 +388,128 @@ export default function GastosPage() {
       )}
 
       {tab === "launches" && (
-        <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
-          <List title="Lançamentos">
-            {filteredExpenses.length === 0 ? (
-              <p className="dashboard-empty">Nenhum gasto registrado.{" "}
-                <button type="button" onClick={() => setDialog({ kind: "expense" })}>Registrar primeiro gasto</button>
-              </p>
-            ) : (
-              <ul className="list">
-                {filteredExpenses.map((t) => {
-                  const cat = expenseCategories.find((c) => c.id === t.category_id);
-                  return (
-                    <li key={t.id}>
-                      <span>
-                        {t.description} · {dateFmt.format(new Date(`${t.competence_date}T12:00:00`))}
-                        {cat ? ` · ${cat.name}` : ""}
-                      </span>
-                      <b>{money(t.amount)}</b>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </List>
-        </section>
+        <article className="dashboard-card">
+          <h3 style={{ marginBottom: '2px', fontSize: '1.2rem' }}>Lançamentos</h3>
+          <p className="muted" style={{ marginBottom: '16px', fontSize: '.85rem' }}>Todos os gastos do contexto selecionado</p>
+          {filteredExpenses.length === 0 ? (
+            <p className="dashboard-empty">Nenhum gasto registrado.{" "}
+              <button type="button" onClick={() => setDialog({ kind: "expense" })}>Registrar primeiro gasto</button>
+            </p>
+          ) : (
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Descrição</th>
+                    <th>Categoria</th>
+                    <th>Competência</th>
+                    <th className="num">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredExpenses.map((t) => {
+                    const cat = expenseCategories.find((c) => c.id === t.category_id);
+                    return (
+                      <tr key={t.id}>
+                        <td className="cell-source">
+                          <span className="tx-icon-badge" style={{ background: "rgba(239,68,68,.15)", color: "#EF4444" }}><ReceiptText size={18} aria-hidden="true" /></span>
+                          <strong>{t.description}</strong>
+                        </td>
+                        <td>{cat ? <span className="type-pill" style={{ background: "rgba(239,68,68,.15)", color: "#EF4444" }}>{cat.name}</span> : <span className="muted">Sem categoria</span>}</td>
+                        <td>{dateFmt.format(new Date(`${t.competence_date}T12:00:00`))}</td>
+                        <td className="num amount-net">{money(t.amount)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
       )}
 
       {tab === "recurrent" && (
-        <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
-          <List title={`Compromissos fixos · ${money(totalRecurrent)}/mês`}>
-            {commitments.length === 0 && (
+        <section className="bento-row" style={{ gridTemplateColumns: "1fr" }}>
+          <article className="dashboard-card">
+            <h3 style={{ marginBottom: '2px', fontSize: '1.2rem' }}>Compromissos fixos · {money(totalRecurrent)}/mês</h3>
+            <p className="muted" style={{ marginBottom: '16px', fontSize: '.85rem' }}>Gastos que se repetem todo mês</p>
+            {commitments.length === 0 ? (
               <p className="dashboard-empty">Nenhum compromisso fixo.{" "}
                 <button type="button" onClick={() => setDialog({ kind: "recurrent" })}>Criar primeiro compromisso</button>
               </p>
+            ) : (
+              <div style={{ display: "grid", gap: 8 }}>
+                {commitments.map((c) => {
+                  const cat = expenseCategories.find((x) => x.id === c.category_id);
+                  return (
+                    <article className="tx-row" key={c.id}>
+                      <span className="tx-icon-badge" style={{ background: "rgba(59,130,246,.15)", color: "#3B82F6" }}><Repeat size={18} aria-hidden="true" /></span>
+                      <div className="tx-row__body">
+                        <strong>{c.description}</strong>
+                        <small>vence dia {c.due_day}{cat ? ` · ${cat.name}` : ""}</small>
+                      </div>
+                      <b className="tx-row__amount">{money(c.amount)}</b>
+                    </article>
+                  );
+                })}
+              </div>
             )}
-            {commitments.map((c) => {
-              const cat = expenseCategories.find((x) => x.id === c.category_id);
-              return (
-                <article className="account-row" key={c.id}>
-                  <div>
-                    <strong>{c.description}</strong>
-                    <small>vence dia {c.due_day}{cat ? ` · ${cat.name}` : ""}</small>
-                  </div>
-                  <b>{money(c.amount)}</b>
-                </article>
-              );
-            })}
-          </List>
+          </article>
 
-          <List title={`Ocorrências · ${monthLabel}`}>
-            {occurrences.length === 0 && <p className="muted">Nenhuma ocorrência neste mês.</p>}
-            {occurrences.map((o) => {
-              const paid = o.status === "paid";
-              const payable = o.status === "planned";
-              return (
-                <article className="account-row" key={o.id}>
-                  <div>
-                    <strong>{o.description}</strong>
-                    <small>
-                      vence {dateFmt.format(new Date(`${o.due_date}T12:00:00`))}
-                      {paid ? " · paga" : ""}
-                    </small>
-                    {payable && (
-                      <form
-                        className="finance-form"
-                        style={{ display: "flex", gap: 8, marginTop: 6 }}
-                        onSubmit={async (e) => {
-                          e.preventDefault();
-                          const f = new FormData(e.currentTarget);
-                          e.currentTarget.reset();
-                          await payOccurrence(o.id, f);
-                        }}
+          <article className="dashboard-card">
+            <h3 style={{ marginBottom: '2px', fontSize: '1.2rem' }}>Ocorrências · {monthLabel}</h3>
+            <p className="muted" style={{ marginBottom: '16px', fontSize: '.85rem' }}>Parcelas geradas para o mês selecionado</p>
+            {occurrences.length === 0 ? (
+              <p className="dashboard-empty">Nenhuma ocorrência neste mês.</p>
+            ) : (
+              <div style={{ display: "grid", gap: 8 }}>
+                {occurrences.map((o) => {
+                  const paid = o.status === "paid";
+                  const payable = o.status === "planned";
+                  return (
+                    <article className="tx-row" key={o.id} style={payable ? { alignItems: "flex-start" } : undefined}>
+                      <span
+                        className="tx-icon-badge"
+                        style={paid
+                          ? { background: "rgba(34,197,94,.15)", color: "#22C55E" }
+                          : { background: "rgba(245,166,35,.15)", color: "#F5A623" }}
                       >
-                        <select name="account_id" required aria-label="Conta para pagamento">
-                          <option value="">Pagar com...</option>
-                          {accounts.map((a) => (
-                            <option key={a.id} value={a.id}>{a.name}</option>
-                          ))}
-                        </select>
-                        <button><Check aria-hidden="true" /> Pagar</button>
-                      </form>
-                    )}
-                  </div>
-                  <b>{money(o.amount)}</b>
-                </article>
-              );
-            })}
-          </List>
+                        {paid ? <Check size={18} aria-hidden="true" /> : <Clock size={18} aria-hidden="true" />}
+                      </span>
+                      <div className="tx-row__body">
+                        <strong>{o.description}</strong>
+                        <small>
+                          vence {dateFmt.format(new Date(`${o.due_date}T12:00:00`))}
+                          {paid ? " · paga" : ""}
+                        </small>
+                        {payable && (
+                          <form
+                            className="simple-form"
+                            style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}
+                            onSubmit={async (e) => {
+                              e.preventDefault();
+                              const f = new FormData(e.currentTarget);
+                              e.currentTarget.reset();
+                              await payOccurrence(o.id, f);
+                            }}
+                          >
+                            <select name="account_id" required aria-label="Conta para pagamento">
+                              <option value="">Pagar com...</option>
+                              {accounts.map((a) => (
+                                <option key={a.id} value={a.id}>{a.name}</option>
+                              ))}
+                            </select>
+                            <button><Check size={16} aria-hidden="true" /> Pagar</button>
+                          </form>
+                        )}
+                      </div>
+                      <b className="tx-row__amount">{money(o.amount)}</b>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </article>
         </section>
       )}
 

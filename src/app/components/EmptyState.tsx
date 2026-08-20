@@ -6,7 +6,7 @@ export function EmptyState({
   description?: string;
 }) {
   return (
-    <div className="empty-state">
+    <div className="dashboard-empty">
       <h3>{title}</h3>
       {description && <p>{description}</p>}
     </div>

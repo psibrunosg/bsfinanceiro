@@ -82,35 +82,35 @@ export function AccountsPage() {
         </article>
       </div>
 
-      <section className="management-grid" style={{ gridTemplateColumns: '1fr' }}>
-        <List title="Contas ativas">
-          {balances.map(({ account: a, balance: accountBalance }) => (
-            <article className="account-row" key={a.id}>
-              <span><Landmark aria-hidden="true" /></span>
-              <div>
-                <strong>{a.name}</strong>
-                <small>{ACCOUNT_TYPE_LABEL[a.type] ?? a.type}</small>
-              </div>
-              <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                <b>{money(accountBalance)}</b>
-                <small style={{ display: 'flex', alignItems: 'center', gap: '4px' }} className="muted">
-                  {accountBalance < 0 ? (
-                    <>saldo negativo de {money(Math.abs(accountBalance))}</>
-                  ) : (
-                    <>
-                      <Percent aria-hidden="true" size={14} />{" "}
-                      {(positiveTotal > 0 ? (accountBalance / positiveTotal) * 100 : 0).toFixed(1)}% do total
-                    </>
-                  )}
-                </small>
-              </div>
-            </article>
-          ))}
-          {accounts.length === 0 && (
-            <p className="dashboard-empty" style={{ margin: "2rem 0" }}>Nenhuma conta encontrada.</p>
-          )}
-        </List>
-      </section>
+      <List title="Contas ativas">
+        {balances.map(({ account: a, balance: accountBalance }) => (
+          <article className="account-row" key={a.id}>
+            <span className="metric-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6", marginLeft: 0 }}>
+              <Landmark size={18} aria-hidden="true" />
+            </span>
+            <div className="tx-row__body">
+              <strong>{a.name}</strong>
+              <small>{ACCOUNT_TYPE_LABEL[a.type] ?? a.type}</small>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <b>{money(accountBalance)}</b>
+              <small className="muted" style={{ display: 'block' }}>
+                {accountBalance < 0 ? (
+                  <>saldo negativo de {money(Math.abs(accountBalance))}</>
+                ) : (
+                  <>
+                    <Percent aria-hidden="true" size={14} style={{ verticalAlign: '-2px' }} />{" "}
+                    {(positiveTotal > 0 ? (accountBalance / positiveTotal) * 100 : 0).toFixed(1)}% do total
+                  </>
+                )}
+              </small>
+            </div>
+          </article>
+        ))}
+        {accounts.length === 0 && (
+          <p className="dashboard-empty">Nenhuma conta encontrada.</p>
+        )}
+      </List>
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title="Adicionar conta">
         <SimpleForm onSubmit={submitAccount}>

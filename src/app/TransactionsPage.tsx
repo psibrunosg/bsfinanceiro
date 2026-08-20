@@ -2,6 +2,7 @@
 
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
@@ -78,105 +79,116 @@ function TransactionsPageInner() {
       onReload={reload}
       onMessage={setMessage}
     />
-    <section className="management-grid" style={{ gridTemplateColumns: '1fr' }}>
+    <form className="bento-row" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr', marginTop: '24px' }} onSubmit={(event) => event.preventDefault()}>
+      <div className="filter-card">
+        <span><label htmlFor="transaction-query">Buscar movimentações</label></span>
+        <input
+          id="transaction-query"
+          type="search"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(0);
+          }}
+          placeholder="Descrição"
+        />
+      </div>
+      <div className="filter-card">
+        <span><label htmlFor="transaction-filter-type">Tipo</label></span>
+        <select
+          id="transaction-filter-type"
+          value={type}
+          onChange={(event) => {
+            setType(event.target.value);
+            setPage(0);
+          }}
+        >
+          <option value="">Todos</option>
+          <option value="expense">Despesa</option>
+          <option value="income">Receita</option>
+          <option value="transfer">Transferência</option>
+        </select>
+      </div>
+      <div className="filter-card">
+        <span><label htmlFor="transaction-from">Data inicial</label></span>
+        <input
+          id="transaction-from"
+          type="date"
+          value={from}
+          onChange={(event) => {
+            setFrom(event.target.value);
+            setPage(0);
+          }}
+        />
+      </div>
+      <div className="filter-card">
+        <span><label htmlFor="transaction-to">Data final</label></span>
+        <input
+          id="transaction-to"
+          type="date"
+          value={to}
+          onChange={(event) => {
+            setTo(event.target.value);
+            setPage(0);
+          }}
+        />
+      </div>
+    </form>
+
+    <div className="dashboard-bento-grid" style={{ gridTemplateColumns: '1fr' }}>
       <List title="Histórico">
-        <form className="transaction-filters" onSubmit={(event) => event.preventDefault()}>
-          <div className="transaction-filter transaction-filter-query">
-            <label htmlFor="transaction-query">Buscar movimentações</label>
-            <input
-              id="transaction-query"
-              type="search"
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setPage(0);
-              }}
-              placeholder="Descrição"
-            />
-          </div>
-          <div className="transaction-filter">
-            <label htmlFor="transaction-filter-type">Tipo</label>
-            <select
-              id="transaction-filter-type"
-              value={type}
-              onChange={(event) => {
-                setType(event.target.value);
-                setPage(0);
-              }}
-            >
-              <option value="">Todos</option>
-              <option value="expense">Despesa</option>
-              <option value="income">Receita</option>
-              <option value="transfer">Transferência</option>
-            </select>
-          </div>
-          <div className="transaction-filter">
-            <label htmlFor="transaction-from">Data inicial</label>
-            <input
-              id="transaction-from"
-              type="date"
-              value={from}
-              onChange={(event) => {
-                setFrom(event.target.value);
-                setPage(0);
-              }}
-            />
-          </div>
-          <div className="transaction-filter">
-            <label htmlFor="transaction-to">Data final</label>
-            <input
-              id="transaction-to"
-              type="date"
-              value={to}
-              onChange={(event) => {
-                setTo(event.target.value);
-                setPage(0);
-              }}
-            />
-          </div>
-        </form>
-        {transactions.map((transaction) => (
-          <article className="account-row" key={transaction.id}>
-            <span aria-hidden="true">{transaction.type === "income" ? "↑" : "↓"}</span>
-            <div>
-              <strong>{transaction.description}</strong>
-              <small>{transaction.competence_date}</small>
-            </div>
-            <b>{money(transaction.amount)}</b>
-          </article>
-        ))}
+        {transactions.map((transaction) => {
+          const isIncome = transaction.type === "income";
+          const category = categories.find((c) => c.id === transaction.category_id)?.name;
+          return (
+            <article className="tx-row" key={transaction.id}>
+              <span className="tx-icon-badge" style={isIncome ? { background: "rgba(34,197,94,.15)", color: "#22C55E" } : { background: "rgba(239,68,68,.15)", color: "#EF4444" }}>
+                {isIncome ? <ArrowUpRight size={16} aria-hidden="true" /> : <ArrowDownRight size={16} aria-hidden="true" />}
+              </span>
+              <span className="tx-row__body">
+                <strong>{transaction.description}</strong>
+                <small>{category ? `${category} · ` : ""}{transaction.competence_date}</small>
+              </span>
+              <span className="tx-row__amount" style={{ color: isIncome ? 'var(--positive)' : 'var(--danger)' }}>
+                {isIncome ? '+' : '-'}{money(transaction.amount)}
+              </span>
+            </article>
+          );
+        })}
         {transactions.length === 0 ? (
-          <p className="empty-state" role="status">
+          <p className="dashboard-empty" role="status">
             {hasActiveFilters
               ? "Nenhuma movimentação corresponde aos filtros."
               : "Nenhuma movimentação registrada."}
           </p>
         ) : null}
-        {total > 0 ? (
-          <nav className="transaction-pagination" aria-label="Paginação do histórico">
-            <button
-              type="button"
-              disabled={page === 0}
-              onClick={() => setPage((current) => Math.max(0, current - 1))}
-            >
-              Anterior
-            </button>
-            <span>
-              Página {page + 1} de {totalPages}
-            </span>
-            <button
-              type="button"
-              disabled={page + 1 >= totalPages}
-              onClick={() => setPage((current) => current + 1)}
-            >
-              Próxima
-            </button>
-          </nav>
-        ) : null}
       </List>
-      
-      {openDialog && (
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title="Nova movimentação">
+    </div>
+
+    {total > 0 ? (
+      <nav className="transaction-pagination" style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }} aria-label="Paginação do histórico">
+        <button
+          type="button"
+          disabled={page === 0}
+          onClick={() => setPage((current) => Math.max(0, current - 1))}
+        >
+          Anterior
+        </button>
+        <span>
+          Página {page + 1} de {totalPages}
+        </span>
+        <button
+          type="button"
+          disabled={page + 1 >= totalPages}
+          onClick={() => setPage((current) => current + 1)}
+        >
+          Próxima
+        </button>
+      </nav>
+    ) : null}
+
+    {openDialog && (
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title="Nova movimentação">
           <SimpleForm onSubmit={async (form) => {
             await submitTransaction(form);
             if (!messageIsError) setOpenDialog(false);
@@ -197,9 +209,8 @@ function TransactionsPageInner() {
             <input id="transaction-date" name="competence_date" type="date" defaultValue={todayInSaoPaulo()} required />
             <button>Salvar</button>
           </SimpleForm>
-        </Dialog>
-      )}
-    </section>
+      </Dialog>
+    )}
   </main>;
 }
 

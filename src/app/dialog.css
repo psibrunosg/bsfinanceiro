@@ -22,7 +22,7 @@
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
-  font-family: 'Lexend', sans-serif;
+  font-family: var(--font-lexend), Lexend, sans-serif;
   color: var(--text);
 }
 .dialog__header button {

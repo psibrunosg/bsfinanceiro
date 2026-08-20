@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { TrendingUp, TrendingDown, Wallet } from "lucide-react";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
@@ -99,10 +100,28 @@ export function ReportsPage() {
 
       {tab === "mes" && (
         <section>
-          <div className="metric-grid">
-            <article className="metric positive"><span>Entradas</span><strong>{money(monthReport.income)}</strong></article>
-            <article className="metric"><span>Saídas</span><strong>{money(monthReport.expense)}</strong></article>
-            <article className="metric"><span>Saldo do mês</span><strong>{money(monthReport.income - monthReport.expense)}</strong></article>
+          <div className="bento-row" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+            <article className="metric-card metric-card--positive">
+              <div className="metric-card__head">
+                <span className="muted">Entradas</span>
+                <span className="metric-icon-badge" style={{ background: "rgba(34,197,94,.15)", color: "#22C55E" }}><TrendingUp size={18} aria-hidden="true" /></span>
+              </div>
+              <strong>{money(monthReport.income)}</strong>
+            </article>
+            <article className="metric-card metric-card--negative">
+              <div className="metric-card__head">
+                <span className="muted">Saídas</span>
+                <span className="metric-icon-badge" style={{ background: "rgba(239,68,68,.15)", color: "#EF4444" }}><TrendingDown size={18} aria-hidden="true" /></span>
+              </div>
+              <strong>{money(monthReport.expense)}</strong>
+            </article>
+            <article className="metric-card">
+              <div className="metric-card__head">
+                <span className="muted">Saldo do mês</span>
+                <span className="metric-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6" }}><Wallet size={18} aria-hidden="true" /></span>
+              </div>
+              <strong>{money(monthReport.income - monthReport.expense)}</strong>
+            </article>
           </div>
 
           <article className="dashboard-card" style={{ marginTop: 18 }}>
@@ -135,7 +154,7 @@ export function ReportsPage() {
 
       {tab === "comparativo" && (
         <section>
-          <div className="dashboard-columns">
+          <div className="dashboard-bento-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
             <article className="dashboard-card">
               <h3>Entradas por mês</h3>
               <div className="chart-wrap"><DashboardChart type="bar" label="Entradas" labels={comparison.labels} values={comparison.flowIn} color="var(--positive-color)" /></div>

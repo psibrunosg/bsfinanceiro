@@ -68,33 +68,25 @@
   color: var(--accent);
 }
 
-/* --- Metric grids and cards --- */
-.hub-overview {
-  display: grid;
-  gap: var(--space-md);
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  margin-bottom: var(--space-md);
-}
-.metric-card--positive { border-left: 4px solid var(--positive); }
-.metric-card--negative { border-left: 4px solid var(--danger); }
-
 /* --- Lists: kill the UA bullet + 40px indent that misaligned "Fontes" --- */
 .list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
+/* Linha de lista = cartão de vidro, no mesmo idioma de .tx-row */
 .account-row,
 .list > li {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-2);
 }
-.list > li:last-child,
-.account-row:last-child { border-bottom: 0; }
+.list { display: grid; gap: 8px; }
 
 /* --- Forms inside dialogs --- */
 .simple-form {
@@ -156,12 +148,6 @@
   transform: translateY(-1px);
 }
 
-.form-card {
-  padding: var(--space-lg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
 
 /* --- Progress bar (same shape as .budget-bar in planning.css) --- */
 .progress-bar {

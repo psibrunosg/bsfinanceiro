@@ -14,7 +14,7 @@ import { useMonth } from "../components/MonthContext";
 import { createClient } from "@/lib/supabase/client";
 import { addMonths } from "@/lib/finance/local-date";
 import { lastNMonths } from "@/lib/finance/aggregations";
-import { ArrowDownRight, ArrowUpRight, Briefcase, HeartPulse, Wallet } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Briefcase, Check, Clock, HeartPulse, Wallet, X } from "lucide-react";
 
 const SERIES_COLORS = ["#8B5CF6", "#3B82F6", "#22C55E", "#F5A623", "#EF4444"];
 
@@ -511,88 +511,139 @@ export default function GanhosPage() {
       )}
 
       {tab === "payslips" && (
-        <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
-          <List title="Contracheques">
-            {payslips.length === 0 && (
-              <p className="dashboard-empty">Nenhum contracheque cadastrado.{" "}
-                <button type="button" onClick={() => setDialog({ kind: "payslip" })}>Cadastrar primeiro contracheque</button>
-              </p>
-            )}
-            {payslips.map((p) => (
-              <article className="account-row" key={p.id}>
-                <div>
-                  <strong>{p.employer}</strong>
-                  <small>
-                    {dateFmt.format(new Date(`${p.competence}T12:00:00`))}
-                    {p.received_date ? ` · recebido ${dateFmt.format(new Date(`${p.received_date}T12:00:00`))}` : " · não recebido"}
-                    {p.notes ? ` · ${p.notes}` : ""}
-                  </small>
-                </div>
-                <div style={{ textAlign: "right", display: "grid", gap: 4 }}>
-                  <b>{money(p.net_amount)}</b>
-                  <small className="muted">bruto {money(p.gross_amount)} · descontos {money(p.discounts_amount)}</small>
-                </div>
-                {p.pdf_path && (
-                  <button type="button" onClick={() => void openPayslipPdf(p.pdf_path!)}>PDF</button>
-                )}
-              </article>
-            ))}
-          </List>
-        </section>
+        <article className="dashboard-card">
+          <h3 style={{ marginBottom: '2px', fontSize: '1.2rem' }}>Contracheques</h3>
+          <p className="muted" style={{ marginBottom: '16px', fontSize: '.85rem' }}>Arquivo completo, do mais recente ao mais antigo</p>
+          {payslips.length === 0 ? (
+            <p className="dashboard-empty">Nenhum contracheque cadastrado.{" "}
+              <button type="button" onClick={() => setDialog({ kind: "payslip" })}>Cadastrar primeiro contracheque</button>
+            </p>
+          ) : (
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Empregador</th>
+                    <th>Competência</th>
+                    <th>Recebimento</th>
+                    <th className="num">Bruto</th>
+                    <th className="num">Descontos</th>
+                    <th className="num">Líquido</th>
+                    <th className="num">PDF</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payslips.map((p) => (
+                    <tr key={p.id}>
+                      <td className="cell-source">
+                        <span className="tx-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6" }}><Briefcase size={18} aria-hidden="true" /></span>
+                        <span>
+                          <strong>{p.employer}</strong>
+                          {p.notes ? <small>{p.notes}</small> : null}
+                        </span>
+                      </td>
+                      <td>{dateFmt.format(new Date(`${p.competence}T12:00:00`))}</td>
+                      <td>
+                        {p.received_date ? (
+                          <span className="type-pill" style={{ background: "rgba(34,197,94,.15)", color: "#22C55E" }}>
+                            {dateFmt.format(new Date(`${p.received_date}T12:00:00`))}
+                          </span>
+                        ) : (
+                          <span className="type-pill" style={{ background: "rgba(245,166,35,.15)", color: "#F5A623" }}>Não recebido</span>
+                        )}
+                      </td>
+                      <td className="num">{money(p.gross_amount)}</td>
+                      <td className="num amount-discount">{Number(p.discounts_amount) > 0 ? `- ${money(p.discounts_amount)}` : "—"}</td>
+                      <td className="num amount-net">{money(p.net_amount)}</td>
+                      <td className="num">
+                        {p.pdf_path ? (
+                          <button type="button" onClick={() => void openPayslipPdf(p.pdf_path!)}>PDF</button>
+                        ) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
       )}
 
       {tab === "patients" && (
-        <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
-          <List title="Pacientes">
-            {patients.length === 0 && (
-              <p className="dashboard-empty">Nenhum paciente cadastrado.{" "}
-                <button type="button" onClick={() => setDialog({ kind: "patient" })}>Cadastrar primeiro paciente</button>
-              </p>
-            )}
-            {patients.map((p) => {
-              const pEarnings = earnings.filter((e) => e.patient_id === p.id);
-              const pending = pEarnings.filter((e) => e.status === "pending");
-              const received = pEarnings.filter((e) => e.status === "received");
-              return (
-                <article className="account-row" key={p.id} style={{ display: "grid", gap: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                    <div>
-                      <strong>{p.full_name}</strong>
-                      <small>
-                        {received.length} recebido(s) · {money(received.reduce((s, e) => s + Number(e.amount), 0))} ·{" "}
-                        {pending.length} pendente(s) · {money(pending.reduce((s, e) => s + Number(e.amount), 0))}
-                      </small>
+        <article className="dashboard-card">
+          <h3 style={{ marginBottom: '2px', fontSize: '1.2rem' }}>Pacientes</h3>
+          <p className="muted" style={{ marginBottom: '16px', fontSize: '.85rem' }}>Atendimentos recebidos e pendentes por paciente</p>
+          {patients.length === 0 ? (
+            <p className="dashboard-empty">Nenhum paciente cadastrado.{" "}
+              <button type="button" onClick={() => setDialog({ kind: "patient" })}>Cadastrar primeiro paciente</button>
+            </p>
+          ) : (
+            <div style={{ display: "grid", gap: 12 }}>
+              {patients.map((p) => {
+                const pEarnings = earnings.filter((e) => e.patient_id === p.id);
+                const pending = pEarnings.filter((e) => e.status === "pending");
+                const received = pEarnings.filter((e) => e.status === "received");
+                return (
+                  <article className="account-row" key={p.id} style={{ display: "grid", gap: 12, alignItems: "stretch" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                        <span className="tx-icon-badge" style={{ background: "rgba(34,197,94,.15)", color: "#22C55E" }}><HeartPulse size={18} aria-hidden="true" /></span>
+                        <div style={{ minWidth: 0 }}>
+                          <strong>{p.full_name}</strong>
+                          <small className="muted" style={{ display: "block" }}>
+                            {received.length} recebido(s) · {money(received.reduce((s, e) => s + Number(e.amount), 0))} ·{" "}
+                            {pending.length} pendente(s) · {money(pending.reduce((s, e) => s + Number(e.amount), 0))}
+                          </small>
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => setDialog({ kind: "earning", patientId: p.id })}>Atendimento</button>
                     </div>
-                    <button type="button" onClick={() => setDialog({ kind: "earning", patientId: p.id })}>Atendimento</button>
-                  </div>
-                  {pEarnings.length > 0 && (
-                    <ul className="list">
-                      {pEarnings.map((e) => (
-                        <li key={e.id}>
-                          <span>
-                            {dateFmt.format(new Date(`${e.appointment_date}T12:00:00`))} · {money(e.amount)}
-                            {e.notes ? ` · ${e.notes}` : ""}
-                          </span>
-                          {e.status === "pending" ? (
-                            <button type="button" onClick={() => setDialog({ kind: "receive", earningId: e.id })}>Receber</button>
-                          ) : (
-                            <b data-status={e.status} className={e.status === "received" ? "form-success" : "muted"}>
-                              {e.status === "received" ? "Recebido" : "Cancelado"}
-                            </b>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </article>
-              );
-            })}
-          </List>
-        </section>
+                    {pEarnings.length > 0 && (
+                      <div style={{ display: "grid", gap: 8 }}>
+                        {pEarnings.map((e) => (
+                          <div className="tx-row" key={e.id}>
+                            <span
+                              className="tx-icon-badge"
+                              style={
+                                e.status === "received"
+                                  ? { background: "rgba(34,197,94,.15)", color: "#22C55E" }
+                                  : e.status === "pending"
+                                    ? { background: "rgba(245,166,35,.15)", color: "#F5A623" }
+                                    : { background: "rgba(239,68,68,.15)", color: "#EF4444" }
+                              }
+                            >
+                              {e.status === "received" ? <Check size={16} aria-hidden="true" />
+                                : e.status === "pending" ? <Clock size={16} aria-hidden="true" />
+                                  : <X size={16} aria-hidden="true" />}
+                            </span>
+                            <div className="tx-row__body">
+                              <strong>{money(e.amount)}</strong>
+                              <small>
+                                {dateFmt.format(new Date(`${e.appointment_date}T12:00:00`))}
+                                {e.notes ? ` · ${e.notes}` : ""}
+                              </small>
+                            </div>
+                            {e.status === "pending" ? (
+                              <button type="button" onClick={() => setDialog({ kind: "receive", earningId: e.id })}>Receber</button>
+                            ) : (
+                              <b data-status={e.status} className={`tx-row__amount ${e.status === "received" ? "form-success" : "muted"}`}>
+                                {e.status === "received" ? "Recebido" : "Cancelado"}
+                              </b>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </article>
       )}
 
       {tab === "other" && (
-        <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
+        <section className="bento-row" style={{ gridTemplateColumns: "1fr" }}>
           <List title="Outras receitas">
             {otherIncome.length === 0 ? (
               <p className="dashboard-empty">Nenhuma receita manual registrada.{" "}

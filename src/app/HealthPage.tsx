@@ -76,14 +76,29 @@ export function HealthPage() {
         <p className="dashboard-empty">Registre lançamentos para calcular seus indicadores.</p>
       ) : (
         <section>
-          <article className="dashboard-card">
-            <p className="eyebrow">RESUMO DO EXAME</p>
-            <div className="metric-grid">
-              <article className="metric"><span>Bons</span><strong style={{ color: STATUS_COLOR.good }}>{counts.good}</strong></article>
-              <article className="metric"><span>Em atenção</span><strong style={{ color: STATUS_COLOR.attention }}>{counts.attention}</strong></article>
-              <article className="metric"><span>Críticos</span><strong style={{ color: STATUS_COLOR.critical }}>{counts.critical}</strong></article>
-            </div>
-          </article>
+          <div className="bento-row" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+            <article className="metric-card metric-card--positive">
+              <div className="metric-card__head">
+                <span className="muted">Bons</span>
+                <span className="metric-icon-badge" style={{ background: "rgba(34,197,94,.15)", color: "#22C55E" }}><STATUS_ICON.good size={18} aria-hidden="true" /></span>
+              </div>
+              <strong style={{ color: STATUS_COLOR.good }}>{counts.good}</strong>
+            </article>
+            <article className="metric-card">
+              <div className="metric-card__head">
+                <span className="muted">Em atenção</span>
+                <span className="metric-icon-badge" style={{ background: "rgba(245,166,35,.15)", color: "#F5A623" }}><STATUS_ICON.attention size={18} aria-hidden="true" /></span>
+              </div>
+              <strong style={{ color: STATUS_COLOR.attention }}>{counts.attention}</strong>
+            </article>
+            <article className="metric-card metric-card--negative">
+              <div className="metric-card__head">
+                <span className="muted">Críticos</span>
+                <span className="metric-icon-badge" style={{ background: "rgba(239,68,68,.15)", color: "#EF4444" }}><STATUS_ICON.critical size={18} aria-hidden="true" /></span>
+              </div>
+              <strong style={{ color: STATUS_COLOR.critical }}>{counts.critical}</strong>
+            </article>
+          </div>
 
           {GROUPS.map((group) => (
             <article className="dashboard-card" style={{ marginTop: 18 }} key={group.id}>

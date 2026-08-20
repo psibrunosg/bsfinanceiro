@@ -6,13 +6,11 @@ import { PageHeader } from "./components/PageHeader";
 import { createClient } from "@/lib/supabase/client";
 import { appPath } from "@/lib/app-path";
 import { useMemo, useState } from "react";
-import { useThemePreference, type ThemePreference } from "./components/ThemeProvider";
 import type { WorkspacePreference } from "./components/types";
 
 export function SettingsPage() {
   const { workspace, alertPrefs, workspacePrefs, contexts = [], categories, loading, message, setMessage, reload } = useFinance("settings");
   const supabase = useMemo(() => createClient(), []);
-  const { preference, updateThemePreference } = useThemePreference();
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("Aparência");
 
@@ -90,63 +88,51 @@ export function SettingsPage() {
         ))}
       </nav>
 
-      <section className="settings-page">
-        <form className="settings-card" onSubmit={async (e) => { e.preventDefault(); await savePreferences(new FormData(e.currentTarget)); }}>
+      <section>
+        <form className="dashboard-card" onSubmit={async (e) => { e.preventDefault(); await savePreferences(new FormData(e.currentTarget)); }}>
           <h2>{activeTab}</h2>
-          
+
           {activeTab === "Alertas" && (
-            <div className="preferences-form">
-              <div className="preference-list">
-                <label><span>Alertas de orçamento</span><input type="checkbox" name="budget_alerts" defaultChecked={p?.budget_alerts ?? true} /></label>
-                <label><span>Alertas de metas</span><input type="checkbox" name="goal_alerts" defaultChecked={p?.goal_alerts ?? true} /></label>
-                <label><span>Alertas de compromissos fixos</span><input type="checkbox" name="fixed_commitment_alerts" defaultChecked={p?.fixed_commitment_alerts ?? true} /></label>
-                <label><span>Alertas de cartão de crédito</span><input type="checkbox" name="credit_card_alerts" defaultChecked={p?.credit_card_alerts ?? true} /></label>
-                <label><span>Alertas de saldo baixo</span><input type="checkbox" name="low_balance_alerts" defaultChecked={p?.low_balance_alerts ?? true} /></label>
-                <label><span>Resumo semanal</span><input type="checkbox" name="weekly_digest" defaultChecked={p?.weekly_digest ?? true} /></label>
+            <>
+              <div style={{ display: "grid", gap: "8px" }}>
+                <label className="account-row"><span>Alertas de orçamento</span><input type="checkbox" name="budget_alerts" defaultChecked={p?.budget_alerts ?? true} /></label>
+                <label className="account-row"><span>Alertas de metas</span><input type="checkbox" name="goal_alerts" defaultChecked={p?.goal_alerts ?? true} /></label>
+                <label className="account-row"><span>Alertas de compromissos fixos</span><input type="checkbox" name="fixed_commitment_alerts" defaultChecked={p?.fixed_commitment_alerts ?? true} /></label>
+                <label className="account-row"><span>Alertas de cartão de crédito</span><input type="checkbox" name="credit_card_alerts" defaultChecked={p?.credit_card_alerts ?? true} /></label>
+                <label className="account-row"><span>Alertas de saldo baixo</span><input type="checkbox" name="low_balance_alerts" defaultChecked={p?.low_balance_alerts ?? true} /></label>
+                <label className="account-row"><span>Resumo semanal</span><input type="checkbox" name="weekly_digest" defaultChecked={p?.weekly_digest ?? true} /></label>
               </div>
-              <details>
-                <summary>Configurações avançadas</summary>
-                <div className="settings-grid">
-                  <label>Aviso de orçamento (%)
-                    <input type="number" name="budget_warning_percent" min="1" max="100" defaultValue={p?.budget_warning_percent ?? 80} />
-                  </label>
-                  <label>Saldo baixo (R$)
-                    <input type="number" name="low_balance_amount" min="0" step="0.01" defaultValue={p?.low_balance_amount ?? 0} />
-                  </label>
-                  <label>Dia do resumo semanal
-                    <select name="weekly_digest_day" defaultValue={p?.weekly_digest_day ?? 1}>
-                      <option value="0">Domingo</option>
-                      <option value="1">Segunda</option>
-                      <option value="2">Terça</option>
-                      <option value="3">Quarta</option>
-                      <option value="4">Quinta</option>
-                      <option value="5">Sexta</option>
-                      <option value="6">Sábado</option>
-                    </select>
-                  </label>
-                </div>
-              </details>
-              <button disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
-            </div>
+              <div className="simple-form" style={{ marginTop: 16 }}>
+                <details>
+                  <summary>Configurações avançadas</summary>
+                  <div style={{ display: "grid", gap: "16px", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", marginTop: 12 }}>
+                    <label>Aviso de orçamento (%)
+                      <input type="number" name="budget_warning_percent" min="1" max="100" defaultValue={p?.budget_warning_percent ?? 80} />
+                    </label>
+                    <label>Saldo baixo (R$)
+                      <input type="number" name="low_balance_amount" min="0" step="0.01" defaultValue={p?.low_balance_amount ?? 0} />
+                    </label>
+                    <label>Dia do resumo semanal
+                      <select name="weekly_digest_day" defaultValue={p?.weekly_digest_day ?? 1}>
+                        <option value="0">Domingo</option>
+                        <option value="1">Segunda</option>
+                        <option value="2">Terça</option>
+                        <option value="3">Quarta</option>
+                        <option value="4">Quinta</option>
+                        <option value="5">Sexta</option>
+                        <option value="6">Sábado</option>
+                      </select>
+                    </label>
+                  </div>
+                </details>
+                <button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
+              </div>
+            </>
           )}
 
           {activeTab === "Aparência" && (
-            <div className="preferences-form">
-              <div className="settings-grid">
-                <label>Tema
-                  <select
-                    name="theme"
-                    value={preference}
-                    onChange={(e) => void updateThemePreference(e.target.value as ThemePreference)}
-                  >
-                    <option value="system">Sistema</option>
-                    <option value="light">Claro (Padrão)</option>
-                    <option value="dark">Escuro (Padrão)</option>
-                    <option value="cyberpunk">Cyberpunk Dark</option>
-                    <option value="corporate">Corporate Clean (Claro)</option>
-                    <option value="neumorphism">Neumorphism Dark</option>
-                  </select>
-                </label>
+            <div className="simple-form">
+              <div style={{ display: "grid", gap: "16px", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
                 <label>Modo Compacto
                   <select name="compact_mode" defaultValue={wp?.compact_mode ? "true" : "false"}>
                     <option value="false">Desativado</option>
@@ -157,13 +143,13 @@ export function SettingsPage() {
                   <input type="color" name="personal_color" defaultValue={wp?.personal_color ?? "#087f5b"} />
                 </label>
               </div>
-              <button disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
+              <button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
             </div>
           )}
 
           {activeTab === "Painel" && (
-            <div className="preferences-form">
-              <div className="settings-grid">
+            <div className="simple-form">
+              <div style={{ display: "grid", gap: "16px", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
                 <label>Período Padrão
                   <select name="default_period" defaultValue={wp?.default_period ?? "current_month"}>
                     <option value="current_month">Mês atual</option>
@@ -173,13 +159,13 @@ export function SettingsPage() {
                   </select>
                 </label>
               </div>
-              <button disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
+              <button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
             </div>
           )}
 
           {activeTab === "Contextos" && (
-            <div className="preferences-form">
-              <div className="settings-grid">
+            <div className="simple-form">
+              <div style={{ display: "grid", gap: "16px", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
                 <label>Contexto Padrão
                   <select name="default_context_id" defaultValue={wp?.default_context_id ?? ""}>
                     <option value="">Nenhum (Visão Geral)</option>
@@ -189,13 +175,13 @@ export function SettingsPage() {
                   </select>
                 </label>
               </div>
-              <button disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
+              <button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
             </div>
           )}
 
           {activeTab === "Privacidade" && (
-            <div className="preferences-form">
-              <div className="settings-grid">
+            <div className="simple-form">
+              <div style={{ display: "grid", gap: "16px", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
                 <label>Ocultar Valores por Padrão
                   <select name="hide_values" defaultValue={wp?.hide_values ? "true" : "false"}>
                     <option value="false">Desativado</option>
@@ -203,13 +189,13 @@ export function SettingsPage() {
                   </select>
                 </label>
               </div>
-              <button disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
+              <button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
             </div>
           )}
 
           {activeTab === "Ganhos" && (
-            <div className="preferences-form">
-              <div className="settings-grid">
+            <div className="simple-form">
+              <div style={{ display: "grid", gap: "16px", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
                 <label>Valor padrão por atendimento (R$)
                   <input
                     type="number"
@@ -229,13 +215,13 @@ export function SettingsPage() {
                   />
                 </label>
               </div>
-              <button disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
+              <button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
             </div>
           )}
 
           {activeTab === "Gastos" && (
-            <div className="preferences-form">
-              <div className="settings-grid">
+            <div className="simple-form">
+              <div style={{ display: "grid", gap: "16px", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
                 <label>Categoria de gasto padrão
                   <select name="default_category_id" defaultValue={wp?.default_category_id ?? ""}>
                     <option value="">Sem padrão</option>
@@ -245,22 +231,18 @@ export function SettingsPage() {
                   </select>
                 </label>
               </div>
-              <button disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
+              <button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
             </div>
           )}
 
           {activeTab === "Dados" && (
-            <div className="preferences-form">
-              <p className="muted">Exportar ou limpar seus dados. A exportação em CSV estará disponível em breve.</p>
-            </div>
+            <p className="muted">Exportar ou limpar seus dados. A exportação em CSV estará disponível em breve.</p>
           )}
         </form>
 
-        <div className="settings-card" style={{ marginTop: 16 }}>
+        <div className="dashboard-card" style={{ marginTop: 16 }}>
           <h2>Sessão</h2>
-          <div className="preferences-form">
-            <button type="button" onClick={signOut} style={{ background: "var(--danger-color, #e03131)", color: "#fff" }}>Sair da conta</button>
-          </div>
+          <button type="button" onClick={signOut} style={{ minHeight: 48, border: 0, padding: "12px 24px", borderRadius: 12, background: "var(--danger)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Sair da conta</button>
         </div>
       </section>
     </main>

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const AUTH_SPECS = /(visual-hubs|validation-p27)\.e2e\.ts/;
+const AUTH_SPECS = /(visual-hubs|validation-p27|redesign-audit|qa-dashboard|claro-multi-contas)\.e2e\.ts/;
 const STORAGE_STATE = "e2e/.auth/user.json";
 const hasE2ECredentials = Boolean(process.env.E2E_EMAIL && process.env.E2E_PASSWORD);
 

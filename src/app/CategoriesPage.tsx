@@ -9,6 +9,7 @@ import { CATEGORY_KIND_LABEL } from "./components/types";
 import { createClient } from "@/lib/supabase/client";
 import { money, dateFmt } from "./components/Money";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Tag, TrendingDown, TrendingUp } from "lucide-react";
 
 type UncategorizedTx = {
   id: string;
@@ -88,56 +89,74 @@ export function CategoriesPage() {
       <Nav />
       {message && <p className="form-success">{message}</p>}
       {!uncategorizedLoading && uncategorized.length > 0 && (
-        <section className="management-grid" style={{ gridTemplateColumns: "1fr" }}>
-          <List title={`Sem categoria · ${uncategorized.length}`}>
-            {uncategorized.map((t) => {
-              const options = categories.filter((c) => c.kind === t.type);
-              return (
-                <article className="account-row" key={t.id}>
-                  <div>
-                    <strong>{t.description}</strong>
-                    <small>{dateFmt.format(new Date(`${t.competence_date}T12:00:00`))}</small>
-                  </div>
-                  <b className={t.type === "expense" ? "form-error" : "form-success"} style={{ marginRight: 8 }}>
-                    {money(t.amount)}
-                  </b>
-                  <select
-                    aria-label={`Categorizar ${t.description}`}
-                    defaultValue=""
-                    onChange={(e) => categorize(t.id, e.target.value)}
-                  >
-                    <option value="" disabled>Categorizar...</option>
-                    {options.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </article>
-              );
-            })}
-          </List>
-        </section>
+        <List title={`Sem categoria · ${uncategorized.length}`}>
+          {uncategorized.map((t) => {
+            const options = categories.filter((c) => c.kind === t.type);
+            const isExpense = t.type === "expense";
+            return (
+              <article className="account-row" key={t.id} style={{ flexWrap: "wrap" }}>
+                <span
+                  className="metric-icon-badge"
+                  style={isExpense
+                    ? { background: "rgba(239,68,68,.15)", color: "#EF4444", marginLeft: 0 }
+                    : { background: "rgba(34,197,94,.15)", color: "#22C55E", marginLeft: 0 }}
+                >
+                  {isExpense ? <TrendingDown size={18} aria-hidden="true" /> : <TrendingUp size={18} aria-hidden="true" />}
+                </span>
+                <div className="tx-row__body">
+                  <strong>{t.description}</strong>
+                  <small>{dateFmt.format(new Date(`${t.competence_date}T12:00:00`))}</small>
+                </div>
+                <b style={{ color: isExpense ? "var(--danger)" : "var(--positive)", whiteSpace: "nowrap" }}>
+                  {money(t.amount)}
+                </b>
+                <select
+                  aria-label={`Categorizar ${t.description}`}
+                  defaultValue=""
+                  onChange={(e) => categorize(t.id, e.target.value)}
+                >
+                  <option value="" disabled>Categorizar...</option>
+                  {options.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </article>
+            );
+          })}
+        </List>
       )}
-      <section className="management-grid">
+      <section className="bento-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         <List title="Categorias">
           {categories.map((c) => (
             <article className="account-row" key={c.id}>
-              <span style={{ color: c.color || undefined }}>●</span>
-              <div>
+              <span
+                className="metric-icon-badge"
+                style={{ background: "rgba(139,92,246,.15)", color: c.color || "#8B5CF6", marginLeft: 0 }}
+              >
+                <Tag size={18} aria-hidden="true" />
+              </span>
+              <div className="tx-row__body">
                 <strong>{c.name}</strong>
                 <small>{CATEGORY_KIND_LABEL[c.kind] ?? c.kind}</small>
               </div>
             </article>
           ))}
+          {categories.length === 0 && (
+            <p className="dashboard-empty">Nenhuma categoria criada.</p>
+          )}
         </List>
-        <aside className="form-card">
-          <h2>Nova categoria</h2>
+        <aside className="dashboard-card">
+          <h3>Nova categoria</h3>
           <SimpleForm onSubmit={submitCategory}>
-            <input name="name" placeholder="Nome" required />
-            <select name="kind" defaultValue="expense">
+            <label htmlFor="category-name">Nome</label>
+            <input id="category-name" name="name" placeholder="Nome" required />
+            <label htmlFor="category-kind">Tipo</label>
+            <select id="category-kind" name="kind" defaultValue="expense">
               <option value="expense">Despesa</option>
               <option value="income">Receita</option>
             </select>
-            <input name="color" type="color" defaultValue="#087f5b" />
+            <label htmlFor="category-color">Cor</label>
+            <input id="category-color" name="color" type="color" defaultValue="#087f5b" />
             <button>Criar</button>
           </SimpleForm>
         </aside>

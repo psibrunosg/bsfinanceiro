@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { Nav } from "../components/Nav";
@@ -14,12 +14,12 @@ export default function MaisPage() {
   }
 
   const moreLinks = [
-    { href: "/contas", label: "Contas", icon: Landmark, description: "Saldos e patrimonio" },
-    { href: "/cartoes", label: "Cartoes", icon: CreditCard, description: "Faturas e limites" },
+    { href: "/contas", label: "Contas", icon: Landmark, description: "Saldos e patrimônio" },
+    { href: "/cartoes", label: "Cartões", icon: CreditCard, description: "Faturas e limites" },
     { href: "/investimentos", label: "Investimentos", icon: WalletCards, description: "Carteira e rentabilidade" },
-    { href: "/planejamento", label: "Planejamento", icon: Target, description: "Orcamento e metas" },
-    { href: "/categorias", label: "Categorias", icon: ReceiptText, description: "Gestao de categorias" },
-    { href: "/configuracoes", label: "Configuracoes", icon: Settings, description: "Preferencias e privacidade" },
+    { href: "/planejamento", label: "Planejamento", icon: Target, description: "Orçamento e metas" },
+    { href: "/categorias", label: "Categorias", icon: ReceiptText, description: "Gestão de categorias" },
+    { href: "/configuracoes", label: "Configurações", icon: Settings, description: "Preferências e privacidade" },
   ];
 
   return (
@@ -27,21 +27,25 @@ export default function MaisPage() {
       <Nav />
       <PageHeader
         title="Mais"
-        subtitle="Acesso rapido a todas as areas"
+        subtitle="Acesso rápido a todas as áreas"
         workspaceName={workspace.name}
       />
-      <ul className="list list--grid">
+      <div className="bento-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
         {moreLinks.map(({ href, label, icon: Icon, description }) => (
-          <li key={href}>
-            <Link href={href} className="list-card">
-              <Icon aria-hidden="true" />
-              <strong>{label}</strong>
-              <small className="muted">{description}</small>
+          <Link
+            key={href}
+            href={href}
+            className="dashboard-card"
+            style={{ display: 'flex', flexDirection: 'column', gap: '10px', textDecoration: 'none', color: 'inherit' }}
+          >
+            <span className="metric-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6", marginLeft: 0 }}>
+              <Icon size={18} aria-hidden="true" />
+            </span>
+            <strong>{label}</strong>
+            <small className="muted">{description}</small>
           </Link>
-        </li>
         ))}
-    </ul>
-  </main>
+      </div>
+    </main>
   );
 }
-

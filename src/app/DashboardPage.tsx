@@ -165,7 +165,7 @@ export function DashboardPage() {
 
     <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
       <div>
-        <h1 style={{ fontSize: '1.75rem', margin: '0 0 4px' }}>Olá, {displayName}! 👋</h1>
+        <h1 style={{ fontSize: '1.75rem', margin: '0 0 4px' }}>Olá, {displayName}!</h1>
         <p className="muted" style={{ margin: 0 }}>Aqui está o resumo das suas finanças</p>
       </div>
       <MonthPicker />
