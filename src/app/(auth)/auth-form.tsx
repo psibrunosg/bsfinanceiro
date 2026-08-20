@@ -68,7 +68,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           <h1>{enter ? "Entre na sua conta" : "Crie sua conta"}</h1>
           <p className="muted">Seu dinheiro explicado de forma simples.</p>
         </div>
-        <form onSubmit={(e) => { e.preventDefault(); void submit(new FormData(e.currentTarget)); }} className="auth-form">
+        {/* method="post" e defensivo: se o JS falhar (hidratacao quebrada, erro de
+          runtime), o submit nativo acontece. Sem isso o default e GET e a senha
+          vai parar na query string da URL — e dai para o historico do navegador,
+          logs de servidor e Referer. Ja aconteceu num dev server corrompido. */}
+        <form method="post" onSubmit={(e) => { e.preventDefault(); void submit(new FormData(e.currentTarget)); }} className="auth-form">
           <label htmlFor="email">E-mail</label>
           <input id="email" name="email" type="email" autoComplete="email" required />
           <label htmlFor="password">Senha</label>

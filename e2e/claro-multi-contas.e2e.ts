@@ -1,9 +1,16 @@
 import { expect, test } from "@playwright/test";
 
-const TEST_EMAIL = "brunosg2711@icloud.com";
-const TEST_PASSWORD = "SENHA-REMOVIDA-DO-HISTORICO";
+// Credencial NUNCA no arquivo: e-mail e senha ja estiveram em texto claro
+// aqui e foram parar no historico publico do git. Le do ambiente e pula
+// quando ausente, igual ao auth.setup.ts.
+const TEST_EMAIL = process.env.E2E_EMAIL;
+const TEST_PASSWORD = process.env.E2E_PASSWORD;
 
 test.setTimeout(180000);
+test.skip(
+  !TEST_EMAIL || !TEST_PASSWORD,
+  "Defina E2E_EMAIL e E2E_PASSWORD no ambiente para rodar este teste.",
+);
 
 test.describe("Walkthrough QA Visual - Faturas Claro e Multi-Contas", () => {
   for (const scheme of ["light", "dark"] as const) {
@@ -13,8 +20,8 @@ test.describe("Walkthrough QA Visual - Faturas Claro e Multi-Contas", () => {
 
       // 1. Login
       await page.goto("/entrar", { waitUntil: "networkidle" });
-      await page.fill('input[name="email"]', TEST_EMAIL);
-      await page.fill('input[name="password"]', TEST_PASSWORD);
+      await page.fill('input[name="email"]', TEST_EMAIL!);
+      await page.fill('input[name="password"]', TEST_PASSWORD!);
       await page.click('button:has-text("Entrar")');
       await page.waitForFunction(() => !window.location.pathname.startsWith("/entrar"), { timeout: 20000 });
       expect(page.url()).not.toContain("/entrar");
