@@ -10,6 +10,7 @@ import { List } from "../components/List";
 import { money, parseMoney, dateFmt } from "../components/Money";
 import { createClient } from "@/lib/supabase/client";
 import { WalletCards, TrendingUp, TrendingDown, PiggyBank } from "lucide-react";
+import { InvestmentGrowthWidget } from "../components/InvestmentGrowthWidget";
 
 const ASSET_TYPES: Record<string, string> = {
   stock: "Ações",
@@ -252,6 +253,16 @@ export default function InvestimentosPage() {
           </div>
           <strong>{money(Math.abs(gainCents) / 100)} ({gainPct >= 0 ? "+" : ""}{gainPct.toFixed(1)}%)</strong>
         </article>
+      </div>
+
+      <div style={{ marginTop: "24px" }}>
+        <InvestmentGrowthWidget
+          assets={assets}
+          positions={positionByAsset}
+          latestQuotes={latestQuote}
+          totalInvested={investedCents / 100}
+          totalGainPercent={gainPct}
+        />
       </div>
 
       <List title="Ativos">
