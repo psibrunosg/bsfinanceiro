@@ -122,14 +122,20 @@ Aplicativos virais usam ciÃªncia comportamental.
 - **Painel "EvoluÃ§Ã£o Profissional":** GrÃ¡fico de linha mostrando a renda profissional ao longo dos anos, com marcos visuais de cada curso/certificaÃ§Ã£o concluÃ­da.
 - **Simulador de PrÃ³ximo Investimento:** "Estou pensando em fazer uma especializaÃ§Ã£o de R$ 15.000" â€" O app projeta: "Se gerar o mesmo impacto percentual dos seus Ãºltimos cursos, vocÃª recupera o valor em 5 meses".
 
-## 25. Open Finance â€" SincronizaÃ§Ã£o BancÃ¡ria AutomÃ¡tica (via Pluggy)
-- **Provedor Escolhido:** [Pluggy](https://pluggy.ai) â€" empresa brasileira, autorizada pelo Banco Central como Iniciadora de TransaÃ§Ã£o de Pagamento (ITP). Sandbox gratuita para desenvolvimento.
-- **ConexÃ£o com Todos os Bancos:** Nubank, ItaÃº, Bradesco, BB, XP, Inter, C6, Santander e outros â€" tudo via uma Ãºnica API padronizada.
-- **ImportaÃ§Ã£o AutomÃ¡tica de Extratos:** O usuÃ¡rio clica em "Conectar Banco", autoriza via Open Finance, e o app puxa saldos, extratos e movimentaÃ§Ãµes automaticamente. Fim da digitaÃ§Ã£o manual.
-- **Fatura do CartÃ£o de CrÃ©dito:** Importa cada lanÃ§amento da fatura, alimentando automaticamente o Radar de Juros e o Rastreador de Parcelamentos.
-- **Investimentos em Tempo Real:** Puxa a posiÃ§Ã£o da carteira (CDB, Tesouro, AÃ§Ãµes, FIIs), alimentando o Monitor de Investimentos e o Dashboard F.I.R.E.
-- **EmprÃ©stimos e Financiamentos:** Importa dÃ­vidas ativas com juros e parcelas, alimentando o Radar de Juros.
+## 25. Open Finance – Sincronização Bancária Automática (via Pluggy)
+- **Provedor Escolhido:** [Pluggy](https://pluggy.ai) – empresa brasileira, autorizada pelo Banco Central como Iniciadora de Transação de Pagamento (ITP). Sandbox gratuita para desenvolvimento.
+- **Conexão com Todos os Bancos:** Nubank, Itaú, Bradesco, BB, XP, Inter, C6, Santander e outros – tudo via uma única API padronizada.
+- **Importação Automática de Extratos:** O usuário clica em "Conectar Banco", autoriza via Open Finance, e o app puxa saldos, extratos e movimentações automaticamente. Fim da digitação manual.
+- **Fatura do Cartão de Crédito:** Importa cada lançamento da fatura, alimentando automaticamente o Radar de Juros e o Rastreador de Parcelamentos.
+- **Investimentos em Tempo Real:** Puxa a posição da carteira (CDB, Tesouro, Ações, FIIs), alimentando o Monitor de Investimentos e o Dashboard F.I.R.E.
+- **Empréstimos e Financiamentos:** Importa dívidas ativas com juros e parcelas, alimentando o Radar de Juros.
 - **Pix Integrado (Futuro):** Possibilidade de iniciar pagamentos Pix direto pelo app.
+
+## 26. Captura Automática via iOS Shortcuts (Automação de Notificações Bancárias do iPhone)
+- **Gatilho no iPhone:** Toda vez que um app de banco (Nubank, Itaú, C6, Inter, Bradesco) envia uma notificação push de compra no cartão ou Pix enviado/recebido, o app **Atalhos (Apple Shortcuts)** intercepta o texto da notificação.
+- **Webhook Instantâneo ou Deep Link:** O Atalho do iOS extrai o valor (R$), o estabelecimento e a data, enviando um POST direto para a API do BS Financeiro ou abrindo o app com o modal de confirmação pré-preenchido.
+- **Zero Atrito:** Você passa o cartão no restaurante ou paga um Pix, recebe a notificação no iPhone e a despesa já entra categorizada instantaneamente no app, sem precisar abrir ou digitar nada.
+- **Template de Atalho Pré-Configurado:** O app disponibiliza um botão "Instalar Atalho no iPhone" com fluxo pronto para download no app Atalhos do iOS.
 
 ---
 

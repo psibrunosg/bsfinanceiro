@@ -13,6 +13,7 @@ import { useMonth } from "../components/MonthContext";
 import { createClient } from "@/lib/supabase/client";
 import { addMonths } from "@/lib/finance/local-date";
 import { ArrowDownRight, ArrowUpRight, Check, Clock, LayoutGrid, ReceiptText, Repeat } from "lucide-react";
+import { SubscriptionHubWidget } from "../components/SubscriptionHubWidget";
 
 const DONUT_COLORS = ["#8B5CF6", "#3B82F6", "#F97316", "#F5A623", "#22C55E"];
 
@@ -430,6 +431,11 @@ export default function GastosPage() {
 
       {tab === "recurrent" && (
         <section className="bento-row" style={{ gridTemplateColumns: "1fr" }}>
+          <SubscriptionHubWidget
+            transactions={expenses}
+            commitments={commitments}
+          />
+
           <article className="dashboard-card">
             <h3 style={{ marginBottom: '2px', fontSize: '1.2rem' }}>Compromissos fixos · {money(totalRecurrent)}/mês</h3>
             <p className="muted" style={{ marginBottom: '16px', fontSize: '.85rem' }}>Gastos que se repetem todo mês</p>
