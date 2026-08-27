@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     // Sem isto, um git worktree em .claude/worktrees faz o vitest rodar a
     // suite duas vezes e reportar falhas de outra branch como se fossem daqui.
-    exclude: ["**/node_modules/**", "**/dist/**", "**/out/**", "**/.next/**", "**/.claude/worktrees/**", "**/e2e/**"],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/out/**", "**/.next/**", "**/.claude/worktrees/**", "**/e2e/**", "**/.agents/**"],
   },
   resolve: {
     alias: {

@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 import { addMonths } from "@/lib/finance/local-date";
 import { aggregateExpensesByCategory, computeMonthlyFlow, lastNMonths } from "@/lib/finance/aggregations";
 import { generateInsights } from "@/lib/finance/insights";
+import { InterestRadarWidget } from "./components/InterestRadarWidget";
 
 const ASSET_TYPE_LABEL: Record<string, string> = {
   stock: "Ações",
@@ -266,6 +267,10 @@ export function DashboardPage() {
           )}
         </article>
       </div>
+    </div>
+
+    <div style={{ marginTop: '24px' }}>
+      <InterestRadarWidget transactions={transactions} currentMonth={month} />
     </div>
 
     <div className="dashboard-bento-grid" style={{ marginTop: '24px', gridTemplateColumns: '1fr 1fr' }}>

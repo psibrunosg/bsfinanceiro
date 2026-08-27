@@ -12,6 +12,7 @@ import { BrandLogo, CARD_BRANDS } from "./brand-logo";
 import { createClient } from "@/lib/supabase/client";
 import { useMemo, Suspense, useState } from "react";
 import { CalendarClock, CreditCard, TrendingDown, Wallet } from "lucide-react";
+import { InterestRadarWidget } from "./components/InterestRadarWidget";
 
 function statementImportErrorMessage(errorCode: string | null) {
   switch (errorCode) {
@@ -42,6 +43,7 @@ function CardsPageInner() {
     setMessage,
     reload,
     statementImports,
+    transactions,
   } = useFinance(selectedCardId ? "card" : "cards", selectedCardId || undefined);
   const supabase = useMemo(() => createClient(), []);
 
@@ -446,6 +448,13 @@ function CardsPageInner() {
             </ul>
           )}
         </section>
+      )}
+
+      {!selectedCardId && (
+        <InterestRadarWidget
+          transactions={transactions}
+          currentMonth={new Date().toISOString().slice(0, 7) + "-01"}
+        />
       )}
 
       {!selectedCardId && (

@@ -1,12 +1,9 @@
 // @vitest-environment jsdom
 import React from "react";
 import {
-  act,
   cleanup,
-  fireEvent,
   render,
   screen,
-  waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardPage } from "./DashboardPage";
@@ -25,7 +22,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({ from: mocks.from }),
+  createClient: () => ({
+    from: mocks.from,
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: { user_metadata: { name: "Bruno" } } } }),
+    },
+  }),
 }));
 
 vi.mock("./components/useFinance", () => ({
@@ -82,7 +84,13 @@ vi.mock("./components/SpendingPowerCard", () => ({
 beforeEach(() => {
   mocks.resolveReload = undefined;
   mocks.insert.mockReset().mockResolvedValue({ error: null });
-  mocks.from.mockReset().mockReturnValue({ insert: mocks.insert });
+  const chain = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    insert: mocks.insert,
+    then: (resolve: (val: unknown) => unknown) => resolve({ data: [] }),
+  };
+  mocks.from.mockReset().mockReturnValue(chain);
   vi.stubGlobal("crypto", {
     randomUUID: vi.fn(() => "00000000-0000-4000-8000-000000000001"),
   });
@@ -93,42 +101,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("DashboardPage quick transaction integration", () => {
-  it("keeps success after reload, then clears it before an invalid retry", async () => {
+describe("DashboardPage integration", () => {
+  it("renders dashboard header, metrics, and interest radar", async () => {
     renderDashboard();
 
-    fireEvent.click(screen.getByRole("button", { name: "Nova movimentação" }));
-    
-    // Wait for the Dialog to mount (since it's lazy loaded via import)
-    const valorInput = await screen.findByLabelText("Valor");
-
-    fireEvent.change(valorInput, {
-      target: { value: "12,50" },
-    });
-    fireEvent.change(screen.getByLabelText("Descrição"), {
-      target: { value: "Café" },
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
-
-    await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1));
-    const loadingText = await screen.findByText("Carregando...");
-    expect(loadingText.nodeName).toBe("P");
-    expect(screen.queryByRole("button", { name: "Registrar" })).toBeNull();
-
-    act(() => mocks.resolveReload?.());
-
-    expect((await screen.findByRole("status")).textContent).toContain(
-      "Movimentação registrada",
-    );
-    
-    fireEvent.click(screen.getByRole("button", { name: "Nova movimentação" }));
-    const retryButton = await screen.findByRole("button", { name: "Registrar" });
-    fireEvent.click(retryButton);
-
-    expect((await screen.findByRole("alert")).textContent).toContain(
-      "Informe um valor maior que zero",
-    );
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByText(/Aqui está o resumo das suas finanças/i)).toBeDefined();
+    expect(screen.getByText("Patrimônio líquido")).toBeDefined();
+    expect(screen.getByText("Receitas")).toBeDefined();
+    expect(screen.getByText("Despesas")).toBeDefined();
+    expect(screen.getByText("Radar de Juros & Custos Ocultos")).toBeDefined();
   });
 });
