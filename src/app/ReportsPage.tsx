@@ -13,6 +13,7 @@ import { computeEvolution, computeMonthlyFlow } from "@/lib/finance/aggregations
 import { filterOutTransfers } from "@/lib/finance/transfers";
 import { addMonths, monthLabel } from "@/lib/finance/local-date";
 import { CoupleFinanceWidget } from "./components/CoupleFinanceWidget";
+import { FinancialCalendarWidget } from "./components/FinancialCalendarWidget";
 
 const COMPARISON_MONTHS = 12;
 
@@ -153,6 +154,10 @@ export function ReportsPage() {
 
           <div style={{ marginTop: '24px' }}>
             <CoupleFinanceWidget transactions={transactions} currentMonth={month} />
+          </div>
+
+          <div style={{ marginTop: '24px' }}>
+            <FinancialCalendarWidget transactions={transactions} currentMonth={month} />
           </div>
         </section>
       )}
