@@ -12,6 +12,7 @@ import { money, dateFmt } from "./components/Money";
 import { computeEvolution, computeMonthlyFlow } from "@/lib/finance/aggregations";
 import { filterOutTransfers } from "@/lib/finance/transfers";
 import { addMonths, monthLabel } from "@/lib/finance/local-date";
+import { CoupleFinanceWidget } from "./components/CoupleFinanceWidget";
 
 const COMPARISON_MONTHS = 12;
 
@@ -149,6 +150,10 @@ export function ReportsPage() {
               </details>
             )) : <p className="dashboard-empty">Nenhuma despesa registrada em {label}.</p>}
           </article>
+
+          <div style={{ marginTop: '24px' }}>
+            <CoupleFinanceWidget transactions={transactions} currentMonth={month} />
+          </div>
         </section>
       )}
 
