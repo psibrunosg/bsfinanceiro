@@ -12,9 +12,34 @@ export function useCurrentUser() {
     let active = true;
     // Promise.resolve: alguns mocks de teste retornam `vi.fn()` sem implementação
     // (undefined) em vez de uma Promise real.
-    Promise.resolve(supabase.auth.getUser()).then((result) => {
-      if (active) setEmail(result?.data?.user?.email ?? null);
-    });
+    Promise.resolve(supabase.auth.getUser())
+      .then((result) => {
+        if (active) {
+          const userEmail = result?.data?.user?.email;
+          if (userEmail) {
+            setEmail(userEmail);
+          } else if (typeof window !== "undefined") {
+            const stored = localStorage.getItem("bsfinanceiro_user");
+            if (stored) {
+              try {
+                const u = JSON.parse(stored);
+                if (u?.email) setEmail(u.email);
+              } catch {}
+            }
+          }
+        }
+      })
+      .catch(() => {
+        if (active && typeof window !== "undefined") {
+          const stored = localStorage.getItem("bsfinanceiro_user");
+          if (stored) {
+            try {
+              const u = JSON.parse(stored);
+              if (u?.email) setEmail(u.email);
+            } catch {}
+          }
+        }
+      });
     return () => {
       active = false;
     };

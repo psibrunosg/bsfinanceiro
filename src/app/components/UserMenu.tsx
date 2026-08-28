@@ -9,7 +9,14 @@ export function UserMenu() {
   const { displayName, initials } = useCurrentUser();
 
   async function signOut() {
-    await createClient().auth.signOut();
+    try {
+      await createClient().auth.signOut();
+    } catch {}
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("bsfinanceiro_user");
+      localStorage.removeItem("bsfinanceiro_workspace");
+      localStorage.removeItem("bsfinanceiro_token");
+    }
     window.location.replace(appPath("/entrar"));
   }
 
