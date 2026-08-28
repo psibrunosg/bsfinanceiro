@@ -1,0 +1,14 @@
+-- Inserir todos os 5 contracheques da Nova Era Comercio e Terceirizacoes LTDA (Cargo: Porteiro)
+INSERT INTO transactions (workspace_id, owner_id, account_id, category_id, type, status, description, amount, competence_date, notes)
+VALUES 
+('0530a9a3-843d-4832-b919-6b9380310c9a', '15d36040-32aa-448b-a34d-43017cde51a7', '562aea75-4337-4b49-958a-eff212cc2cc7', '789ef8d9-03a8-45be-9e9c-dc83c4443686', 'income', 'paid', 'Salário Nova Era - Janeiro/2026', 1792.00, '2026-01-31', 'Cargo: Porteiro | Salário Bruto: R$ 2.032,37 | Descontos: VR R$ 78,40, INSS R$ 158,26, Atrasos R$ 2,86 (Total Descontos: R$ 240,37)'),
+('0530a9a3-843d-4832-b919-6b9380310c9a', '15d36040-32aa-448b-a34d-43017cde51a7', '562aea75-4337-4b49-958a-eff212cc2cc7', '789ef8d9-03a8-45be-9e9c-dc83c4443686', 'income', 'paid', 'Salário Nova Era - Março/2026', 1491.86, '2026-03-31', 'Cargo: Porteiro | Salário Bruto: R$ 2.033,53 | Descontos: Consignado R$ 299,14, VR R$ 83,30, INSS R$ 158,67 (Total Descontos: R$ 541,67)'),
+('0530a9a3-843d-4832-b919-6b9380310c9a', '15d36040-32aa-448b-a34d-43017cde51a7', '562aea75-4337-4b49-958a-eff212cc2cc7', '789ef8d9-03a8-45be-9e9c-dc83c4443686', 'income', 'paid', 'Salário Nova Era - Abril/2026', 1512.86, '2026-04-30', 'Cargo: Porteiro | Salário Bruto: R$ 2.050,51 (HE R$ 18,15) | Descontos: Consignado R$ 299,14, VR R$ 78,09, INSS R$ 160,15 (Total Descontos: R$ 537,65)'),
+('0530a9a3-843d-4832-b919-6b9380310c9a', '15d36040-32aa-448b-a34d-43017cde51a7', '562aea75-4337-4b49-958a-eff212cc2cc7', '789ef8d9-03a8-45be-9e9c-dc83c4443686', 'income', 'paid', 'Salário Nova Era - Junho/2026', 1500.86, '2026-06-30', 'Cargo: Porteiro | Salário Bruto: R$ 2.037,17 (HE R$ 5,54) | Descontos: Consignado (4/12) R$ 299,14, VR R$ 78,09, INSS R$ 159,02 (Total Descontos: R$ 536,31)'),
+('0530a9a3-843d-4832-b919-6b9380310c9a', '15d36040-32aa-448b-a34d-43017cde51a7', '562aea75-4337-4b49-958a-eff212cc2cc7', '789ef8d9-03a8-45be-9e9c-dc83c4443686', 'income', 'paid', 'Salário Nova Era - Julho/2026', 1505.86, '2026-07-31', 'Cargo: Porteiro | Salário Bruto: R$ 2.051,95 (HE R$ 19,39) | Descontos: Consignado (5/12) R$ 299,14, VR R$ 83,30, INSS R$ 159,93, Atrasos R$ 3,69 (Total Descontos: R$ 546,09)');
+
+-- Inserir compromissos fixos recorrentes (Salários Mensais e Consignado)
+INSERT INTO fixed_commitments (workspace_id, owner_id, account_id, category_id, description, amount, due_day, active)
+VALUES 
+('0530a9a3-843d-4832-b919-6b9380310c9a', '15d36040-32aa-448b-a34d-43017cde51a7', '562aea75-4337-4b49-958a-eff212cc2cc7', '789ef8d9-03a8-45be-9e9c-dc83c4443686', 'Salário Mensal - Construtora ACPO (Psicólogo)', 2174.81, 5, true),
+('0530a9a3-843d-4832-b919-6b9380310c9a', '15d36040-32aa-448b-a34d-43017cde51a7', '562aea75-4337-4b49-958a-eff212cc2cc7', '789ef8d9-03a8-45be-9e9c-dc83c4443686', 'Salário Mensal - Nova Era (Porteiro)', 1505.86, 6, true);
