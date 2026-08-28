@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { addMonths } from "@/lib/finance/local-date";
 import { ArrowDownRight, ArrowUpRight, Check, Clock, LayoutGrid, ReceiptText, Repeat } from "lucide-react";
 import { SubscriptionHubWidget } from "../components/SubscriptionHubWidget";
+import { MicroExpenseRadarWidget } from "../components/MicroExpenseRadarWidget";
 
 const DONUT_COLORS = ["#8B5CF6", "#3B82F6", "#F97316", "#F5A623", "#22C55E"];
 
@@ -342,6 +343,10 @@ export default function GastosPage() {
                 )}
               </article>
             </div>
+          </div>
+
+          <div style={{ marginTop: '24px' }}>
+            <MicroExpenseRadarWidget transactions={filteredExpenses} currentMonth={month} />
           </div>
 
           <article className="dashboard-card" style={{ marginTop: '24px' }}>
