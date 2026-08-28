@@ -13,7 +13,7 @@ services:
       - api
     networks:
       - default
-      - deploy_default
+      - deploy-nginx-fpm_default
 
   api:
     build:
@@ -29,9 +29,9 @@ services:
     restart: unless-stopped
     networks:
       - default
-      - deploy_default
+      - deploy-nginx-fpm_default
 
 networks:
   default:
-  deploy_default:
+  deploy-nginx-fpm_default:
     external: true
