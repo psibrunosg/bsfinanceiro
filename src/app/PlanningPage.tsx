@@ -7,10 +7,11 @@ import { List } from "./components/List";
 import { SimpleForm } from "./components/SimpleForm";
 import { money, parseMoney, cents, dateFmt, monthStart } from "./components/Money";
 import { calculateBudgetConsumption, calculateGoalProgress } from "@/lib/finance/budget";
-import { createClient } from "@/lib/supabase/client";
 import { Suspense, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { Flag, PieChart, Target } from "lucide-react";
+import { GoalPlannerWidget } from "./components/GoalPlannerWidget";
 
 function PlanningPageInner() {
   const searchParams = useSearchParams();
@@ -107,6 +108,13 @@ function PlanningPageInner() {
           </SimpleForm>
         </aside>
       </section>
+
+      {goals.length > 0 && (
+        <div style={{ marginTop: '24px' }}>
+          <GoalPlannerWidget goals={goals} />
+        </div>
+      )}
+
       <section className="bento-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         <div id="goals-list" tabIndex={-1}>
         <List title="Metas">

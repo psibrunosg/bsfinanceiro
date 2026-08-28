@@ -21,6 +21,7 @@ import { InstallmentTimelineWidget } from "./components/InstallmentTimelineWidge
 import { MicroExpenseRadarWidget } from "./components/MicroExpenseRadarWidget";
 import { HealthScoreWidget } from "./components/HealthScoreWidget";
 import { DebtPayoffWidget } from "./components/DebtPayoffWidget";
+import { GoalPlannerWidget } from "./components/GoalPlannerWidget";
 
 const ASSET_TYPE_LABEL: Record<string, string> = {
   stock: "Ações",
@@ -302,6 +303,12 @@ export function DashboardPage() {
     <div style={{ marginTop: '24px' }}>
       <DebtPayoffWidget accounts={accounts} invoices={invoices} transactions={transactions} currentMonth={month} />
     </div>
+
+    {goals.length > 0 && (
+      <div style={{ marginTop: '24px' }}>
+        <GoalPlannerWidget goals={goals} currentMonth={month} />
+      </div>
+    )}
 
     <div className="dashboard-bento-grid" style={{ marginTop: '24px', gridTemplateColumns: '1fr 1fr' }}>
       <article className="dashboard-card">
