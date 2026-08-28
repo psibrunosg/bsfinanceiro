@@ -15,6 +15,7 @@ import { addMonths, monthLabel } from "@/lib/finance/local-date";
 import { CoupleFinanceWidget } from "./components/CoupleFinanceWidget";
 import { FinancialCalendarWidget } from "./components/FinancialCalendarWidget";
 import { AnnualWrappedWidget } from "./components/AnnualWrappedWidget";
+import { TravelSandboxWidget } from "./components/TravelSandboxWidget";
 
 const COMPARISON_MONTHS = 12;
 
@@ -163,6 +164,10 @@ export function ReportsPage() {
 
           <div style={{ marginTop: '24px' }}>
             <AnnualWrappedWidget transactions={transactions} year={parseInt(month.slice(0, 4), 10) || 2026} />
+          </div>
+
+          <div style={{ marginTop: '24px' }}>
+            <TravelSandboxWidget />
           </div>
         </section>
       )}

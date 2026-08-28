@@ -35,6 +35,7 @@ import { FinancialCalendarWidget } from "./components/FinancialCalendarWidget";
 import { AnnualWrappedWidget } from "./components/AnnualWrappedWidget";
 import { BankNotificationAssistantWidget } from "./components/BankNotificationAssistantWidget";
 import { ZeroBasedBudgetWidget } from "./components/ZeroBasedBudgetWidget";
+import { TravelSandboxWidget } from "./components/TravelSandboxWidget";
 
 const ASSET_TYPE_LABEL: Record<string, string> = {
   stock: "Ações",
@@ -373,6 +374,10 @@ export function DashboardPage() {
 
     <div style={{ marginTop: '24px' }}>
       <ZeroBasedBudgetWidget monthlyIncome={metrics.monthIncome || 10000} />
+    </div>
+
+    <div style={{ marginTop: '24px' }}>
+      <TravelSandboxWidget />
     </div>
 
     <div className="dashboard-bento-grid" style={{ marginTop: '24px', gridTemplateColumns: '1fr 1fr' }}>
