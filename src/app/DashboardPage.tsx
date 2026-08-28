@@ -29,6 +29,7 @@ import { ImpulseCalculatorWidget } from "./components/ImpulseCalculatorWidget";
 import { FireDashboardWidget } from "./components/FireDashboardWidget";
 import { ScenarioSimulatorWidget } from "./components/ScenarioSimulatorWidget";
 import { AcademicRoiWidget } from "./components/AcademicRoiWidget";
+import { EmergencyFundWidget } from "./components/EmergencyFundWidget";
 
 const ASSET_TYPE_LABEL: Record<string, string> = {
   stock: "Ações",
@@ -343,6 +344,10 @@ export function DashboardPage() {
 
     <div style={{ marginTop: '24px' }}>
       <AcademicRoiWidget currentMonthlyIncome={metrics.monthIncome || 10000} currentMonth={month} />
+    </div>
+
+    <div style={{ marginTop: '24px' }}>
+      <EmergencyFundWidget monthlyFixedExpenses={metrics.monthExpense || 5000} initialFundBalance={Math.max(0, metrics.balance)} />
     </div>
 
     <div className="dashboard-bento-grid" style={{ marginTop: '24px', gridTemplateColumns: '1fr 1fr' }}>

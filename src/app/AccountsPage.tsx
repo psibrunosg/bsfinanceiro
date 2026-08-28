@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useMemo, useState } from "react";
 import { Landmark, Wallet, Percent } from "lucide-react";
 import { Dialog } from "./components/Dialog";
+import { EmergencyFundWidget } from "./components/EmergencyFundWidget";
 
 export function AccountsPage() {
   const { workspace, accounts, transactions, loading, message, setMessage, reload } =
@@ -111,6 +112,10 @@ export function AccountsPage() {
           <p className="dashboard-empty">Nenhuma conta encontrada.</p>
         )}
       </List>
+
+      <div style={{ marginTop: '24px' }}>
+        <EmergencyFundWidget monthlyFixedExpenses={5000} initialFundBalance={Math.max(0, totalBalance)} />
+      </div>
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title="Adicionar conta">
         <SimpleForm onSubmit={submitAccount}>
