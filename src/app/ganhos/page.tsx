@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 import { addMonths } from "@/lib/finance/local-date";
 import { lastNMonths } from "@/lib/finance/aggregations";
 import { ArrowDownRight, ArrowUpRight, Briefcase, Check, Clock, HeartPulse, Wallet, X } from "lucide-react";
+import { TaxRadarWidget } from "../components/TaxRadarWidget";
 
 const SERIES_COLORS = ["#8B5CF6", "#3B82F6", "#22C55E", "#F5A623", "#EF4444"];
 
@@ -65,7 +66,7 @@ type DialogState =
   | null;
 
 export default function GanhosPage() {
-  const { workspace, accounts, categories, defaultCashAccountId, loading } =
+  const { workspace, accounts, transactions, categories, defaultCashAccountId, loading } =
     useFinance("dashboard");
   const supabase = useMemo(() => createClient(), []);
   const { month, nextMonth, label: monthLabel } = useMonth();
@@ -445,6 +446,10 @@ export default function GanhosPage() {
                 </p>
               )}
             </article>
+          </div>
+
+          <div style={{ marginTop: '24px' }}>
+            <TaxRadarWidget transactions={transactions} currentMonth={month} />
           </div>
 
           <article className="dashboard-card" style={{ marginTop: '24px' }}>
