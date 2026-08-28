@@ -38,8 +38,8 @@ export function useWorkspaceBasics(): WorkspaceBasics {
     const requestId = ++requestSequence.current;
     if (!hasLoaded.current) setLoading(true);
 
-    let user: any = null;
-    let ws: any = null;
+    let user: { id: string; email?: string } | null = null;
+    let ws: { id: string; name: string } | null = null;
 
     try {
       const { data: userData } = await supabase.auth.getUser();
