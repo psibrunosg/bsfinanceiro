@@ -11,6 +11,7 @@ import { money, parseMoney, dateFmt } from "../components/Money";
 import { createClient } from "@/lib/supabase/client";
 import { WalletCards, TrendingUp, TrendingDown, PiggyBank } from "lucide-react";
 import { InvestmentGrowthWidget } from "../components/InvestmentGrowthWidget";
+import { FireDashboardWidget } from "../components/FireDashboardWidget";
 
 const ASSET_TYPES: Record<string, string> = {
   stock: "Ações",
@@ -262,6 +263,13 @@ export default function InvestimentosPage() {
           latestQuotes={latestQuote}
           totalInvested={investedCents / 100}
           totalGainPercent={gainPct}
+        />
+      </div>
+
+      <div style={{ marginTop: "24px" }}>
+        <FireDashboardWidget
+          monthlyExpenses={6000}
+          currentNetWorth={investedCents / 100}
         />
       </div>
 
