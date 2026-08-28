@@ -16,6 +16,7 @@ import { addMonths } from "@/lib/finance/local-date";
 import { lastNMonths } from "@/lib/finance/aggregations";
 import { ArrowDownRight, ArrowUpRight, Briefcase, Check, Clock, HeartPulse, Wallet, X } from "lucide-react";
 import { TaxRadarWidget } from "../components/TaxRadarWidget";
+import { ClinicBusinessWidget } from "../components/ClinicBusinessWidget";
 
 const SERIES_COLORS = ["#8B5CF6", "#3B82F6", "#22C55E", "#F5A623", "#EF4444"];
 
@@ -450,6 +451,10 @@ export default function GanhosPage() {
 
           <div style={{ marginTop: '24px' }}>
             <TaxRadarWidget transactions={transactions} currentMonth={month} />
+          </div>
+
+          <div style={{ marginTop: '24px' }}>
+            <ClinicBusinessWidget transactions={transactions} currentMonth={month} />
           </div>
 
           <article className="dashboard-card" style={{ marginTop: '24px' }}>
