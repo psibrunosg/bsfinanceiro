@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Flag, PieChart, Target } from "lucide-react";
 import { GoalPlannerWidget } from "./components/GoalPlannerWidget";
 import { ScenarioSimulatorWidget } from "./components/ScenarioSimulatorWidget";
+import { ZeroBasedBudgetWidget } from "./components/ZeroBasedBudgetWidget";
 
 function PlanningPageInner() {
   const searchParams = useSearchParams();
@@ -118,6 +119,10 @@ function PlanningPageInner() {
 
       <div style={{ marginTop: '24px' }}>
         <ScenarioSimulatorWidget />
+      </div>
+
+      <div style={{ marginTop: '24px' }}>
+        <ZeroBasedBudgetWidget />
       </div>
 
       <section className="bento-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
