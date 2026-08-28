@@ -41,7 +41,11 @@ $uri = rtrim($uri, '/');
 $uri = preg_replace('#^/api#', '', $uri);
 $method = $_SERVER['REQUEST_METHOD'];
 
-$body = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+$rawInput = file_get_contents('php://input');
+$body = json_decode($rawInput, true);
+if (!is_array($body) || empty($body)) {
+    $body = !empty($_POST) ? $_POST : [];
+}
 
 try {
     $db = getDb();
