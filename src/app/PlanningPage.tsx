@@ -12,6 +12,7 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Flag, PieChart, Target } from "lucide-react";
 import { GoalPlannerWidget } from "./components/GoalPlannerWidget";
+import { ScenarioSimulatorWidget } from "./components/ScenarioSimulatorWidget";
 
 function PlanningPageInner() {
   const searchParams = useSearchParams();
@@ -114,6 +115,10 @@ function PlanningPageInner() {
           <GoalPlannerWidget goals={goals} />
         </div>
       )}
+
+      <div style={{ marginTop: '24px' }}>
+        <ScenarioSimulatorWidget />
+      </div>
 
       <section className="bento-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         <div id="goals-list" tabIndex={-1}>
