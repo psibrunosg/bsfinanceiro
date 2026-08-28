@@ -1,19 +1,25 @@
-FROM php:8.3-apache
+# Stage 1: Build Next.js Static Export
+FROM node:22-alpine AS builder
 
-# Instalar dependências de sistema necessárias para as extensões do PostgreSQL
-RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
-# Habilitar mod_rewrite do Apache para roteamento customizado
-RUN a2enmod rewrite
+COPY package*.json ./
+RUN npm ci
 
-# Instalar extensões do PHP para o PostgreSQL (PDO e pgsql nativo)
-RUN docker-php-ext-install pdo pdo_pgsql pgsql
+COPY . .
 
-# Configurar o DocumentRoot para a pasta public/
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
-RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+# Set environment variables for build
+ENV NEXT_PUBLIC_SUPABASE_URL=https://wgntlhzjyriwhncumjsv.supabase.co
+ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_placeholder_for_local_build
 
-WORKDIR /var/www/html
+RUN npm run build
+
+# Stage 2: Serve with Nginx Alpine
+FROM nginx:alpine
+
+COPY --from=builder /app/out /usr/share/nginx/html
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

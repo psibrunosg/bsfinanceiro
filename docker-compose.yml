@@ -1,34 +1,19 @@
+version: '3.8'
+
 services:
-  app:
+  frontend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: bsfinanceiro_app
+    container_name: bsfinanceiro-frontend
     ports:
-      - "8080:80"
-    volumes:
-      - .:/var/www/html
-    environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_NAME=bsfinanceiro
-      - DB_USER=bsuser
-      - DB_PASS=bspassword
-    depends_on:
-      - db
+      - "127.0.0.1:8082:80"
+    restart: unless-stopped
+    networks:
+      - default
+      - deploy_default
 
-  db:
-    image: postgres:16
-    container_name: bsfinanceiro_db
-    restart: always
-    environment:
-      - POSTGRES_USER=bsuser
-      - POSTGRES_PASSWORD=bspassword
-      - POSTGRES_DB=bsfinanceiro
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
-volumes:
-  pgdata:
+networks:
+  default:
+  deploy_default:
+    external: true
