@@ -32,6 +32,7 @@ import { AcademicRoiWidget } from "./components/AcademicRoiWidget";
 import { EmergencyFundWidget } from "./components/EmergencyFundWidget";
 import { ExpenseReviewWidget } from "./components/ExpenseReviewWidget";
 import { FinancialCalendarWidget } from "./components/FinancialCalendarWidget";
+import { AnnualWrappedWidget } from "./components/AnnualWrappedWidget";
 
 const ASSET_TYPE_LABEL: Record<string, string> = {
   stock: "Ações",
@@ -358,6 +359,10 @@ export function DashboardPage() {
 
     <div style={{ marginTop: '24px' }}>
       <FinancialCalendarWidget transactions={transactions} currentMonth={month} />
+    </div>
+
+    <div style={{ marginTop: '24px' }}>
+      <AnnualWrappedWidget transactions={transactions} year={parseInt(month.slice(0, 4), 10) || 2026} />
     </div>
 
     <div className="dashboard-bento-grid" style={{ marginTop: '24px', gridTemplateColumns: '1fr 1fr' }}>

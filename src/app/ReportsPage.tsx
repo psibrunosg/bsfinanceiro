@@ -14,6 +14,7 @@ import { filterOutTransfers } from "@/lib/finance/transfers";
 import { addMonths, monthLabel } from "@/lib/finance/local-date";
 import { CoupleFinanceWidget } from "./components/CoupleFinanceWidget";
 import { FinancialCalendarWidget } from "./components/FinancialCalendarWidget";
+import { AnnualWrappedWidget } from "./components/AnnualWrappedWidget";
 
 const COMPARISON_MONTHS = 12;
 
@@ -158,6 +159,10 @@ export function ReportsPage() {
 
           <div style={{ marginTop: '24px' }}>
             <FinancialCalendarWidget transactions={transactions} currentMonth={month} />
+          </div>
+
+          <div style={{ marginTop: '24px' }}>
+            <AnnualWrappedWidget transactions={transactions} year={parseInt(month.slice(0, 4), 10) || 2026} />
           </div>
         </section>
       )}
