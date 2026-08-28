@@ -28,6 +28,39 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       return;
     }
 
+    // 1. Tenta autenticar na API PostgreSQL da VPS
+    try {
+      const endpoint = enter ? "/api/auth/login" : "/api/auth/register";
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      });
+
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData.success) {
+          if (typeof window !== "undefined") {
+            localStorage.setItem("bsfinanceiro_user", JSON.stringify(resData.user));
+            localStorage.setItem("bsfinanceiro_workspace", JSON.stringify(resData.workspace));
+            if (resData.token) localStorage.setItem("bsfinanceiro_token", resData.token);
+          }
+          window.location.replace(appPath("/"));
+          return;
+        }
+      } else {
+        const resData = await res.json().catch(() => ({}));
+        if (resData.error) {
+          setState({ error: resData.error });
+          setPending(false);
+          return;
+        }
+      }
+    } catch {
+      // API não respondeu ou ambiente sem backend — tenta Supabase
+    }
+
+    // 2. Fallback Supabase
     let supabase;
     try {
       supabase = createClient();
@@ -49,7 +82,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       setState(
         error
           ? { error: authErrorMessage(error) }
-          : { success: "Conta criada. Confira seu e-mail para confirmar o acesso." },
+          : { success: "Conta criada com sucesso! Você já pode entrar." },
       );
     }
     setPending(false);

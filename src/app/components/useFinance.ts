@@ -145,21 +145,44 @@ export function useFinance(
     const requestId = ++requestSequence.current;
     if (!hasLoaded.current) setLoading(true);
 
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData.user;
+    let user: any = null;
+    let ws: any = null;
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      user = userData?.user;
+    } catch {}
+
+    if (!user && typeof window !== "undefined") {
+      const storedUser = localStorage.getItem("bsfinanceiro_user");
+      const storedWs = localStorage.getItem("bsfinanceiro_workspace");
+      if (storedUser) {
+        try {
+          user = JSON.parse(storedUser);
+          ws = storedWs ? JSON.parse(storedWs) : null;
+        } catch {}
+      }
+    }
+
     if (!user) {
       window.location.replace(appPath("/entrar"));
       return;
     }
 
-    const { data: ws } = await supabase
-      .from("workspaces")
-      .select("id,name")
-      .eq("owner_id", user.id)
-      .eq("kind", "personal")
-      .order("created_at")
-      .limit(1)
-      .maybeSingle();
+    if (!ws) {
+      try {
+        const { data: workspaceData } = await supabase
+          .from("workspaces")
+          .select("id,name")
+          .eq("owner_id", user.id)
+          .eq("kind", "personal")
+          .order("created_at")
+          .limit(1)
+          .maybeSingle();
+        ws = workspaceData;
+      } catch {}
+    }
+
     if (!ws) {
       window.location.replace(appPath("/onboarding"));
       return;

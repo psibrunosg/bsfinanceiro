@@ -9,6 +9,24 @@ services:
     ports:
       - "127.0.0.1:8082:80"
     restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - default
+      - deploy_default
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/api.Dockerfile
+    container_name: bsfinanceiro-api
+    environment:
+      - DB_HOST=deploy-nginx-fpm-db-1
+      - DB_PORT=5432
+      - DB_NAME=bsfinanceiro
+      - DB_USER=bstrainer
+      - DB_PASSWORD=eTEklwZkO8dwrbazpVzeQpOXWwVraRcS7x48
+    restart: unless-stopped
     networks:
       - default
       - deploy_default
