@@ -14,6 +14,7 @@ import { useMemo, Suspense, useState } from "react";
 import { CalendarClock, CreditCard, TrendingDown, Wallet } from "lucide-react";
 import { InterestRadarWidget } from "./components/InterestRadarWidget";
 import { InstallmentTimelineWidget } from "./components/InstallmentTimelineWidget";
+import { DebtPayoffWidget } from "./components/DebtPayoffWidget";
 
 function statementImportErrorMessage(errorCode: string | null) {
   switch (errorCode) {
@@ -36,6 +37,7 @@ function CardsPageInner() {
   const [openDialog, setOpenDialog] = useState(false);
   const {
     workspace,
+    accounts,
     categories,
     cards,
     invoices,
@@ -463,6 +465,15 @@ function CardsPageInner() {
         <InterestRadarWidget
           transactions={transactions}
           currentMonth={new Date().toISOString().slice(0, 7) + "-01"}
+        />
+      )}
+
+      {!selectedCardId && (
+        <DebtPayoffWidget
+          accounts={accounts}
+          invoices={invoices}
+          transactions={transactions}
+          currentMonth={new Date().toISOString().slice(0, 7)}
         />
       )}
 
