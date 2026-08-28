@@ -64,7 +64,7 @@ try {
 
         if (empty($email) || empty($password) || strlen($password) < 6) {
             http_response_code(400);
-            echo json_encode(['error' => 'E-mail e senha (mínimo 6 caracteres) são obrigatórios.']);
+            echo json_encode(['error' => 'E-mail e senha (mínimo 6 caracteres) são obrigatórios.', 'received' => $body, 'raw' => $rawInput]);
             exit;
         }
 
