@@ -16,6 +16,7 @@ import { ArrowDownRight, ArrowUpRight, Check, Clock, LayoutGrid, ReceiptText, Re
 import { SubscriptionHubWidget } from "../components/SubscriptionHubWidget";
 import { MicroExpenseRadarWidget } from "../components/MicroExpenseRadarWidget";
 import { ImpulseCalculatorWidget } from "../components/ImpulseCalculatorWidget";
+import { ExpenseReviewWidget } from "../components/ExpenseReviewWidget";
 
 const DONUT_COLORS = ["#8B5CF6", "#3B82F6", "#F97316", "#F5A623", "#22C55E"];
 
@@ -352,6 +353,10 @@ export default function GastosPage() {
 
           <div style={{ marginTop: '24px' }}>
             <ImpulseCalculatorWidget />
+          </div>
+
+          <div style={{ marginTop: '24px' }}>
+            <ExpenseReviewWidget transactions={filteredExpenses} currentMonth={month} />
           </div>
 
           <article className="dashboard-card" style={{ marginTop: '24px' }}>
