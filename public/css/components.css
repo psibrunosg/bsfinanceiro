@@ -1,0 +1,229 @@
+/* Classes used across pages that had no rules anywhere. Mirrors the `.finance-nav`
+   pattern in transaction.css so tab strips look the same everywhere. */
+
+/* --- Buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 24px;
+  border-radius: 100px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: 0;
+  /* Taste-Skill: Spring physics para animacoes naturais */
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  cursor: pointer;
+}
+.btn:hover {
+  transform: scale(1.02);
+}
+.btn:active {
+  transform: scale(0.96);
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(10, 132, 255, 0.4);
+}
+.btn-primary:hover {
+  box-shadow: 0 6px 20px rgba(10, 132, 255, 0.6);
+}
+
+/* --- Tab strips (ganhos, gastos, configuracoes, relatorios, saude) --- */
+.hub-tabs,
+.tabs-nav {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 4px 0;
+  margin: 0 0 4px;
+  border-bottom: 1px solid var(--border);
+}
+.hub-tabs::-webkit-scrollbar,
+.tabs-nav::-webkit-scrollbar { display: none; }
+.hub-tabs button,
+.tabs-nav button {
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 12px 12px 0 0;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+.hub-tabs button:hover,
+.tabs-nav button:hover { background: var(--surface-2); color: var(--primary); }
+.hub-tabs button.active,
+.tabs-nav button.active,
+.hub-tabs button[aria-pressed="true"],
+.tabs-nav button[aria-pressed="true"] {
+  border-color: var(--border);
+  border-bottom-color: var(--surface);
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+/* --- Filter rows --- */
+.hub-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+  margin: var(--space-md) 0;
+}
+.hub-filters select,
+.hub-filters input,
+.hub-filters > button {
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+.hub-filters > button {
+  font-weight: 600;
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+.hub-filters > button:hover { background: var(--surface-2); color: var(--primary); }
+.hub-filters > button.active {
+  border-color: var(--accent);
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+/* --- Lists: kill the UA bullet + 40px indent that misaligned "Fontes" --- */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* Linha de lista = cartão de vidro, no mesmo idioma de .tx-row */
+.account-row,
+.list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+.list { display: grid; gap: 8px; }
+
+/* --- Forms inside dialogs --- */
+.simple-form {
+  display: grid;
+  gap: var(--space-md);
+}
+.simple-form fieldset {
+  display: grid;
+  gap: var(--space-md);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.simple-form label {
+  display: grid;
+  gap: 6px;
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.simple-form input,
+.simple-form select,
+.simple-form textarea {
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 400;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.simple-form input:focus,
+.simple-form select:focus,
+.simple-form textarea:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+.simple-form button[type="submit"],
+.simple-form button[type="button"] {
+  min-height: 48px;
+  border: 0;
+  padding: 12px 24px;
+  border-radius: 12px;
+  background: var(--primary);
+  color: var(--bg);
+  font-weight: 600;
+  transition: all 200ms ease;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.simple-form button[type="submit"]:hover { 
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+
+/* --- Progress bar (same shape as .budget-bar in planning.css) --- */
+.progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.progress-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 200ms ease;
+}
+.progress-bar--warning > span { background: var(--warning); }
+.progress-bar--danger > span { background: var(--danger); }
+
+/* --- Month picker --- */
+.month-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  background: var(--surface);
+}
+.month-picker button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  transition: background 180ms ease, color 180ms ease;
+}
+.month-picker button:hover { background: var(--surface-2); color: var(--primary); }
+.month-picker input {
+  min-height: 34px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+}

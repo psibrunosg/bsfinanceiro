@@ -1,0 +1,34 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bsfinanceiro_app
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=bsfinanceiro
+      - DB_USER=bsuser
+      - DB_PASS=bspassword
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16
+    container_name: bsfinanceiro_db
+    restart: always
+    environment:
+      - POSTGRES_USER=bsuser
+      - POSTGRES_PASSWORD=bspassword
+      - POSTGRES_DB=bsfinanceiro
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

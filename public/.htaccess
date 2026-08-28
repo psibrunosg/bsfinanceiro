@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# Impede acesso a diretórios e arquivos se existirem diretamente
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+
+# Redireciona tudo para o index.php
+RewriteRule ^ index.php [QSA,L]
