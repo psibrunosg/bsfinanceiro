@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useMemo, Suspense, useState } from "react";
 import { CalendarClock, CreditCard, TrendingDown, Wallet } from "lucide-react";
 import { InterestRadarWidget } from "./components/InterestRadarWidget";
+import { InstallmentTimelineWidget } from "./components/InstallmentTimelineWidget";
 
 function statementImportErrorMessage(errorCode: string | null) {
   switch (errorCode) {
@@ -448,6 +449,14 @@ function CardsPageInner() {
             </ul>
           )}
         </section>
+      )}
+
+      {!selectedCardId && (
+        <InstallmentTimelineWidget
+          invoices={invoices}
+          transactions={transactions}
+          currentMonth={new Date().toISOString().slice(0, 7)}
+        />
       )}
 
       {!selectedCardId && (

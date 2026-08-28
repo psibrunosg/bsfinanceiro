@@ -17,6 +17,7 @@ import { aggregateExpensesByCategory, computeMonthlyFlow, lastNMonths } from "@/
 import { generateInsights } from "@/lib/finance/insights";
 import { InterestRadarWidget } from "./components/InterestRadarWidget";
 import { SubscriptionHubWidget } from "./components/SubscriptionHubWidget";
+import { InstallmentTimelineWidget } from "./components/InstallmentTimelineWidget";
 
 const ASSET_TYPE_LABEL: Record<string, string> = {
   stock: "Ações",
@@ -43,7 +44,7 @@ function Trend({ pct }: { pct: number | null }) {
 }
 
 export function DashboardPage() {
-  const { workspace, accounts, transactions, categories, goals, loading } = useFinance("dashboard");
+  const { workspace, accounts, transactions, invoices, categories, goals, loading } = useFinance("dashboard");
   const { month, nextMonth } = useMonth();
   const { displayName } = useCurrentUser();
   const supabase = useMemo(() => createClient(), []);
@@ -276,6 +277,10 @@ export function DashboardPage() {
 
     <div style={{ marginTop: '24px' }}>
       <SubscriptionHubWidget transactions={transactions} />
+    </div>
+
+    <div style={{ marginTop: '24px' }}>
+      <InstallmentTimelineWidget invoices={invoices} transactions={transactions} currentMonth={month} />
     </div>
 
     <div className="dashboard-bento-grid" style={{ marginTop: '24px', gridTemplateColumns: '1fr 1fr' }}>
