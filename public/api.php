@@ -338,6 +338,173 @@ try {
         exit;
     }
 
+    // 6. Data: Create Category
+    if ($uri === '/categories' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $name = trim($body['name'] ?? '');
+        $kind = $body['kind'] ?? 'expense';
+        $color = $body['color'] ?? '#8b5cf6';
+        $budgetLimit = (float)($body['budget_limit'] ?? 0);
+
+        if (!$workspaceId || empty($name)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Nome da categoria é obrigatório']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $stmt = $db->prepare("INSERT INTO categories (workspace_id, owner_id, name, kind, color, budget_limit) VALUES (?, ?, ?, ?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $name, $kind, $color, $budgetLimit]);
+        $cat = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'category' => $cat]);
+        exit;
+    }
+
+    // 7. Data: Create Account
+    if ($uri === '/accounts' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $name = trim($body['name'] ?? '');
+        $type = $body['type'] ?? 'checking';
+        $initialBalance = (float)($body['initial_balance'] ?? 0);
+
+        if (!$workspaceId || empty($name)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Nome da conta é obrigatório']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $stmt = $db->prepare("INSERT INTO accounts (workspace_id, owner_id, name, type, initial_balance) VALUES (?, ?, ?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $name, $type, $initialBalance]);
+        $acc = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'account' => $acc]);
+        exit;
+    }
+
+    // 8. Data: Create Goal
+    if ($uri === '/goals' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $name = trim($body['name'] ?? '');
+        $targetAmount = (float)($body['target_amount'] ?? 0);
+        $currentAmount = (float)($body['current_amount'] ?? 0);
+        $deadline = $body['deadline'] ?? null;
+
+        if (!$workspaceId || empty($name) || $targetAmount <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Nome e valor alvo da meta são obrigatórios']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $stmt = $db->prepare("INSERT INTO financial_goals (workspace_id, owner_id, name, target_amount, current_amount, deadline, status) VALUES (?, ?, ?, ?, ?, ?, 'active') RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $name, $targetAmount, $currentAmount, $deadline]);
+        $goal = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'goal' => $goal]);
+        exit;
+    }
+
+    // 9. Data: Create / Update Budget
+    if ($uri === '/budgets' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $categoryId = $body['category_id'] ?? null;
+        $month = $body['month'] ?? date('Y-m');
+        $amount = (float)($body['amount'] ?? 0);
+
+        if (!$workspaceId || !$categoryId || $amount <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Categoria e valor são obrigatórios']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $stmt = $db->prepare("INSERT INTO monthly_budgets (workspace_id, owner_id, category_id, month, amount) 
+            VALUES (?, ?, ?, ?, ?) 
+            ON CONFLICT (workspace_id, category_id, month) DO UPDATE SET amount = EXCLUDED.amount RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $categoryId, $month, $amount]);
+        $b = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'budget' => $b]);
+        exit;
+    }
+
+    // 10. Data: Create Card
+    if ($uri === '/cards' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $name = trim($body['name'] ?? '');
+        $brand = $body['brand'] ?? 'mastercard';
+        $lastFour = $body['last_four'] ?? null;
+        $creditLimit = (float)($body['credit_limit'] ?? 0);
+        $closingDay = (int)($body['closing_day'] ?? 1);
+        $dueDay = (int)($body['due_day'] ?? 10);
+
+        if (!$workspaceId || empty($name)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Nome do cartão é obrigatório']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $stmt = $db->prepare("INSERT INTO credit_cards (workspace_id, owner_id, name, brand, last_four, credit_limit, closing_day, due_day) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $name, $brand, $lastFour, $creditLimit, $closingDay, $dueDay]);
+        $card = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'card' => $card]);
+        exit;
+    }
+
+    // 11. Data: Categorize Transaction
+    if ($uri === '/transactions/categorize' && $method === 'POST') {
+        $transactionId = $body['transaction_id'] ?? null;
+        $categoryId = $body['category_id'] ?? null;
+
+        if (!$transactionId || !$categoryId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Transação e categoria são obrigatórios']);
+            exit;
+        }
+
+        $stmt = $db->prepare("UPDATE transactions SET category_id = ? WHERE id = ? RETURNING *");
+        $stmt->execute([$categoryId, $transactionId]);
+        $tx = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'transaction' => $tx]);
+        exit;
+    }
+
     http_response_code(404);
     echo json_encode(['error' => 'Rota não encontrada']);
 

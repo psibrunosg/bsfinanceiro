@@ -44,18 +44,49 @@ export function AccountsPage() {
   const positiveTotal = balances.reduce((sum, b) => sum + Math.max(0, b.balance), 0);
 
   async function submitAccount(form: FormData) {
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("accounts").insert({
-      workspace_id: workspace.id,
-      owner_id: userData.user?.id,
-      name: form.get("name"),
-      type: form.get("type"),
-      initial_balance: parseMoney(form.get("initial_balance")),
-    });
-    setMessage(
-      error ? "Não foi possível adicionar a conta." : "Conta adicionada."
-    );
-    if (!error) setOpenDialog(false);
+    const name = form.get("name");
+    const type = form.get("type");
+    const initial_balance = parseMoney(form.get("initial_balance"));
+
+    try {
+      const res = await fetch("/api/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          name,
+          type,
+          initial_balance,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Conta adicionada.");
+        setOpenDialog(false);
+      } else {
+        const { data: userData } = await supabase.auth.getUser();
+        const { error } = await supabase.from("accounts").insert({
+          workspace_id: workspace.id,
+          owner_id: userData?.user?.id,
+          name,
+          type,
+          initial_balance,
+        });
+        setMessage(error ? "Não foi possível adicionar a conta." : "Conta adicionada.");
+        if (!error) setOpenDialog(false);
+      }
+    } catch {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("accounts").insert({
+        workspace_id: workspace.id,
+        owner_id: userData?.user?.id,
+        name,
+        type,
+        initial_balance,
+      });
+      setMessage(error ? "Não foi possível adicionar a conta." : "Conta adicionada.");
+      if (!error) setOpenDialog(false);
+    }
     await reload();
   }
 

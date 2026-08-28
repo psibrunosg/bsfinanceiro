@@ -47,13 +47,22 @@ export function CategoriesPage() {
   async function categorize(transactionId: string, categoryId: string) {
     if (!categoryId) return;
     setUncategorized((rows) => rows.filter((t) => t.id !== transactionId));
-    const { error } = await supabase
-      .from("transactions")
-      .update({ category_id: categoryId })
-      .eq("id", transactionId);
-    if (error) {
-      setMessage("Não foi possível categorizar o lançamento.");
-      await loadUncategorized();
+    try {
+      const res = await fetch("/api/transactions/categorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transaction_id: transactionId, category_id: categoryId }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      const { error } = await supabase
+        .from("transactions")
+        .update({ category_id: categoryId })
+        .eq("id", transactionId);
+      if (error) {
+        setMessage("Não foi possível categorizar o lançamento.");
+        await loadUncategorized();
+      }
     }
   }
 
@@ -65,17 +74,46 @@ export function CategoriesPage() {
     );
 
   async function submitCategory(form: FormData) {
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("categories").insert({
-      workspace_id: workspace.id,
-      owner_id: userData.user?.id,
-      name: form.get("name"),
-      kind: form.get("kind"),
-      color: form.get("color") || "#087f5b",
-    });
-    setMessage(
-      error ? "Não foi possível criar a categoria." : "Categoria criada."
-    );
+    const name = form.get("name");
+    const kind = form.get("kind");
+    const color = form.get("color") || "#087f5b";
+
+    try {
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          name,
+          kind,
+          color,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Categoria criada.");
+      } else {
+        const { data: userData } = await supabase.auth.getUser();
+        const { error } = await supabase.from("categories").insert({
+          workspace_id: workspace.id,
+          owner_id: userData?.user?.id,
+          name,
+          kind,
+          color,
+        });
+        setMessage(error ? "Não foi possível criar a categoria." : "Categoria criada.");
+      }
+    } catch {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("categories").insert({
+        workspace_id: workspace.id,
+        owner_id: userData?.user?.id,
+        name,
+        kind,
+        color,
+      });
+      setMessage(error ? "Não foi possível criar a categoria." : "Categoria criada.");
+    }
     await reload();
   }
 

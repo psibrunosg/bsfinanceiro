@@ -32,32 +32,81 @@ function PlanningPageInner() {
   const statusLabel: Record<string, string> = { ok: "No limite", attention: "Atenção", exceeded: "Estourou" };
 
   async function submitBudget(form: FormData) {
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("monthly_budgets").upsert({ workspace_id: workspace.id, owner_id: userData.user?.id, category_id: form.get("category_id"), category_kind: "expense", month: monthStart(), amount: parseMoney(form.get("amount")) }, { onConflict: "workspace_id,owner_id,category_id,month" });
-    setMessage(error ? "Não foi possível salvar o orçamento." : "Orçamento salvo.");
+    const category_id = form.get("category_id");
+    const amount = parseMoney(form.get("amount"));
+
+    try {
+      const res = await fetch("/api/budgets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          category_id,
+          month: monthStart(),
+          amount,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Orçamento salvo.");
+      } else {
+        const { data: userData } = await supabase.auth.getUser();
+        const { error } = await supabase.from("monthly_budgets").upsert({ workspace_id: workspace.id, owner_id: userData?.user?.id, category_id, category_kind: "expense", month: monthStart(), amount }, { onConflict: "workspace_id,owner_id,category_id,month" });
+        setMessage(error ? "Não foi possível salvar o orçamento." : "Orçamento salvo.");
+      }
+    } catch {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("monthly_budgets").upsert({ workspace_id: workspace.id, owner_id: userData?.user?.id, category_id, category_kind: "expense", month: monthStart(), amount }, { onConflict: "workspace_id,owner_id,category_id,month" });
+      setMessage(error ? "Não foi possível salvar o orçamento." : "Orçamento salvo.");
+    }
     await reload();
   }
 
   async function submitGoal(form: FormData) {
-    const { data: userData } = await supabase.auth.getUser();
-    const initial = parseMoney(form.get("current_amount"));
-    const { data: goal, error } = await supabase.from("financial_goals").insert({ workspace_id: workspace.id, owner_id: userData.user?.id, name: form.get("name"), target_amount: parseMoney(form.get("target_amount")), current_amount: 0, deadline: form.get("deadline") || null, status: "active" }).select("id").single();
-    if (error || !goal) { setMessage("Não foi possível criar a meta."); return; }
-    if (initial > 0) {
-      const { error: contributionError } = await supabase.from("goal_contributions").insert({ workspace_id: workspace.id, owner_id: userData.user?.id, financial_goal_id: goal.id, amount: initial, note: "Saldo inicial", idempotency_key: crypto.randomUUID() });
-      if (contributionError) {
-        setMessage("Não foi possível registrar o saldo inicial da meta.");
-        await reload();
-        return;
+    const name = form.get("name");
+    const target_amount = parseMoney(form.get("target_amount"));
+    const current_amount = parseMoney(form.get("current_amount"));
+    const deadline = form.get("deadline") || null;
+
+    try {
+      const res = await fetch("/api/goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          name,
+          target_amount,
+          current_amount,
+          deadline,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Meta criada.");
+      } else {
+        const { data: userData } = await supabase.auth.getUser();
+        const { data: goal, error } = await supabase.from("financial_goals").insert({ workspace_id: workspace.id, owner_id: userData?.user?.id, name, target_amount, current_amount: 0, deadline, status: "active" }).select("id").single();
+        if (error || !goal) { setMessage("Não foi possível criar a meta."); return; }
+        if (current_amount > 0) {
+          await supabase.from("goal_contributions").insert({ workspace_id: workspace.id, owner_id: userData?.user?.id, financial_goal_id: goal.id, amount: current_amount, note: "Saldo inicial", idempotency_key: crypto.randomUUID() });
+        }
+        setMessage("Meta criada.");
       }
+    } catch {
+      const { data: userData } = await supabase.auth.getUser();
+      const { data: goal, error } = await supabase.from("financial_goals").insert({ workspace_id: workspace.id, owner_id: userData?.user?.id, name, target_amount, current_amount: 0, deadline, status: "active" }).select("id").single();
+      if (error || !goal) { setMessage("Não foi possível criar a meta."); return; }
+      if (current_amount > 0) {
+        await supabase.from("goal_contributions").insert({ workspace_id: workspace.id, owner_id: userData?.user?.id, financial_goal_id: goal.id, amount: current_amount, note: "Saldo inicial", idempotency_key: crypto.randomUUID() });
+      }
+      setMessage("Meta criada.");
     }
-    setMessage("Meta criada.");
     await reload();
   }
 
   async function submitContribution(goalId: string, form: FormData) {
     const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("goal_contributions").insert({ workspace_id: workspace.id, owner_id: userData.user?.id, financial_goal_id: goalId, amount: parseMoney(form.get("amount")), idempotency_key: crypto.randomUUID() });
+    const { error } = await supabase.from("goal_contributions").insert({ workspace_id: workspace.id, owner_id: userData?.user?.id, financial_goal_id: goalId, amount: parseMoney(form.get("amount")), idempotency_key: crypto.randomUUID() });
     setMessage(error ? "Não foi possível registrar o aporte." : "Aporte registrado.");
     await reload();
   }

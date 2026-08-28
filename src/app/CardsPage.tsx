@@ -109,23 +109,67 @@ function CardsPageInner() {
   };
 
   async function submitCard(form: FormData) {
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.rpc("create_credit_card", {
-      p_workspace_id: workspace.id,
-      p_owner_id: userData.user?.id,
-      p_name: form.get("name"),
-      p_brand: form.get("brand") || null,
-      p_last_four: form.get("last_four") || null,
-      p_credit_limit: parseMoney(form.get("credit_limit")),
-      p_closing_day: Number(form.get("closing_day")),
-      p_due_day: Number(form.get("due_day")),
-    });
-    setMessage(
-      error ? "Não foi possível adicionar o cartão." : "Cartão adicionado."
-    );
-    if (!error) {
-      setEditingCardId(null);
-      setOpenDialog(false);
+    const name = form.get("name");
+    const brand = form.get("brand") || null;
+    const last_four = form.get("last_four") || null;
+    const credit_limit = parseMoney(form.get("credit_limit"));
+    const closing_day = Number(form.get("closing_day"));
+    const due_day = Number(form.get("due_day"));
+
+    try {
+      const res = await fetch("/api/cards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          name,
+          brand,
+          last_four,
+          credit_limit,
+          closing_day,
+          due_day,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Cartão adicionado.");
+        setEditingCardId(null);
+        setOpenDialog(false);
+      } else {
+        const { data: userData } = await supabase.auth.getUser();
+        const { error } = await supabase.rpc("create_credit_card", {
+          p_workspace_id: workspace.id,
+          p_owner_id: userData?.user?.id,
+          p_name: name,
+          p_brand: brand,
+          p_last_four: last_four,
+          p_credit_limit: credit_limit,
+          p_closing_day: closing_day,
+          p_due_day: due_day,
+        });
+        setMessage(error ? "Não foi possível adicionar o cartão." : "Cartão adicionado.");
+        if (!error) {
+          setEditingCardId(null);
+          setOpenDialog(false);
+        }
+      }
+    } catch {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.rpc("create_credit_card", {
+        p_workspace_id: workspace.id,
+        p_owner_id: userData?.user?.id,
+        p_name: name,
+        p_brand: brand,
+        p_last_four: last_four,
+        p_credit_limit: credit_limit,
+        p_closing_day: closing_day,
+        p_due_day: due_day,
+      });
+      setMessage(error ? "Não foi possível adicionar o cartão." : "Cartão adicionado.");
+      if (!error) {
+        setEditingCardId(null);
+        setOpenDialog(false);
+      }
     }
     await reload();
   }

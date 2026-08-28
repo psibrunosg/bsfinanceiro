@@ -46,14 +46,48 @@ function TransactionsPageInner() {
   if (loading || !workspace) return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
 
   async function submitTransaction(form: FormData) {
-    const { data: userData } = await supabase.auth.getUser();
     const type = String(form.get("type"));
-    const { error } = await supabase.from("transactions").insert({
-      workspace_id: workspace.id, owner_id: userData.user?.id, type, amount: parseMoney(form.get("amount")), account_id: form.get("account_id"),
-      category_id: type === "transfer" ? null : form.get("category_id"), destination_account_id: type === "transfer" ? form.get("destination_account_id") : null,
-      description: form.get("description") || (type === "transfer" ? "Transferência" : "Movimentação"), competence_date: form.get("competence_date"), paid_at: form.get("competence_date"), status: "paid", idempotency_key: crypto.randomUUID(),
-    });
-    setMessage(error ? "Não foi possível salvar." : "Movimentação adicionada.");
+    const amount = parseMoney(form.get("amount"));
+    const account_id = form.get("account_id");
+    const category_id = type === "transfer" ? null : form.get("category_id");
+    const description = form.get("description") || (type === "transfer" ? "Transferência" : "Movimentação");
+    const competence_date = form.get("competence_date");
+
+    try {
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          type,
+          amount,
+          account_id,
+          category_id,
+          description,
+          competence_date,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Movimentação adicionada.");
+      } else {
+        const { data: userData } = await supabase.auth.getUser();
+        const { error } = await supabase.from("transactions").insert({
+          workspace_id: workspace.id, owner_id: userData?.user?.id, type, amount, account_id,
+          category_id, destination_account_id: type === "transfer" ? form.get("destination_account_id") : null,
+          description, competence_date, paid_at: competence_date, status: "paid", idempotency_key: crypto.randomUUID(),
+        });
+        setMessage(error ? "Não foi possível salvar." : "Movimentação adicionada.");
+      }
+    } catch {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("transactions").insert({
+        workspace_id: workspace.id, owner_id: userData?.user?.id, type, amount, account_id,
+        category_id, destination_account_id: type === "transfer" ? form.get("destination_account_id") : null,
+        description, competence_date, paid_at: competence_date, status: "paid", idempotency_key: crypto.randomUUID(),
+      });
+      setMessage(error ? "Não foi possível salvar." : "Movimentação adicionada.");
+    }
     await reload();
   }
 
