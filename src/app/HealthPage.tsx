@@ -9,6 +9,7 @@ import { MonthPicker } from "./components/MonthPicker";
 import { useMonth } from "./components/MonthContext";
 import { money } from "./components/Money";
 import { computeHealthReport, type HealthIndicator, type HealthStatus } from "@/lib/finance/health";
+import { HealthScoreWidget } from "./components/HealthScoreWidget";
 
 const STATUS_LABEL: Record<HealthStatus, string> = { good: "Bom", attention: "Atenção", critical: "Crítico" };
 const STATUS_COLOR: Record<HealthStatus, string> = { good: "var(--positive)", attention: "var(--warning)", critical: "var(--danger)" };
@@ -54,6 +55,21 @@ export function HealthPage() {
     [month, transactions, categories, commitments, availableBalance],
   );
 
+  const currentMonthTotals = useMemo(() => {
+    const prefix = month.slice(0, 7);
+    let income = 0;
+    let expense = 0;
+    for (const tx of transactions) {
+      if ((tx.competence_date || "").slice(0, 7) === prefix) {
+        const amt = Math.abs(Number(tx.amount) || 0);
+        if (tx.type === "income") income += amt;
+        else if (tx.type === "expense") expense += amt;
+      }
+    }
+    const fixedTotal = commitments.reduce((sum, c) => sum + Math.abs(Number(c.amount) || 0), 0);
+    return { income, expense, fixedTotal };
+  }, [transactions, month, commitments]);
+
   if (loading || !workspace) return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
 
   const counts = report.reduce(
@@ -76,6 +92,13 @@ export function HealthPage() {
         <p className="dashboard-empty">Registre lançamentos para calcular seus indicadores.</p>
       ) : (
         <section>
+          <HealthScoreWidget
+            monthlyIncome={currentMonthTotals.income}
+            monthlyExpenses={currentMonthTotals.expense}
+            availableCash={availableBalance}
+            fixedCommitments={currentMonthTotals.fixedTotal}
+          />
+
           <div className="bento-row" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
             <article className="metric-card metric-card--positive">
               <div className="metric-card__head">

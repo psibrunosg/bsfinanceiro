@@ -19,6 +19,7 @@ import { InterestRadarWidget } from "./components/InterestRadarWidget";
 import { SubscriptionHubWidget } from "./components/SubscriptionHubWidget";
 import { InstallmentTimelineWidget } from "./components/InstallmentTimelineWidget";
 import { MicroExpenseRadarWidget } from "./components/MicroExpenseRadarWidget";
+import { HealthScoreWidget } from "./components/HealthScoreWidget";
 
 const ASSET_TYPE_LABEL: Record<string, string> = {
   stock: "Ações",
@@ -270,6 +271,15 @@ export function DashboardPage() {
           )}
         </article>
       </div>
+    </div>
+
+    <div style={{ marginTop: '24px' }}>
+      <HealthScoreWidget
+        monthlyIncome={metrics.monthIncome}
+        monthlyExpenses={metrics.monthExpense}
+        availableCash={metrics.balance}
+        investedTotal={investments.total}
+      />
     </div>
 
     <div style={{ marginTop: '24px' }}>
