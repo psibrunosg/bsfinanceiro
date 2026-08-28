@@ -330,7 +330,7 @@ function CardsPageInner() {
           <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title={editingCard ? "Editar cartão" : "Adicionar cartão"}>
             <SimpleForm key={editingCard?.id ?? "new"} onSubmit={editingCard ? updateCard : submitCard}>
               <label htmlFor="card-name">Nome do cartão</label>
-              <input id="card-name" name="name" placeholder="Nome do cartão" defaultValue={editingCard?.name} required autoFocus={focusNewCard} />
+              <input id="card-name" name="name" placeholder="Nome do cartão" defaultValue={editingCard?.name} autoComplete="off" data-lpignore="true" required autoFocus={focusNewCard} />
               <div className="form-pair">
                 <label htmlFor="card-brand">Bandeira
                   <select id="card-brand" name="brand" defaultValue={editingCard?.brand ?? ""}>
@@ -343,11 +343,11 @@ function CardsPageInner() {
                   </select>
                 </label>
                 <label htmlFor="card-last-four">Final do cartão
-                  <input id="card-last-four" name="last_four" placeholder="Final" defaultValue={editingCard?.last_four ?? ""} />
+                  <input id="card-last-four" name="last_four" placeholder="Final" defaultValue={editingCard?.last_four ?? ""} autoComplete="off" data-lpignore="true" />
                 </label>
               </div>
               <label htmlFor="card-credit-limit">Limite de crédito</label>
-              <input id="card-credit-limit" name="credit_limit" placeholder="0,00" defaultValue={editingCard ? String(editingCard.credit_limit).replace(".", ",") : ""} required />
+              <input id="card-credit-limit" name="credit_limit" placeholder="0,00" defaultValue={editingCard ? String(editingCard.credit_limit).replace(".", ",") : ""} autoComplete="off" data-lpignore="true" required />
               <div className="form-pair">
                 <label htmlFor="card-closing-day">Dia de fechamento
                   <input

@@ -105,7 +105,7 @@ function PlanningPageInner() {
               {expenseCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <label htmlFor="budget-amount">Valor</label>
-            <input id="budget-amount" name="amount" placeholder="0,00" required />
+            <input id="budget-amount" name="amount" placeholder="0,00" autoComplete="off" data-lpignore="true" required />
             <button>Salvar</button>
           </SimpleForm>
         </aside>
@@ -159,13 +159,13 @@ function PlanningPageInner() {
           <h3>Nova meta</h3>
           <SimpleForm onSubmit={submitGoal}>
             <label htmlFor="goal-name">Nome da meta</label>
-            <input id="goal-name" name="name" placeholder="Nome da meta" required autoFocus={focus === "new-goal"} />
+            <input id="goal-name" name="name" placeholder="Nome da meta" autoComplete="off" data-lpignore="true" required autoFocus={focus === "new-goal"} />
             <label htmlFor="goal-target">Valor alvo</label>
-            <input id="goal-target" name="target_amount" placeholder="Valor alvo" required />
+            <input id="goal-target" name="target_amount" placeholder="Valor alvo" autoComplete="off" data-lpignore="true" required />
             <label htmlFor="goal-current">Saldo inicial</label>
-            <input id="goal-current" name="current_amount" placeholder="Saldo inicial (opcional)" defaultValue="0,00" />
+            <input id="goal-current" name="current_amount" placeholder="Saldo inicial (opcional)" defaultValue="0,00" autoComplete="off" data-lpignore="true" />
             <label htmlFor="goal-deadline">Prazo</label>
-            <input id="goal-deadline" name="deadline" type="date" />
+            <input id="goal-deadline" name="deadline" type="date" autoComplete="off" data-lpignore="true" />
             <button>Criar meta</button>
           </SimpleForm>
         </aside>

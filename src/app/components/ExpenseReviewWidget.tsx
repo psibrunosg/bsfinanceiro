@@ -39,29 +39,7 @@ export function ExpenseReviewWidget({
     [transactions, currentMonth]
   );
 
-  const [reviewedItems, setReviewedItems] = useState<ExpenseReviewItem[]>([
-    {
-      id: "rev-1",
-      description: "iFood - Pizza Artesanal",
-      amount: 145,
-      category: "Alimentação",
-      rating: "liked",
-    },
-    {
-      id: "rev-2",
-      description: "Compras por Impulso Shopee",
-      amount: 180,
-      category: "Compras",
-      rating: "regretted",
-    },
-    {
-      id: "rev-3",
-      description: "Cinema e Pipoca Gourmet",
-      amount: 95,
-      category: "Lazer",
-      rating: "liked",
-    },
-  ]);
+  const [reviewedItems, setReviewedItems] = useState<ExpenseReviewItem[]>([]);
 
   const [currentIndex, setCurrentIndex] = useState<number>(0);
 

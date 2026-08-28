@@ -171,6 +171,96 @@ try {
         exit;
     }
 
+    // 3.1. Auth: Change Password
+    if ($uri === '/auth/change-password' && $method === 'POST') {
+        $userId = $body['user_id'] ?? null;
+        $currentPassword = $body['current_password'] ?? '';
+        $newPassword = $body['new_password'] ?? '';
+
+        if (!$userId || empty($currentPassword) || empty($newPassword) || strlen($newPassword) < 6) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Preencha a senha atual e a nova senha (mínimo 6 caracteres).']);
+            exit;
+        }
+
+        $stmt = $db->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+
+        if (!$user || !password_verify($currentPassword, $user['password_hash'])) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Senha atual incorreta.']);
+            exit;
+        }
+
+        $newHash = password_hash($newPassword, PASSWORD_BCRYPT);
+        $stmt = $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
+        $stmt->execute([$newHash, $userId]);
+
+        echo json_encode(['success' => true, 'message' => 'Senha alterada com sucesso!']);
+        exit;
+    }
+
+    // 3.2. Profile: Get & Update Profile Customization
+    if ($uri === '/profile' && $method === 'GET') {
+        $userId = $_GET['user_id'] ?? null;
+        if (!$userId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'user_id is required']);
+            exit;
+        }
+
+        $stmt = $db->prepare("SELECT u.id, u.email, u.display_name, p.age, p.birth_date, p.profession, p.phone, p.avatar_color, p.theme_preference 
+                              FROM users u LEFT JOIN profiles p ON p.id = u.id WHERE u.id = ?");
+        $stmt->execute([$userId]);
+        $profile = $stmt->fetch();
+
+        echo json_encode(['profile' => $profile]);
+        exit;
+    }
+
+    if ($uri === '/profile/update' && $method === 'POST') {
+        $userId = $body['user_id'] ?? null;
+        $displayName = trim($body['display_name'] ?? '');
+        $age = !empty($body['age']) ? (int)$body['age'] : null;
+        $profession = trim($body['profession'] ?? '');
+        $phone = trim($body['phone'] ?? '');
+        $avatarColor = trim($body['avatar_color'] ?? '#8b5cf6');
+
+        if (!$userId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'user_id is required']);
+            exit;
+        }
+
+        if (!empty($displayName)) {
+            $db->prepare("UPDATE users SET display_name = ? WHERE id = ?")->execute([$displayName, $userId]);
+        }
+
+        $stmt = $db->prepare("INSERT INTO profiles (id, display_name, age, profession, phone, avatar_color)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET 
+                display_name = EXCLUDED.display_name,
+                age = EXCLUDED.age,
+                profession = EXCLUDED.profession,
+                phone = EXCLUDED.phone,
+                avatar_color = EXCLUDED.avatar_color");
+        $stmt->execute([$userId, $displayName, $age, $profession, $phone, $avatarColor]);
+
+        echo json_encode([
+            'success' => true,
+            'profile' => [
+                'id' => $userId,
+                'display_name' => $displayName,
+                'age' => $age,
+                'profession' => $profession,
+                'phone' => $phone,
+                'avatar_color' => $avatarColor
+            ]
+        ]);
+        exit;
+    }
+
     // 4. Data: Bootstrap All Workspace Data
     if ($uri === '/bootstrap' && $method === 'GET') {
         $workspaceId = $_GET['workspace_id'] ?? null;

@@ -216,7 +216,7 @@ function TransactionsPageInner() {
             <label htmlFor="transaction-type">Tipo de movimentação</label>
             <select id="transaction-type" name="type" defaultValue={presetType}><option value="expense">Despesa</option><option value="income">Receita</option><option value="transfer">Transferência</option></select>
             <label htmlFor="transaction-amount">Valor</label>
-            <input id="transaction-amount" name="amount" placeholder="0,00" required />
+            <input id="transaction-amount" name="amount" placeholder="0,00" autoComplete="off" data-lpignore="true" required />
             <label htmlFor="transaction-account">Conta</label>
             <select id="transaction-account" name="account_id" required><option value="">Conta</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
             <label htmlFor="transaction-category">Categoria</label>
@@ -224,9 +224,9 @@ function TransactionsPageInner() {
             <label htmlFor="transaction-destination">Conta de destino</label>
             <select id="transaction-destination" name="destination_account_id"><option value="">Destino se transferência</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
             <label htmlFor="transaction-description">Descrição</label>
-            <input id="transaction-description" name="description" placeholder="Descrição" />
+            <input id="transaction-description" name="description" placeholder="Descrição" autoComplete="off" data-lpignore="true" />
             <label htmlFor="transaction-date">Data</label>
-            <input id="transaction-date" name="competence_date" type="date" defaultValue={todayInSaoPaulo()} required />
+            <input id="transaction-date" name="competence_date" type="date" defaultValue={todayInSaoPaulo()} autoComplete="off" data-lpignore="true" required />
             <button>Salvar</button>
           </SimpleForm>
       </Dialog>

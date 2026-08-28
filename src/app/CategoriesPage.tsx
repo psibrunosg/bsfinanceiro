@@ -149,7 +149,7 @@ export function CategoriesPage() {
           <h3>Nova categoria</h3>
           <SimpleForm onSubmit={submitCategory}>
             <label htmlFor="category-name">Nome</label>
-            <input id="category-name" name="name" placeholder="Nome" required />
+            <input id="category-name" name="name" placeholder="Nome" autoComplete="off" data-lpignore="true" required />
             <label htmlFor="category-kind">Tipo</label>
             <select id="category-kind" name="kind" defaultValue="expense">
               <option value="expense">Despesa</option>

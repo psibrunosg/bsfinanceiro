@@ -22,30 +22,11 @@ export function ImpulseCalculatorWidget({
   estimatedMonthlyIncome = 8000,
 }: ImpulseCalculatorWidgetProps) {
   const [productName, setProductName] = useState("");
-  const [priceInput, setPriceInput] = useState("1200");
-  const [incomeInput, setIncomeInput] = useState(String(estimatedMonthlyIncome));
+  const [priceInput, setPriceInput] = useState("");
+  const [incomeInput, setIncomeInput] = useState(String(estimatedMonthlyIncome || ""));
   const [coolingOffHours] = useState<number>(48);
 
-  const [wishlist, setWishlist] = useState<WishlistItem[]>([
-    {
-      id: "w-1",
-      name: "Tênis Esportivo Edição Limitada",
-      price: 850,
-      hoursRequired: 17,
-      createdAt: "2026-08-25",
-      coolingOffHours: 48,
-      status: "cooling_off",
-    },
-    {
-      id: "w-2",
-      name: "Drone com Câmera 4K",
-      price: 2400,
-      hoursRequired: 48,
-      createdAt: "2026-08-10",
-      coolingOffHours: 48,
-      status: "dismissed_saved",
-    },
-  ]);
+  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
 
   const numPrice = Number(priceInput.replace(",", ".")) || 0;
   const numIncome = Number(incomeInput.replace(",", ".")) || estimatedMonthlyIncome;

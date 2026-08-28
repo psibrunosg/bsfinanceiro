@@ -120,7 +120,7 @@ export function AccountsPage() {
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} title="Adicionar conta">
         <SimpleForm onSubmit={submitAccount}>
           <label htmlFor="account-name">Nome da conta</label>
-          <input id="account-name" name="name" placeholder="Nome da conta" required autoFocus />
+          <input id="account-name" name="name" placeholder="Nome da conta" autoComplete="off" data-lpignore="true" required autoFocus />
           <label htmlFor="account-type">Tipo</label>
           <select id="account-type" name="type" defaultValue="checking">
             <option value="checking">Conta bancária</option>
@@ -129,7 +129,7 @@ export function AccountsPage() {
             <option value="investment">Investimento</option>
           </select>
           <label htmlFor="account-initial-balance">Saldo inicial</label>
-          <input id="account-initial-balance" name="initial_balance" placeholder="0,00" defaultValue="0,00" required />
+          <input id="account-initial-balance" name="initial_balance" placeholder="0,00" defaultValue="0,00" autoComplete="off" data-lpignore="true" required />
           <button>Adicionar conta</button>
         </SimpleForm>
       </Dialog>

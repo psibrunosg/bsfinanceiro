@@ -1,32 +1,41 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
-import { appPath } from "@/lib/app-path";
+import React, { useState } from "react";
 import { useCurrentUser } from "./useCurrentUser";
+import { ProfileModal } from "./ProfileModal";
 
-/** Avatar do usuário no cabeçalho — clique faz logout. */
+/** Avatar do usuário no cabeçalho — clique abre modal de personalização e configurações de conta. */
 export function UserMenu() {
-  const { displayName, initials } = useCurrentUser();
+  const { email, displayName, initials } = useCurrentUser();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [customName, setCustomName] = useState<string | null>(null);
 
-  async function signOut() {
-    try {
-      await createClient().auth.signOut();
-    } catch {}
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("bsfinanceiro_user");
-      localStorage.removeItem("bsfinanceiro_workspace");
-      localStorage.removeItem("bsfinanceiro_token");
-    }
-    window.location.replace(appPath("/entrar"));
-  }
+  const activeName = customName || displayName;
+  const activeInitials = activeName ? activeName.charAt(0).toUpperCase() : initials;
 
   return (
-    <button type="button" className="user-menu" onClick={() => void signOut()} title="Sair da conta">
-      <span className="user-menu__text">
-        <strong>{displayName}</strong>
-        <small>Perfil Pessoal</small>
-      </span>
-      <span className="user-menu__avatar" aria-hidden="true">{initials}</span>
-    </button>
+    <>
+      <button
+        type="button"
+        className="user-menu cursor-pointer hover:opacity-90 transition-opacity"
+        onClick={() => setIsModalOpen(true)}
+        title="Personalizar conta e alterar senha"
+      >
+        <span className="user-menu__text">
+          <strong>{activeName}</strong>
+          <small>Perfil Pessoal</small>
+        </span>
+        <span className="user-menu__avatar" aria-hidden="true">
+          {activeInitials}
+        </span>
+      </button>
+
+      <ProfileModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        userEmail={email}
+        onProfileUpdated={(newName) => setCustomName(newName)}
+      />
+    </>
   );
 }

@@ -24,35 +24,7 @@ export function AcademicRoiWidget({
   currentMonthlyIncome = 10000,
   currentMonth = new Date().toISOString().slice(0, 7),
 }: AcademicRoiWidgetProps) {
-  const [courses, setCourses] = useState<AcademicCourse[]>([
-    {
-      id: "ac-1",
-      title: "Especialização em Terapia Cognitivo-Comportamental",
-      cost: 4800,
-      completionDate: "2025-05-01",
-      monthlyIncomeBefore: 6000,
-      monthlyIncomeAfter: 8800,
-      category: "Especialização",
-    },
-    {
-      id: "ac-2",
-      title: "Formação em Avaliação Neuropsicológica",
-      cost: 3200,
-      completionDate: "2025-11-01",
-      monthlyIncomeBefore: 8800,
-      monthlyIncomeAfter: 11000,
-      category: "Formação",
-    },
-    {
-      id: "ac-3",
-      title: "Supervisão Clínica em Casos Graves",
-      cost: 1600,
-      completionDate: "2026-03-01",
-      monthlyIncomeBefore: 11000,
-      monthlyIncomeAfter: 12200,
-      category: "Supervisão",
-    },
-  ]);
+  const [courses, setCourses] = useState<AcademicCourse[]>([]);
 
   // Simulador de Próximo Curso
   const [simCost, setSimCost] = useState("6000");

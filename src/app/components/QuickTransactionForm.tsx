@@ -148,7 +148,7 @@ export function QuickTransactionForm({
         </p>
       ) : null}
 
-      <form className="quick-transaction-form" onSubmit={submit}>
+      <form className="quick-transaction-form" onSubmit={submit} autoComplete="off">
         <fieldset className="quick-transaction-type">
           <legend>Tipo</legend>
           <label>
@@ -187,6 +187,8 @@ export function QuickTransactionForm({
             placeholder="0,00"
             value={amount}
             onChange={(event) => setAmount(event.currentTarget.value)}
+            autoComplete="off"
+            data-lpignore="true"
             aria-required="true"
           />
         </label>
@@ -198,6 +200,8 @@ export function QuickTransactionForm({
             placeholder="Ex.: café, salário"
             value={description}
             onChange={(event) => setDescription(event.currentTarget.value)}
+            autoComplete="off"
+            data-lpignore="true"
             aria-required="true"
           />
         </label>
