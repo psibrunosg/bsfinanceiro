@@ -15,6 +15,7 @@ import { addMonths } from "@/lib/finance/local-date";
 import { ArrowDownRight, ArrowUpRight, Check, Clock, LayoutGrid, ReceiptText, Repeat } from "lucide-react";
 import { SubscriptionHubWidget } from "../components/SubscriptionHubWidget";
 import { MicroExpenseRadarWidget } from "../components/MicroExpenseRadarWidget";
+import { ImpulseCalculatorWidget } from "../components/ImpulseCalculatorWidget";
 
 const DONUT_COLORS = ["#8B5CF6", "#3B82F6", "#F97316", "#F5A623", "#22C55E"];
 
@@ -347,6 +348,10 @@ export default function GastosPage() {
 
           <div style={{ marginTop: '24px' }}>
             <MicroExpenseRadarWidget transactions={filteredExpenses} currentMonth={month} />
+          </div>
+
+          <div style={{ marginTop: '24px' }}>
+            <ImpulseCalculatorWidget />
           </div>
 
           <article className="dashboard-card" style={{ marginTop: '24px' }}>
