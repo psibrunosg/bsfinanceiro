@@ -10,6 +10,7 @@ import { List } from "./components/List";
 import { SimpleForm } from "./components/SimpleForm";
 import { Dialog } from "./components/Dialog";
 import { StatementImportPanel } from "./components/StatementImportPanel";
+import { BankNotificationAssistantWidget } from "./components/BankNotificationAssistantWidget";
 import { money, parseMoney } from "./components/Money";
 import { createClient } from "@/lib/supabase/client";
 import { todayInSaoPaulo } from "@/lib/finance/local-date";
@@ -134,6 +135,25 @@ function TransactionsPageInner() {
         />
       </div>
     </form>
+
+    <div style={{ marginTop: '24px', marginBottom: '24px' }}>
+      <BankNotificationAssistantWidget
+        onAddTransaction={async (tx) => {
+          const { data: userData } = await supabase.auth.getUser();
+          await supabase.from("transactions").insert({
+            workspace_id: workspace.id,
+            owner_id: ownerId || userData.user?.id,
+            description: tx.description,
+            amount: tx.amount,
+            type: tx.type,
+            competence_date: todayInSaoPaulo(),
+            due_date: todayInSaoPaulo(),
+            status: "paid",
+          });
+          await reload();
+        }}
+      />
+    </div>
 
     <div className="dashboard-bento-grid" style={{ gridTemplateColumns: '1fr' }}>
       <List title="Histórico">
