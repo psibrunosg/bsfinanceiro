@@ -1,0 +1,36 @@
+-- BS Financeiro - Migration Fase 3
+
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS budget_limit NUMERIC(10,2) DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS credit_cards (
+    id SERIAL PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    closing_day INTEGER NOT NULL,
+    due_day INTEGER NOT NULL,
+    limit_amount NUMERIC(14,2) DEFAULT 0.00
+);
+
+CREATE TABLE IF NOT EXISTS invoices (
+    id SERIAL PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    month INTEGER NOT NULL,
+    year INTEGER NOT NULL,
+    status VARCHAR(20) DEFAULT 'open',
+    total_amount NUMERIC(14,2) DEFAULT 0.00,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS goals (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    target_amount NUMERIC(14, 2) NOT NULL,
+    current_amount NUMERIC(14, 2) DEFAULT 0.00,
+    deadline DATE,
+    color VARCHAR(7) DEFAULT '#000000',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE transactions 
+ADD COLUMN IF NOT EXISTS invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS installment_info VARCHAR(50);
