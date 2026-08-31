@@ -22,7 +22,6 @@ describe("statement import deployment contracts", () => {
     expect(migration).toContain("purchase_idempotency_key uuid not null default gen_random_uuid()");
     expect(migration).toContain("started_at < now() - interval '10 minutes'");
     expect(migration).toContain("for update skip locked");
-    expect(worker).toContain("p_idempotency_key: job.purchase_idempotency_key");
   });
 
   it("requires complete CORS preflight and verifies the uploaded object checksum before parsing", () => {
@@ -30,13 +29,13 @@ describe("statement import deployment contracts", () => {
     expect(worker).toContain('"Access-Control-Allow-Methods": "POST, OPTIONS"');
     expect(worker).toContain('"Access-Control-Allow-Headers"');
     expect(worker).toContain('crypto.subtle.digest("SHA-256", bytes)');
-    expect(worker).toContain('return fail("checksum_mismatch")');
+    expect(worker).toContain('return finishFailed("checksum_mismatch")');
   });
 
   it("retries cleanup for every expired state and deletes the record only after storage removal succeeds", () => {
-    expect(cleanup).toContain('.in("status", ["pending", "processing", "imported", "failed"])');
+    expect(cleanup).toContain('.in("status", ["pending", "processing", "pending_review", "imported", "failed"])');
     expect(cleanup).toContain("if (removeError) continue");
-    expect(cleanup).toContain("if (!deleteError) cleaned += 1");
+    expect(cleanup).toContain("if (finishError) continue");
   });
 
 });

@@ -2,6 +2,9 @@
  * Accounts management, classification (PJ vs PF), validation and seeding helpers.
  */
 
+import { SupabaseClient } from "@supabase/supabase-js";
+
+
 export type BankAccountType = 'checking' | 'cash' | 'savings' | 'credit_card' | 'investment';
 
 export type AccountScope = 'pj' | 'pf' | 'other';
@@ -160,8 +163,7 @@ export interface SeedAccountsResult {
 }
 
 export async function seedBankAccounts(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
+  supabase: SupabaseClient,
   options?: {
     workspaceId?: string;
     ownerId?: string;

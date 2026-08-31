@@ -1,3 +1,4 @@
+import { SupabaseClient } from '@supabase/supabase-js';
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
@@ -136,8 +137,8 @@ describe('Seed Claro Commitments', () => {
   });
 
   describe('seedClaroCommitments', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function createMockSupabase(existingCommitments: any[] = [], existingOccurrences: any[] = []) {
+    
+    function createMockSupabase(existingCommitments: Record<string, unknown>[] = [], existingOccurrences: Record<string, unknown>[] = []) {
       const commitmentsState = [...existingCommitments];
       const occurrencesState = [...existingOccurrences];
 
@@ -147,13 +148,13 @@ describe('Seed Claro Commitments', () => {
             let filterWorkspace: string | null = null;
             let filterDesc: string | null = null;
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const chain: any = {
+            
+            const chain: Record<string, unknown> = {
               select: () => chain,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              eq: (col: string, val: any) => {
-                if (col === 'workspace_id') filterWorkspace = val;
-                if (col === 'description') filterDesc = val;
+              
+              eq: (col: string, val: unknown) => {
+                if (col === 'workspace_id') filterWorkspace = val as string;
+                if (col === 'description') filterDesc = val as string;
                 if (col === 'id') {
                   return {
                     single: () => {
@@ -164,10 +165,10 @@ describe('Seed Claro Commitments', () => {
                 }
                 return chain;
               },
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              update: (updatePayload: any) => ({
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                eq: (col: string, val: any) => {
+              
+              update: (updatePayload: Record<string, unknown>) => ({
+                
+                eq: (col: string, val: unknown) => {
                   const idx = commitmentsState.findIndex((c) => c.id === val);
                   if (idx >= 0) {
                     commitmentsState[idx] = { ...commitmentsState[idx], ...updatePayload };
@@ -175,8 +176,8 @@ describe('Seed Claro Commitments', () => {
                   return Promise.resolve({ error: null });
                 },
               }),
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              insert: (insertPayload: any) => ({
+              
+              insert: (insertPayload: Record<string, unknown>) => ({
                 select: () => ({
                   single: () => {
                     const newItem = { id: `fc-${commitmentsState.length + 1}`, ...insertPayload };
@@ -185,8 +186,8 @@ describe('Seed Claro Commitments', () => {
                   },
                 }),
               }),
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              then: (resolve: any) => {
+              
+              then: (resolve: (val: unknown) => void) => {
                 const matches = commitmentsState.filter((c) => {
                   if (filterWorkspace && c.workspace_id !== filterWorkspace) return false;
                   if (filterDesc && c.description !== filterDesc) return false;
@@ -202,19 +203,19 @@ describe('Seed Claro Commitments', () => {
             let filterCommitmentId: string | null = null;
             let filterMonth: string | null = null;
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const chain: any = {
+            
+            const chain: Record<string, unknown> = {
               select: () => chain,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              eq: (col: string, val: any) => {
-                if (col === 'fixed_commitment_id') filterCommitmentId = val;
-                if (col === 'occurrence_month') filterMonth = val;
+              
+              eq: (col: string, val: unknown) => {
+                if (col === 'fixed_commitment_id') filterCommitmentId = val as string;
+                if (col === 'occurrence_month') filterMonth = val as string;
                 return chain;
               },
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              update: (updatePayload: any) => ({
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                eq: (col: string, val: any) => {
+              
+              update: (updatePayload: Record<string, unknown>) => ({
+                
+                eq: (col: string, val: unknown) => {
                   const idx = occurrencesState.findIndex((o) => o.id === val);
                   if (idx >= 0) {
                     occurrencesState[idx] = { ...occurrencesState[idx], ...updatePayload };
@@ -222,8 +223,8 @@ describe('Seed Claro Commitments', () => {
                   return Promise.resolve({ error: null });
                 },
               }),
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              insert: (insertPayload: any) => ({
+              
+              insert: (insertPayload: Record<string, unknown>) => ({
                 select: () => ({
                   single: () => {
                     const newItem = { id: `occ-${occurrencesState.length + 1}`, ...insertPayload };
@@ -232,8 +233,8 @@ describe('Seed Claro Commitments', () => {
                   },
                 }),
               }),
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              then: (resolve: any) => {
+              
+              then: (resolve: (val: unknown) => void) => {
                 const matches = occurrencesState.filter((o) => {
                   if (filterCommitmentId && o.fixed_commitment_id !== filterCommitmentId) return false;
                   if (filterMonth && o.occurrence_month !== filterMonth) return false;
@@ -253,7 +254,7 @@ describe('Seed Claro Commitments', () => {
     it('should create base commitments and occurrences when tables are empty', async () => {
       const mockSupabase = createMockSupabase();
 
-      const result = await seedClaroCommitments(mockSupabase, sampleInvoices, {
+      const result = await seedClaroCommitments((mockSupabase as unknown as SupabaseClient), sampleInvoices, {
         workspaceId: DEFAULT_WORKSPACE_ID,
         ownerId: DEFAULT_OWNER_ID,
         categoryId: DEFAULT_CATEGORY_ID,
@@ -271,12 +272,12 @@ describe('Seed Claro Commitments', () => {
       const mockSupabase = createMockSupabase();
 
       // First run
-      const result1 = await seedClaroCommitments(mockSupabase, sampleInvoices);
+      const result1 = await seedClaroCommitments((mockSupabase as unknown as SupabaseClient), sampleInvoices);
       expect(result1.commitmentsCreated).toBe(2);
       expect(result1.occurrencesCreated).toBe(3);
 
       // Second run (re-run)
-      const result2 = await seedClaroCommitments(mockSupabase, sampleInvoices);
+      const result2 = await seedClaroCommitments((mockSupabase as unknown as SupabaseClient), sampleInvoices);
       expect(result2.commitmentsCreated).toBe(0);
       expect(result2.commitmentsUpdated).toBe(2);
       expect(result2.occurrencesCreated).toBe(0);

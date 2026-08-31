@@ -1,3 +1,4 @@
+import { SupabaseClient } from '@supabase/supabase-js';
 import { describe, it, expect } from 'vitest';
 import type { BankAccountType } from '../accounts';
 import {
@@ -116,8 +117,8 @@ describe('Accounts Module (PJ / PF & Seeding)', () => {
   });
 
   describe('seedBankAccounts Seeder Logic (Idempotent)', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function createMockSupabase(initialDbAccounts: any[] = []) {
+    
+    function createMockSupabase(initialDbAccounts: Record<string, unknown>[] = []) {
       const dbAccounts = [...initialDbAccounts];
 
       return {
@@ -128,18 +129,18 @@ describe('Accounts Module (PJ / PF & Seeding)', () => {
 
           let filterWorkspaceId: string | null = null;
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const chain: any = {
+          
+          const chain: Record<string, unknown> = {
             select: () => chain,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            eq: (col: string, val: any) => {
-              if (col === 'workspace_id') filterWorkspaceId = val;
+            
+            eq: (col: string, val: unknown) => {
+              if (col === 'workspace_id') filterWorkspaceId = val as string;
               return chain;
             },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            update: (updates: any) => ({
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              eq: (col: string, val: any) => {
+            
+            update: (updates: Record<string, unknown>) => ({
+              
+              eq: (col: string, val: unknown) => {
                 const idx = dbAccounts.findIndex((a) => a.id === val);
                 if (idx >= 0) {
                   dbAccounts[idx] = { ...dbAccounts[idx], ...updates };
@@ -147,8 +148,8 @@ describe('Accounts Module (PJ / PF & Seeding)', () => {
                 return Promise.resolve({ error: null });
               },
             }),
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            insert: (payload: any) => ({
+            
+            insert: (payload: Record<string, unknown>) => ({
               select: () => ({
                 single: () => {
                   const newRow = { id: `acc-${dbAccounts.length + 1}`, ...payload };
@@ -157,8 +158,8 @@ describe('Accounts Module (PJ / PF & Seeding)', () => {
                 },
               }),
             }),
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            then: (resolve: any) => {
+            
+            then: (resolve: (val: unknown) => void) => {
               const matched = dbAccounts.filter(
                 (a) => !filterWorkspaceId || a.workspace_id === filterWorkspaceId
               );
@@ -174,7 +175,7 @@ describe('Accounts Module (PJ / PF & Seeding)', () => {
     it('should create all target bank accounts when database is empty', async () => {
       const mockSupabase = createMockSupabase([]);
 
-      const result = await seedBankAccounts(mockSupabase, {
+      const result = await seedBankAccounts((mockSupabase as unknown as SupabaseClient), {
         workspaceId: DEFAULT_WORKSPACE_ID,
         ownerId: DEFAULT_OWNER_ID,
       });
@@ -214,7 +215,7 @@ describe('Accounts Module (PJ / PF & Seeding)', () => {
       const mockSupabase = createMockSupabase([existingSantander]);
 
       // First run: Santander exists, PJ and PF need to be created
-      const run1 = await seedBankAccounts(mockSupabase);
+      const run1 = await seedBankAccounts(mockSupabase as unknown as SupabaseClient);
       expect(run1.createdCount).toBe(2);
       expect(run1.existingCount).toBe(1);
 
@@ -222,7 +223,7 @@ describe('Accounts Module (PJ / PF & Seeding)', () => {
       expect(santanderInRun1?.initial_balance).toBe(5000);
 
       // Second run: All 3 accounts already exist
-      const run2 = await seedBankAccounts(mockSupabase);
+      const run2 = await seedBankAccounts(mockSupabase as unknown as SupabaseClient);
       expect(run2.createdCount).toBe(0);
       expect(run2.updatedCount).toBe(0);
       expect(run2.existingCount).toBe(3);
@@ -243,7 +244,7 @@ describe('Accounts Module (PJ / PF & Seeding)', () => {
 
       const mockSupabase = createMockSupabase([outdatedAcc]);
 
-      const result = await seedBankAccounts(mockSupabase, {
+      const result = await seedBankAccounts((mockSupabase as unknown as SupabaseClient), {
         seedSpecs: [
           {
             name: 'Conta Corrente PJ - Clínica',
