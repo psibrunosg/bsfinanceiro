@@ -14,6 +14,10 @@ import { filterOutTransfers } from "@/lib/finance/transfers";
 import { addMonths, monthLabel } from "@/lib/finance/local-date";
 import { CoupleFinanceWidget } from "./components/CoupleFinanceWidget";
 import { FinancialCalendarWidget } from "./components/FinancialCalendarWidget";
+import { TaxReport } from "./components/TaxReport";
+import { CustomPeriodReport } from "./components/CustomPeriodReport";
+import { ShareReportButton } from "./components/ShareReportButton";
+import { CsvExportButton } from "./components/CsvExportButton";
 import { AnnualWrappedWidget } from "./components/AnnualWrappedWidget";
 import { TravelSandboxWidget } from "./components/TravelSandboxWidget";
 
@@ -22,7 +26,7 @@ const COMPARISON_MONTHS = 12;
 export function ReportsPage() {
   const { workspace, transactions, categories, accounts, loading } = useFinance("dashboard");
   const { month, label, setMonth } = useMonth();
-  const [tab, setTab] = useState<"mes" | "comparativo">("mes");
+  const [tab, setTab] = useState<"mes" | "comparativo" | "custom" | "ir">("mes");
 
   const clean = useMemo(() => filterOutTransfers(transactions, categories), [transactions, categories]);
 
@@ -92,6 +96,13 @@ export function ReportsPage() {
       <Nav />
       <PageHeader title="Relatórios" subtitle="Seus gastos mês a mês, agrupados por categoria" workspaceName={workspace.name} />
 
+      <div className="dashboard-card no-print" style={{ display: "flex", gap: "1rem", marginBottom: "1rem", alignItems: "center" }}>
+        <strong>Exportar dados:</strong>
+        <CsvExportButton transactions={clean} categories={categories} />
+        <button type="button" onClick={() => window.print()} className="secondary-button">Salvar PDF</button>
+        <ShareReportButton workspaceId={workspace.id} />
+      </div>
+
       <div className="hub-filters">
         <MonthPicker />
         <span className="muted">Competência: {label}</span>
@@ -100,6 +111,8 @@ export function ReportsPage() {
       <nav className="hub-tabs" aria-label="Abas de relatórios">
         <button type="button" aria-pressed={tab === "mes"} onClick={() => setTab("mes")} className={tab === "mes" ? "active" : ""}>Mês</button>
         <button type="button" aria-pressed={tab === "comparativo"} onClick={() => setTab("comparativo")} className={tab === "comparativo" ? "active" : ""}>Comparativo</button>
+        <button type="button" aria-pressed={tab === "custom"} onClick={() => setTab("custom")} className={tab === "custom" ? "active" : ""}>Período Personalizado</button>
+        <button type="button" aria-pressed={tab === "ir"} onClick={() => setTab("ir")} className={tab === "ir" ? "active" : ""}>Imposto de Renda</button>
       </nav>
 
       {tab === "mes" && (
@@ -207,6 +220,18 @@ export function ReportsPage() {
           </article>
         </section>
       )}
+      {tab === "custom" && (
+        <section>
+          <CustomPeriodReport transactions={clean} categories={categories} />
+        </section>
+      )}
+
+      {tab === "ir" && (
+        <section>
+          <TaxReport transactions={clean} categories={categories} />
+        </section>
+      )}
     </main>
+
   );
 }

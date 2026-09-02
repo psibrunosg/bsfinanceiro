@@ -156,3 +156,13 @@ export const CATEGORY_KIND_LABEL: Record<string, string> = {
   expense: "Despesa",
   income: "Receita",
 };
+export type SharedReport = {
+  id: string;
+  workspace_id: string;
+  owner_id: string;
+  token: string;
+  name: string;
+  config: Record<string, unknown>;
+  expires_at: string | null;
+  created_at: string;
+};
