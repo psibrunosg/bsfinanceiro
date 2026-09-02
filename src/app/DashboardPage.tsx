@@ -21,6 +21,7 @@ import { InstallmentTimelineWidget } from "./components/InstallmentTimelineWidge
 import { MicroExpenseRadarWidget } from "./components/MicroExpenseRadarWidget";
 import { HealthScoreWidget } from "./components/HealthScoreWidget";
 import { VisualizationsWidget } from "./components/VisualizationsWidget";
+import { AlertsWidget } from "./components/AlertsWidget";
 import { DebtPayoffWidget } from "./components/DebtPayoffWidget";
 import { GoalPlannerWidget } from "./components/GoalPlannerWidget";
 import { TaxRadarWidget } from "./components/TaxRadarWidget";
@@ -63,7 +64,7 @@ function Trend({ pct }: { pct: number | null }) {
 }
 
 export function DashboardPage() {
-  const { workspace, accounts, transactions, invoices, categories, goals, loading } = useFinance("dashboard");
+  const { workspace, accounts, transactions, invoices, categories, goals, occurrences, budgets, alertPrefs, loading } = useFinance("dashboard");
   const { month, nextMonth } = useMonth();
   const { displayName } = useCurrentUser();
   const supabase = useMemo(() => createClient(), []);
@@ -291,6 +292,16 @@ export function DashboardPage() {
     </div>
 
     <div style={{ marginTop: '24px' }}>
+      <AlertsWidget 
+        accounts={accounts} 
+        transactions={transactions} 
+        invoices={invoices} 
+        occurrences={occurrences} 
+        goals={goals} 
+        budgets={budgets} 
+        preferences={alertPrefs} 
+      />
+      
       <VisualizationsWidget transactions={transactions} categories={categories} accounts={accounts} currentMonth={month} nextMonth={nextMonth} />
     </div>
 

@@ -195,6 +195,7 @@ export function useFinance(
       { data: cardRows },
       { data: preferenceRows },
       { data: dashboardGoalRows },
+      { data: dashboardBudgetRows },
       { data: workspacePreferenceRows },
       { data: contextRows },
     ] = await Promise.all([
@@ -231,6 +232,12 @@ export function useFinance(
             .eq("workspace_id", ws.id)
             .eq("status", "active")
             .order("created_at")
+        : Promise.resolve({ data: [] }),
+      route === "dashboard"
+        ? supabase
+            .from("monthly_budgets")
+            .select("id,category_id,amount")
+            .eq("workspace_id", ws.id)
         : Promise.resolve({ data: [] }),
       route === "dashboard" || route === "settings"
         ? supabase
@@ -421,11 +428,11 @@ export function useFinance(
             account.type === "cash" ||
             account.type === "savings"),
       );
-
       setDefaultCashAccountId(
         isActiveCashAccount ? preferredAccountId : null,
       );
       setGoals(dashboardGoalRows || []);
+      setBudgets(dashboardBudgetRows || []);
       setOccurrences(occurrenceRows);
     }
 

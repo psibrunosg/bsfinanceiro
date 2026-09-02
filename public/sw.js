@@ -47,3 +47,26 @@ self.addEventListener("fetch", (event) => {
       )
   );
 });
+
+self.addEventListener("push", (event) => {
+  let data = { title: "BS Financeiro", message: "Nova notificação!" };
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.message = event.data.text();
+    }
+  }
+  const options = {
+    body: data.message,
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    data: data.actionUrl || "/",
+  };
+  event.waitUntil(self.registration.showNotification(data.title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(self.clients.openWindow(event.notification.data));
+});

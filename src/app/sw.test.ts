@@ -91,4 +91,35 @@ describe("Service Worker", () => {
     expect(response).toBe(mockResponse);
     expect((globalThis as unknown as Record<string, (event: unknown) => void>).fetch).toHaveBeenCalledWith(event.request);
   });
+
+  it("handles push event", async () => {
+    const wait = vi.fn();
+    const show = vi.fn().mockResolvedValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).self.registration = { showNotification: show };
+    
+    eventMap["push"]({
+      waitUntil: wait,
+      data: { json: () => ({ title: "T", message: "M", actionUrl: "/" }) }
+    });
+    
+    expect(wait).toHaveBeenCalled();
+    expect(show).toHaveBeenCalledWith("T", expect.objectContaining({ body: "M" }));
+  });
+
+  it("handles notificationclick", async () => {
+    const wait = vi.fn();
+    const close = vi.fn();
+    const open = vi.fn().mockResolvedValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).self.clients.openWindow = open;
+    
+    eventMap["notificationclick"]({
+      waitUntil: wait,
+      notification: { close, data: "/" }
+    });
+    
+    expect(close).toHaveBeenCalled();
+    expect(open).toHaveBeenCalledWith("/");
+  });
 });

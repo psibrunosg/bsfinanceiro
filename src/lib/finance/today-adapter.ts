@@ -92,6 +92,8 @@ export function buildTodayDashboard(
     ? [{
       id: "cashflow-low-balance",
       preference: "cashflow",
+      title: "Alerta de Saldo",
+      message: projection.lowestBalanceCents < 0 ? "Sua conta pode ficar negativa!" : "Seu saldo ficará baixo.",
       severity: projection.lowestBalanceCents < 0 ? "critical" : "warning",
       impactCents: Math.abs(projection.lowestBalanceCents - thresholdCents),
       dueDate: projection.lowestBalanceDate || today,

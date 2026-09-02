@@ -9,6 +9,9 @@ export type AlertSeverity = "info" | "warning" | "critical";
 
 export type FinancialAlert = {
   id: string;
+  title: string;
+  message: string;
+  actionUrl?: string;
   preference: AlertPreference;
   severity: AlertSeverity;
   /** Monetary impact in cents. Larger values are shown first within a severity. */

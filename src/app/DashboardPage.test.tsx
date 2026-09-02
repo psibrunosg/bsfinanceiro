@@ -57,7 +57,7 @@ vi.mock("./components/useFinance", () => ({
       transactions: [],
       todayTransactions: [],
       alertPrefs: null,
-      goals: [],
+      goals: [], occurrences: [], budgets: [], invoices: [],
       cashPosition: { balanceCents: 0, accountBalancesCents: {} },
       spendingPower: {
         availableCents: 0,

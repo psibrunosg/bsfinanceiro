@@ -15,11 +15,11 @@ const allEnabled: AlertPreferences = {
 };
 
 const alerts: FinancialAlert[] = [
-  { id: "budget-low", preference: "budget", severity: "warning", impactCents: 10_00 },
-  { id: "invoice", preference: "invoice", severity: "critical", impactCents: 20_00 },
-  { id: "cashflow", preference: "cashflow", severity: "critical", impactCents: 50_00 },
-  { id: "goal", preference: "goal", severity: "info", impactCents: 100_00 },
-  { id: "budget-high", preference: "budget", severity: "warning", impactCents: 30_00 },
+  { title: "Test", message: "...", id: "budget-low", preference: "budget", severity: "warning", impactCents: 10_00 },
+  { title: "Test", message: "...", id: "invoice", preference: "invoice", severity: "critical", impactCents: 20_00 },
+  { title: "Test", message: "...", id: "cashflow", preference: "cashflow", severity: "critical", impactCents: 50_00 },
+  { title: "Test", message: "...", id: "goal", preference: "goal", severity: "info", impactCents: 100_00 },
+  { title: "Test", message: "...", id: "budget-high", preference: "budget", severity: "warning", impactCents: 30_00 },
 ];
 
 describe("selectAlerts", () => {
@@ -53,8 +53,8 @@ describe("selectAlerts", () => {
 
   it("preserves the input order when severity and impact are tied", () => {
     const tied: FinancialAlert[] = [
-      { id: "first", preference: "goal", severity: "info", impactCents: 0 },
-      { id: "second", preference: "goal", severity: "info", impactCents: 0 },
+      { title: "Test", message: "...", id: "first", preference: "goal", severity: "info", impactCents: 0 },
+      { title: "Test", message: "...", id: "second", preference: "goal", severity: "info", impactCents: 0 },
     ];
 
     expect(selectAlerts(tied, allEnabled).map(({ id }) => id)).toEqual([
@@ -66,8 +66,8 @@ describe("selectAlerts", () => {
 
   it("uses the earliest due date after severity and impact when selecting one alert", () => {
     expect(selectTopAlert([
-      { id: "later", preference: "cashflow", severity: "warning", impactCents: 10_00, dueDate: "2026-08-10" },
-      { id: "earlier", preference: "cashflow", severity: "warning", impactCents: 10_00, dueDate: "2026-08-02" },
+      { title: "Test", message: "...", id: "later", preference: "cashflow", severity: "warning", impactCents: 10_00, dueDate: "2026-08-10" },
+      { title: "Test", message: "...", id: "earlier", preference: "cashflow", severity: "warning", impactCents: 10_00, dueDate: "2026-08-02" },
     ], allEnabled)?.id).toBe("earlier");
   });
 });
