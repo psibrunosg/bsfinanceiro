@@ -173,6 +173,8 @@ Status: DONE
 
 ### Fase 8. Controle de dívidas e parcelamentos
 
+Status: DONE
+
 > **Inspiração:** Mobills (módulo de dívidas), Organizze (acompanhamento de parcelas)
 
 - [ ] **Painel de dívidas** — Lista de todas as dívidas ativas com saldo devedor, parcela mensal e previsão de quitação.

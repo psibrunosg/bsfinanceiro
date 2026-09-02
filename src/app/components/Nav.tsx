@@ -12,6 +12,7 @@ const desktopLinks = [
   { href: "/contas", label: "Contas", icon: Landmark },
   { href: "/cartoes", label: "Cartões", icon: CreditCard },
   { href: "/investimentos", label: "Investimentos", icon: WalletCards },
+  { href: "/dividas", label: "Dívidas", icon: Target },
   { href: "/planejamento", label: "Planejamento", icon: Target },
   { href: "/relatorios", label: "Relatórios", icon: ChartColumn },
   { href: "/saude", label: "Saúde financeira", icon: Activity },

@@ -166,3 +166,17 @@ export type SharedReport = {
   expires_at: string | null;
   created_at: string;
 };
+
+export type Debt = {
+  id: string;
+  workspace_id: string;
+  name: string;
+  total_amount: number;
+  outstanding_balance: number;
+  interest_rate_percent_monthly: number;
+  due_date_day: number;
+  monthly_installment: number;
+  type: 'credit_card' | 'loan' | 'financing' | 'other';
+  created_at?: string;
+  updated_at?: string;
+};
