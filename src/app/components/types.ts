@@ -81,8 +81,15 @@ export type TransactionImportItem = {
   status: "ready" | "duplicate" | "invalid";
   reason: string | null;
   fingerprint: string | null;
+  category_id: string | null;
   transaction_id: string | null;
   created_at: string;
+};
+
+export type TransactionCategoryRule = {
+  id: string;
+  pattern: string;
+  category_id: string;
 };
 export type TransactionImportBatch = {
   id: string;

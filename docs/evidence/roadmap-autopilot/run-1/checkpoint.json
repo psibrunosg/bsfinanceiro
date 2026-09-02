@@ -3,7 +3,9 @@
   "state": "COMPLETED",
   "timestamp": "2026-08-31T12:05:00Z",
   "runtime": "antigravity",
-  "models": ["Gemini 3.1 Pro (High)"],
+  "models": [
+    "Gemini 3.1 Pro (High)"
+  ],
   "repository": "psibrunosg/bsfinanceiro",
   "roadmap": "ROADMAP.md",
   "current_task": "P5-Alertas-Notificacoes",
@@ -13,15 +15,35 @@
   "base_sha": "683902cf983dbe4bfba59c73d7a627123d8cb7a3",
   "head_sha": "683902cf983dbe4bfba59c73d7a627123d8cb7a3",
   "verdicts": [
-    {"task": "baseline-fixes", "status": "ACCEPTED", "commands": ["npm test"]}
+    {
+      "task": "baseline-fixes",
+      "status": "ACCEPTED",
+      "commands": [
+        "npm test"
+      ]
+    }
   ],
   "commands": [
-    {"command": "npm test", "exit_code": 0},
-    {"command": "npm run build", "exit_code": 0}
+    {
+      "command": "npm test",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run build",
+      "exit_code": 0
+    }
   ],
   "evidence_hashes": {},
   "last_safe_state": "BASELINE",
   "next_step": "START_NEXT_PHASE",
-  "active_gates": ["lint", "build", "test"],
-  "blockers": []
+  "active_gates": [
+    "lint",
+    "build",
+    "test"
+  ],
+  "blockers": [],
+  "phases_completed": [
+    5,
+    6
+  ]
 }

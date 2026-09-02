@@ -29,6 +29,7 @@ function TransactionsPageInner() {
     workspace,
     ownerId,
     accounts,
+    categoryRules,
     categories,
     transactions,
     transactionTotal,
@@ -110,6 +111,9 @@ function TransactionsPageInner() {
       workspaceId={workspace.id}
       ownerId={ownerId}
       accounts={accounts}
+      categories={categories}
+      categoryRules={categoryRules}
+      historyTransactions={transactions}
       batches={transactionImportBatches}
       onReload={reload}
       onMessage={setMessage}

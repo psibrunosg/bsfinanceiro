@@ -12,18 +12,21 @@ import {
 } from "@/lib/finance/statement-csv";
 import { parseOfxStatement } from "@/lib/finance/statement-ofx";
 import { money } from "./Money";
-import type { Account, TransactionImportBatch, TransactionImportItem } from "./types";
+import type { Account, TransactionImportBatch, TransactionImportItem, Category, TransactionCategoryRule, Transaction } from "./types";
 
 type StatementImportPanelProps = {
   workspaceId: string;
   ownerId: string | null;
   accounts: Account[];
+  categories: Category[];
+  categoryRules: TransactionCategoryRule[];
+  historyTransactions: Transaction[];
   batches: TransactionImportBatch[];
   onReload: () => Promise<void>;
   onMessage: (message: string) => void;
 };
 
-type ClassifiedValidItem = StatementCsvValidItem & { duplicate?: true; duplicateSource?: "existing" | "file"; reason?: string };
+type ClassifiedValidItem = StatementCsvValidItem & { duplicate?: true; duplicateSource?: "existing" | "file"; reason?: string; categoryId?: string };
 type PreviewItem = ClassifiedValidItem | StatementCsvInvalidItem;
 type PreviewBatch = { id: string; fileName: string; status: "pending"; items: PreviewItem[] };
 
@@ -33,6 +36,9 @@ export function StatementImportPanel({
   workspaceId,
   ownerId,
   accounts,
+  categories,
+  categoryRules,
+  historyTransactions,
   batches,
   onReload,
   onMessage,
@@ -75,7 +81,7 @@ export function StatementImportPanel({
         }
       }
       const existingTransactions = await loadExistingTransactions();
-      const classified = classifyPreview(parsed, existingTransactions);
+      const classified = classifyPreview(parsed, existingTransactions, historyTransactions, categoryRules);
       const { data: batch, error: batchError } = await supabase
         .from("transaction_import_batches")
         .insert({ workspace_id: workspaceId, owner_id: ownerId, account_id: accountId, file_name: file.name })
@@ -185,6 +191,7 @@ export function StatementImportPanel({
     {previewTitle ? <ImportPreview
       title={previewTitle}
       items={previewItems}
+      categories={categories}
       onConfirm={preview?.status === "pending" || selectedInboxBatch?.status === "pending"
         ? () => actOnBatch({ id: preview?.id ?? selectedInboxBatch!.id, fileName: preview?.fileName ?? selectedInboxBatch!.file_name }, "apply")
         : undefined}
@@ -232,8 +239,8 @@ function ImportInbox({ batches, selectedBatchId, busy, onReview, onConfirm, onDi
   </section>;
 }
 
-function ImportPreview({ title, items, onConfirm, onDiscard, busy }: {
-  title: string; items: PreviewItem[] | TransactionImportItem[]; onConfirm?: () => void; onDiscard?: () => void; busy: boolean;
+function ImportPreview({ title, items, categories, onConfirm, onDiscard, busy }: {
+  title: string; items: PreviewItem[] | TransactionImportItem[]; categories: Category[]; onConfirm?: () => void; onDiscard?: () => void; busy: boolean;
 }) {
   const summary = summarize(items);
   const canConfirm = summary.ready > 0 && Boolean(onConfirm);
@@ -244,14 +251,23 @@ function ImportPreview({ title, items, onConfirm, onDiscard, busy }: {
       {onDiscard ? <button type="button" disabled={busy} onClick={onDiscard}>Descartar</button> : null}
     </div>
     <div className="statement-import-table-wrap">
-      <table><caption>Linhas da prévia{items.length > 50 ? "; mostrando as primeiras 50" : ""}.</caption><thead><tr><th>Data</th><th>Descrição</th><th>Valor</th><th>Status</th></tr></thead><tbody>
-        {items.slice(0, 50).map((item) => <tr key={getItemKey(item)}><td>{getDate(item)}</td><td>{getDescription(item)}</td><td>{getAmount(item)}</td><td>{getStatusLabel(item)}</td></tr>)}
+      <table><caption>Linhas da prévia{items.length > 50 ? "; mostrando as primeiras 50" : ""}.</caption><thead><tr><th>Data</th><th>Descrição</th><th>Valor</th><th>Categoria</th><th>Status</th></tr></thead><tbody>
+        {items.slice(0, 50).map((item) => {
+          const categoryId = "categoryId" in item ? item.categoryId : (item as TransactionImportItem).category_id;
+          const categoryName = categories.find(c => c.id === categoryId)?.name ?? "—";
+          return <tr key={getItemKey(item)}><td>{getDate(item)}</td><td>{getDescription(item)}</td><td>{getAmount(item)}</td><td>{categoryName}</td><td>{getStatusLabel(item)}</td></tr>
+        })}
       </tbody></table>
     </div>
   </section>;
 }
 
-function classifyPreview(preview: StatementCsvPreview, existingTransactions: Array<{ competence_date: string; description: string; amount: number; type: "income" | "expense" }>): { items: PreviewItem[] } {
+function classifyPreview(
+  preview: StatementCsvPreview, 
+  existingTransactions: Array<{ competence_date: string; description: string; amount: number; type: "income" | "expense" }>,
+  historyTransactions: Transaction[],
+  categoryRules: TransactionCategoryRule[]
+): { items: PreviewItem[] } {
   const fingerprints = new Set<string>();
   const existingFingerprints = new Set(existingTransactions.map((transaction) => statementTransactionFingerprint(
     transaction.competence_date,
@@ -259,21 +275,45 @@ function classifyPreview(preview: StatementCsvPreview, existingTransactions: Arr
     transaction.type,
     transaction.description,
   )));
+  
+  function suggestCategory(description: string | null): string | undefined {
+    if (!description) return undefined;
+    const lowerDesc = description.toLowerCase();
+    
+    for (const rule of categoryRules) {
+      if (lowerDesc.includes(rule.pattern.toLowerCase())) return rule.category_id;
+    }
+    
+    const exactMatch = historyTransactions.find(t => t.description?.toLowerCase() === lowerDesc && t.category_id);
+    if (exactMatch) return exactMatch.category_id!;
+    
+    const tokens = lowerDesc.split(/\s+/).filter(t => t.length > 3);
+    for (const token of tokens) {
+      const tokenMatch = historyTransactions.find(t => t.description?.toLowerCase().includes(token) && t.category_id);
+      if (tokenMatch) return tokenMatch.category_id!;
+    }
+    
+    return undefined;
+  }
+
   return { items: preview.items.map((item) => {
     if (!("fingerprint" in item)) return item;
-    if (existingFingerprints.has(item.fingerprint)) return { ...item, reason: "duplicate_existing", duplicate: true, duplicateSource: "existing" };
-    if (fingerprints.has(item.fingerprint)) return { ...item, reason: "duplicate_in_file", duplicate: true, duplicateSource: "file" };
+    
+    const categoryId = suggestCategory(item.description);
+    
+    if (existingFingerprints.has(item.fingerprint)) return { ...item, reason: "duplicate_existing", duplicate: true, duplicateSource: "existing", categoryId };
+    if (fingerprints.has(item.fingerprint)) return { ...item, reason: "duplicate_file", duplicate: true, duplicateSource: "file", categoryId };
     fingerprints.add(item.fingerprint);
-    return item;
+    return { ...item, categoryId };
   }) };
 }
 
 function toImportItem(item: PreviewItem, batchId: string, workspaceId: string, ownerId: string) {
   if ("fingerprint" in item) {
     const existingDuplicate = item.duplicateSource === "existing";
-    return { batch_id: batchId, workspace_id: workspaceId, owner_id: ownerId, row_number: item.rowNumber, competence_date: item.competenceDate, description: item.description, amount_cents: item.amountCents, type: item.type, status: existingDuplicate ? "duplicate" : "ready", reason: existingDuplicate ? "duplicate_existing" : null, fingerprint: item.fingerprint };
+    return { batch_id: batchId, workspace_id: workspaceId, owner_id: ownerId, row_number: item.rowNumber, competence_date: item.competenceDate, description: item.description, amount_cents: item.amountCents, type: item.type, status: existingDuplicate ? "duplicate" : "ready", reason: existingDuplicate ? "duplicate_existing" : null, fingerprint: item.fingerprint, category_id: item.categoryId ?? null };
   }
-  return { batch_id: batchId, workspace_id: workspaceId, owner_id: ownerId, row_number: item.rowNumber, competence_date: null, description: null, amount_cents: null, type: null, status: "invalid", reason: item.reason, fingerprint: null };
+  return { batch_id: batchId, workspace_id: workspaceId, owner_id: ownerId, row_number: item.rowNumber, competence_date: null, description: null, amount_cents: null, type: null, status: "invalid", reason: item.reason, fingerprint: null, category_id: null };
 }
 
 function summarize(items: Array<PreviewItem | TransactionImportItem>) {

@@ -34,6 +34,7 @@ import type {
   AlertPreference,
   StatementImport,
   TransactionImportBatch,
+  TransactionCategoryRule,
 } from "./types";
 
 const TRANSACTION_SELECT =
@@ -68,6 +69,7 @@ export type FinanceData = {
   ownerId: string | null;
   workspace: Workspace;
   accounts: Account[];
+  categoryRules: TransactionCategoryRule[];
   categories: Category[];
   cards: Card[];
   invoices: Invoice[];
@@ -108,6 +110,7 @@ export function useFinance(
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryRules, setCategoryRules] = useState<TransactionCategoryRule[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -406,6 +409,8 @@ export function useFinance(
     setWorkspace(ws);
     setAccounts(accountRows || []);
     setCategories(categoryRows || []);
+    const { data: rulesRows } = await supabase.from('transaction_category_rules').select('*').eq('workspace_id', ws.id);
+    setCategoryRules(rulesRows || []);
     setCards(cardRows || []);
     setTransactions(visibleTransactionRows);
     setDashboardTransactions(calculationTransactionRows);
@@ -541,6 +546,7 @@ export function useFinance(
   );
 
   return {
+    categoryRules,
     ownerId,
     workspace: workspace!,
     accounts,
