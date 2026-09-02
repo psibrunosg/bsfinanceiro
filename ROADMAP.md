@@ -160,6 +160,8 @@ Baseado em pesquisa dos principais apps brasileiros (Mobills, Organizze, Guiabol
 
 ### Fase 7. Exportação e relatórios
 
+Status: DONE
+
 > **Inspiração:** Organizze (export CSV/PDF), Mobills (relatórios premium), Minhas Economias (relatórios detalhados)
 
 - [ ] **Exportar transações em CSV** — Filtro por período, categoria, tipo e conta.
