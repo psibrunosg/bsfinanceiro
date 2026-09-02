@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("Authentication Server Actions", () => {
-  let mockSupabase: { auth: { signInWithPassword: ReturnType<typeof vi.fn>; signUp: ReturnType<typeof vi.fn> } };
+  let mockSupabase: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   beforeEach(() => {
     vi.resetAllMocks();

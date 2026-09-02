@@ -9,7 +9,7 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 describe("AuthForm", () => {
-  let mockSupabase: { auth: { signInWithPassword: ReturnType<typeof vi.fn>; getSession: ReturnType<typeof vi.fn> } };
+  let mockSupabase: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   beforeEach(() => {
     cleanup();

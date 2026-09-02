@@ -8,7 +8,7 @@ Chart.register(ArcElement, BarController, BarElement, CategoryScale, DoughnutCon
 type Series = { label: string; values: number[]; color: string };
 type Props =
   | { type: "bar" | "line" | "doughnut"; labels: string[]; values: number[]; label: string; color: string; series?: undefined; legend?: boolean; compactY?: boolean; tooltipTitles?: string[] }
-  | { type: "line"; labels: string[]; series: Series[]; values?: undefined; label?: undefined; color?: undefined; legend?: boolean; compactY?: boolean; tooltipTitles?: string[] };
+  | { type: "line" | "bar"; labels: string[]; series: Series[]; values?: undefined; label?: undefined; color?: undefined; legend?: boolean; compactY?: boolean; tooltipTitles?: string[] };
 
 function formatCompact(value: number): string {
   const abs = Math.abs(value);

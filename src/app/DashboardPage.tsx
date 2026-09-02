@@ -20,6 +20,7 @@ import { SubscriptionHubWidget } from "./components/SubscriptionHubWidget";
 import { InstallmentTimelineWidget } from "./components/InstallmentTimelineWidget";
 import { MicroExpenseRadarWidget } from "./components/MicroExpenseRadarWidget";
 import { HealthScoreWidget } from "./components/HealthScoreWidget";
+import { VisualizationsWidget } from "./components/VisualizationsWidget";
 import { DebtPayoffWidget } from "./components/DebtPayoffWidget";
 import { GoalPlannerWidget } from "./components/GoalPlannerWidget";
 import { TaxRadarWidget } from "./components/TaxRadarWidget";
@@ -287,6 +288,10 @@ export function DashboardPage() {
           )}
         </article>
       </div>
+    </div>
+
+    <div style={{ marginTop: '24px' }}>
+      <VisualizationsWidget transactions={transactions} categories={categories} accounts={accounts} currentMonth={month} nextMonth={nextMonth} />
     </div>
 
     <div style={{ marginTop: '24px' }}>
