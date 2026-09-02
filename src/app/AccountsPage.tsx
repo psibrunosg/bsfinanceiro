@@ -44,50 +44,33 @@ export function AccountsPage() {
   const positiveTotal = balances.reduce((sum, b) => sum + Math.max(0, b.balance), 0);
 
   async function submitAccount(form: FormData) {
-    const name = form.get("name");
-    const type = form.get("type");
+    const name = form.get("name") as string;
+    const type = form.get("type") as string;
     const initial_balance = parseMoney(form.get("initial_balance"));
+    const is_shared = form.get("is_shared") === "on";
 
     try {
-      const res = await fetch("/api/accounts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workspace_id: workspace.id,
-          name,
-          type,
-          initial_balance,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setMessage("Conta adicionada.");
-        setOpenDialog(false);
-      } else {
-        const { data: userData } = await supabase.auth.getUser();
-        const { error } = await supabase.from("accounts").insert({
-          workspace_id: workspace.id,
-          owner_id: userData?.user?.id,
-          name,
-          type,
-          initial_balance,
-        });
-        setMessage(error ? "Não foi possível adicionar a conta." : "Conta adicionada.");
-        if (!error) setOpenDialog(false);
-      }
-    } catch {
       const { data: userData } = await supabase.auth.getUser();
+      const owner_id = userData.user?.id;
+      if (!owner_id) throw new Error("Usuário não autenticado");
+
       const { error } = await supabase.from("accounts").insert({
         workspace_id: workspace.id,
-        owner_id: userData?.user?.id,
+        owner_id,
         name,
         type,
         initial_balance,
+        is_shared
       });
+
       setMessage(error ? "Não foi possível adicionar a conta." : "Conta adicionada.");
-      if (!error) setOpenDialog(false);
+      if (!error) {
+        setOpenDialog(false);
+        reload();
+      }
+    } catch (err: unknown) {
+      setMessage("Erro ao adicionar conta: " + (err as Error).message);
     }
-    await reload();
   }
 
   return (
@@ -161,7 +144,13 @@ export function AccountsPage() {
           </select>
           <label htmlFor="account-initial-balance">Saldo inicial</label>
           <input id="account-initial-balance" name="initial_balance" placeholder="0,00" defaultValue="0,00" autoComplete="off" data-lpignore="true" required />
-          <button>Adicionar conta</button>
+          
+          <label className="account-row" style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>Conta Compartilhada (visível para família)</span>
+            <input type="checkbox" name="is_shared" defaultChecked />
+          </label>
+
+          <button style={{ marginTop: "1rem" }}>Adicionar conta</button>
         </SimpleForm>
       </Dialog>
     </main>

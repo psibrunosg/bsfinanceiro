@@ -9,19 +9,35 @@ import { useMemo, useState } from "react";
 import type { WorkspacePreference } from "./components/types";
 
 export function SettingsPage() {
-  const { workspace, alertPrefs, workspacePrefs, contexts = [], categories, loading, message, setMessage, reload } = useFinance("settings");
+  const { workspace, workspaceUsers, workspaceInvites, alertPrefs, workspacePrefs, contexts = [], categories, loading, message, setMessage, reload } = useFinance("settings");
   const supabase = useMemo(() => createClient(), []);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("Aparência");
 
   if (loading || !workspace) return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
 
-  const TABS = ["Aparência", "Painel", "Contextos", "Ganhos", "Gastos", "Alertas", "Privacidade", "Dados"];
+  const TABS = ["Aparência", "Painel", "Família", "Contextos", "Ganhos", "Gastos", "Alertas", "Privacidade", "Dados"];
 
   async function savePreferences(form: FormData) {
     setSaving(true);
     const { data: userData } = await supabase.auth.getUser();
     
+    if (activeTab === "Família") {
+      const action = (form.get("action") as string) || (form.get("invite_role") ? "create_invite" : "");
+      if (action === "create_invite") {
+        const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        const { error } = await supabase.from("workspace_invites").insert({
+          workspace_id: workspace.id,
+          token,
+          role: form.get("invite_role") || "editor"
+        });
+        setMessage(error ? "Erro ao gerar convite." : "Convite gerado com sucesso!");
+        if (!error) reload();
+      }
+      setSaving(false);
+      return;
+    }
+
     if (activeTab === "Alertas") {
       const p = {
         workspace_id: workspace.id,
@@ -128,6 +144,51 @@ export function SettingsPage() {
                 <button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
               </div>
             </>
+          )}
+
+          ﻿          {activeTab === "Família" && (
+            <div className="simple-form">
+              <h3>Membros da Família</h3>
+              <p className="muted" style={{marginBottom: "1rem"}}>Pessoas que têm acesso a contas compartilhadas.</p>
+              
+              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 2rem 0", display: "grid", gap: "1rem" }}>
+                {(workspaceUsers || []).map(u => (
+                  <li key={u.id} style={{ display: "flex", justifyContent: "space-between", padding: "1rem", border: "1px solid #eee", borderRadius: "8px" }}>
+                    <span>{u.user_id}</span>
+                    <span style={{ color: "#666", textTransform: "capitalize" }}>{u.role}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <h3>Convites Pendentes</h3>
+              <ul style={{ listStyle: "none", padding: 0, margin: "1rem 0", display: "grid", gap: "1rem" }}>
+                {(workspaceInvites || []).map(i => (
+                  <li key={i.id} style={{ padding: "1rem", border: "1px solid #eee", borderRadius: "8px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                      <strong>Nível: {i.role}</strong>
+                      <span>Expira em: {new Date(i.expires_at).toLocaleDateString()}</span>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <input type="text" readOnly value={`${window.location.origin}/convite?token=${i.token}`} className="input" style={{ flex: 1 }} />
+                      <button type="button" onClick={() => navigator.clipboard.writeText(`${window.location.origin}/convite?token=${i.token}`)} className="primary-button" style={{ whiteSpace: "nowrap" }}>Copiar Link</button>
+                    </div>
+                  </li>
+                ))}
+                {(workspaceInvites || []).length === 0 && <p className="muted">Nenhum convite pendente.</p>}
+              </ul>
+
+              <h3 style={{ marginTop: "2rem" }}>Gerar Novo Convite</h3>
+              <div style={{ display: "grid", gap: "16px", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", marginTop: "1rem" }}>
+                <label>Permissão do convidado
+                  <select name="invite_role" defaultValue="editor">
+                    <option value="admin">Administrador (Total)</option>
+                    <option value="editor">Editor (Lançamentos)</option>
+                    <option value="viewer">Visualizador (Somente Leitura)</option>
+                  </select>
+                </label>
+              </div>
+              <button type="submit" name="action" value="create_invite" disabled={saving} style={{ marginTop: "1rem" }}>{saving ? "Gerando..." : "Gerar Link de Convite"}</button>
+            </div>
           )}
 
           {activeTab === "Aparência" && (

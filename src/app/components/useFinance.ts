@@ -151,7 +151,7 @@ export function useFinance(
     if (!hasLoaded.current) setLoading(true);
 
     let user: { id: string; email?: string } | null = null;
-    let ws: { id: string; name: string } | null = null;
+    let ws: import("./types").Workspace | null = null;
 
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -178,7 +178,7 @@ export function useFinance(
       try {
         const { data: workspaceData } = await supabase
           .from("workspaces")
-          .select("id,name")
+          .select("id,name,kind")
           .eq("owner_id", user.id)
           .eq("kind", "personal")
           .order("created_at")
@@ -206,7 +206,7 @@ export function useFinance(
     ] = await Promise.all([
       supabase
         .from("accounts")
-        .select("id,name,type,initial_balance")
+        .select("id,name,type,initial_balance,is_shared")
         .eq("workspace_id", ws.id)
         .eq("active", true)
         .eq("is_system", false)

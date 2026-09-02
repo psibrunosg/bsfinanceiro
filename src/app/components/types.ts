@@ -1,4 +1,4 @@
-export type Workspace = { id: string; name: string };
+export type Workspace = { id: string; name: string; kind: "personal" | "family" | "business" };
 export type WorkspacePreference = {
   default_cash_account_id: string | null;
   default_context_id: string | null;
@@ -19,6 +19,7 @@ export type Account = {
   name: string;
   type: string;
   initial_balance: number;
+  is_shared: boolean;
 };
 export type Category = {
   id: string;
@@ -180,3 +181,6 @@ export type Debt = {
   created_at?: string;
   updated_at?: string;
 };
+
+export type WorkspaceUser = { id: string; workspace_id: string; user_id: string; role: "admin" | "editor" | "viewer"; created_at: string; };
+export type WorkspaceInvite = { id: string; workspace_id: string; token: string; role: "admin" | "editor" | "viewer"; expires_at: string; created_at: string; };
