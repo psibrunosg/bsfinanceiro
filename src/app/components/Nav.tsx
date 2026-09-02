@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Activity, BarChart3, ChartColumn, ChevronLeft, ChevronRight, CirclePlus, CreditCard, Landmark, Menu, ReceiptText, Target, TrendingUp, WalletCards } from "lucide-react";
+import { CommandMenu } from "./CommandMenu";
 
 const desktopLinks = [
   { href: "/", label: "Painel", icon: BarChart3 },
@@ -48,6 +49,7 @@ export function Nav() {
   const isGastosRecorrentes = pathname === "/gastos" && searchParams?.get("tab") === "recorrentes";
 
   return <>
+    <CommandMenu />
     <aside className={`app-nav${collapsed ? " collapsed" : ""}`} aria-label="Navegação principal">
       <div className="nav-brand-row">
         <Link className="nav-brand" href="/"><span>BS</span><strong>Financeiro</strong></Link>

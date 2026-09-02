@@ -11,10 +11,12 @@ export function SimpleForm({
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [shake, setShake] = useState(false);
 
   return (
     <form
-      className="simple-form"
+      className={`simple-form ${shake ? "shake" : ""}`}
+      onAnimationEnd={() => setShake(false)}
       onSubmit={async (e) => {
         e.preventDefault();
         setError("");
@@ -23,6 +25,7 @@ export function SimpleForm({
           await onSubmit(new FormData(e.currentTarget));
         } catch {
           setError("Não foi possível salvar. Tente novamente.");
+          setShake(true);
         } finally {
           setPending(false);
         }
