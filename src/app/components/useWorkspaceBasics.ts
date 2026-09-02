@@ -39,7 +39,7 @@ export function useWorkspaceBasics(): WorkspaceBasics {
     if (!hasLoaded.current) setLoading(true);
 
     let user: { id: string; email?: string } | null = null;
-    let ws: { id: string; name: string } | null = null;
+    let ws: import("./types").Workspace | null = null;
 
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -72,7 +72,7 @@ export function useWorkspaceBasics(): WorkspaceBasics {
         const activeWorkspaceId = profile?.active_workspace_id;
         const { data: wsData } = await supabase
           .from("workspaces")
-          .select("id,name")
+          .select("id,name,kind")
           .eq("owner_id", user.id)
           .eq("kind", "personal")
           .eq("id", activeWorkspaceId ?? "00000000-0000-0000-0000-000000000000")
@@ -90,7 +90,7 @@ export function useWorkspaceBasics(): WorkspaceBasics {
       await Promise.all([
         supabase
           .from("accounts")
-          .select("id,name,type,initial_balance")
+          .select("id,name,type,initial_balance,is_shared")
           .eq("workspace_id", ws.id)
           .eq("active", true)
           .eq("is_system", false)

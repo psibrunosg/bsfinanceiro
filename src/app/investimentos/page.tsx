@@ -166,6 +166,7 @@ export default function InvestimentosPage() {
       name: form.get("name"),
       type: form.get("type"),
       exchange: form.get("exchange") || null,
+      is_shared: form.get("is_shared") === "on",
     });
     setMessage(error ? "Não foi possível cadastrar o ativo." : "Ativo cadastrado.");
     if (!error) setDialog(null);
@@ -339,19 +340,25 @@ export default function InvestimentosPage() {
 
       <Dialog open={dialog !== null} onClose={() => setDialog(null)} title={dialogTitle}>
         {dialog?.kind === "asset" && (
-          <SimpleForm key="asset" onSubmit={submitAsset}>
-            <label htmlFor="asset-name">Nome do ativo</label>
-            <input id="asset-name" name="name" maxLength={120} placeholder="Ex.: Tesouro Selic 2029" required autoFocus />
-            <label htmlFor="asset-type">Tipo</label>
-            <select id="asset-type" name="type" defaultValue="fixed_income" required>
-              {Object.entries(ASSET_TYPES).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-            <label htmlFor="asset-exchange">Corretora</label>
-            <input id="asset-exchange" name="exchange" maxLength={60} placeholder="Corretora (opcional)" />
-            <button>Cadastrar ativo</button>
-          </SimpleForm>
+            <SimpleForm key="asset" onSubmit={submitAsset}>
+              <label htmlFor="asset-name">Nome do ativo</label>
+              <input id="asset-name" name="name" maxLength={120} placeholder="Ex.: Tesouro Selic 2029" required autoFocus />
+              <label htmlFor="asset-type">Tipo</label>
+              <select id="asset-type" name="type" defaultValue="fixed_income" required>
+                {Object.entries(ASSET_TYPES).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+              <label htmlFor="asset-exchange">Corretora</label>
+              <input id="asset-exchange" name="exchange" maxLength={60} placeholder="Corretora (opcional)" />
+              
+              <label className="account-row" style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Compartilhar Ativo (visível para família)</span>
+                <input type="checkbox" name="is_shared" defaultChecked />
+              </label>
+
+              <button style={{ marginTop: "1rem" }}>Cadastrar ativo</button>
+            </SimpleForm>
         )}
         {buyDialog && (
           <SimpleForm key="buy" onSubmit={(form) => submitOperation(buyDialog.assetId, "buy", form)}>

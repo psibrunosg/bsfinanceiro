@@ -184,3 +184,30 @@ export type Debt = {
 
 export type WorkspaceUser = { id: string; workspace_id: string; user_id: string; role: "admin" | "editor" | "viewer"; created_at: string; };
 export type WorkspaceInvite = { id: string; workspace_id: string; token: string; role: "admin" | "editor" | "viewer"; expires_at: string; created_at: string; };
+export type InvestmentAsset = {
+  id: string;
+  workspace_id: string;
+  owner_id: string;
+  context_id: string;
+  name: string;
+  type: 'stock' | 'reit' | 'fund' | 'fixed_income' | 'real_estate';
+  exchange?: string;
+  active: boolean;
+  is_shared: boolean;
+  created_at: string;
+};
+
+export type InvestmentOperation = {
+  id: string;
+  workspace_id: string;
+  owner_id: string;
+  context_id: string;
+  asset_id: string;
+  operation_type: 'buy' | 'sell';
+  quantity: number;
+  unit_price: number;
+  operation_date: string;
+  notes?: string;
+  transaction_id?: string;
+  created_at: string;
+};

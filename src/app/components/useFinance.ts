@@ -71,6 +71,10 @@ export type FinanceData = {
   accounts: Account[];
   categoryRules: TransactionCategoryRule[];
   debts: import("./types").Debt[];
+  investmentAssets: import("./types").InvestmentAsset[];
+  investmentOperations: import("./types").InvestmentOperation[];
+  workspaceUsers: import("./types").WorkspaceUser[];
+  workspaceInvites: import("./types").WorkspaceInvite[];
   categories: Category[];
   cards: Card[];
   invoices: Invoice[];
@@ -113,8 +117,12 @@ export function useFinance(
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryRules, setCategoryRules] = useState<TransactionCategoryRule[]>([]);
   const [debts, setDebts] = useState<import("./types").Debt[]>([]);
+  const [investmentAssets, setInvestmentAssets] = useState<import("./types").InvestmentAsset[]>([]);
+  const [investmentOperations, setInvestmentOperations] = useState<import("./types").InvestmentOperation[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [workspaceUsers, setWorkspaceUsers] = useState<import("./types").WorkspaceUser[]>([]);
+  const [workspaceInvites, setWorkspaceInvites] = useState<import("./types").WorkspaceInvite[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [dashboardTransactions, setDashboardTransactions] = useState<
     Transaction[]
@@ -415,6 +423,18 @@ export function useFinance(
       setCategoryRules(rulesRows || []);
       const { data: debtsRows } = await supabase.from('debts').select('*').eq('workspace_id', ws.id);
       setDebts(debtsRows || []);
+
+      const { data: assetsRows } = await supabase.from('investment_assets').select('*').eq('workspace_id', ws.id);
+      setInvestmentAssets(assetsRows || []);
+
+      const { data: opsRows } = await supabase.from('investment_operations').select('*').eq('workspace_id', ws.id);
+      setInvestmentOperations(opsRows || []);
+
+      const { data: wUsers } = await supabase.from('workspace_users').select('*').eq('workspace_id', ws.id);
+      setWorkspaceUsers(wUsers || []);
+      
+      const { data: wInvites } = await supabase.from('workspace_invites').select('*').eq('workspace_id', ws.id);
+      setWorkspaceInvites(wInvites || []);
       setCards(cardRows || []);
     setTransactions(visibleTransactionRows);
     setDashboardTransactions(calculationTransactionRows);
@@ -551,6 +571,10 @@ export function useFinance(
 
   return {
     debts,
+    investmentAssets,
+    investmentOperations,
+    workspaceUsers,
+    workspaceInvites,
     categoryRules,
     ownerId,
     workspace: workspace!,

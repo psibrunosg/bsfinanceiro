@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, ChevronDown, CircleAlert, DollarSign, PiggyBank, Receipt, Target, TrendingDown, Utensils, WalletCards } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { currentMonthStart, useMonth } from "./components/MonthContext";
@@ -64,26 +64,12 @@ function Trend({ pct }: { pct: number | null }) {
 }
 
 export function DashboardPage() {
-  const { workspace, accounts, transactions, invoices, categories, goals, occurrences, budgets, alertPrefs, loading } = useFinance("dashboard");
+  const { workspace, accounts, transactions, invoices, categories, goals, occurrences, budgets, alertPrefs, loading, investmentAssets, investmentOperations } = useFinance("dashboard");
   const { month, nextMonth } = useMonth();
   const { displayName } = useCurrentUser();
   const supabase = useMemo(() => createClient(), []);
-  const [assets, setAssets] = useState<InvestmentAsset[]>([]);
-  const [operations, setOperations] = useState<InvestmentOperation[]>([]);
-
-  const loadInvestments = useCallback(async () => {
-    if (!workspace) return;
-    const [{ data: assetRows }, { data: operationRows }] = await Promise.all([
-      supabase.from("investment_assets").select("id,type").eq("workspace_id", workspace.id).eq("active", true),
-      supabase.from("investment_operations").select("asset_id,operation_type,quantity,unit_price,operation_date").eq("workspace_id", workspace.id),
-    ]);
-    setAssets(assetRows ?? []);
-    setOperations(operationRows ?? []);
-  }, [supabase, workspace]);
-
-  useEffect(() => {
-    void loadInvestments();
-  }, [loadInvestments]);
+  const assets = investmentAssets;
+  const operations = investmentOperations;
 
   const investedAsOf = useCallback(
     (cutoff: string | null) => {
