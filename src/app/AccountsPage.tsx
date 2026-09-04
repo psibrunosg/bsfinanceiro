@@ -14,7 +14,7 @@ import { Dialog } from "./components/Dialog";
 import { EmergencyFundWidget } from "./components/EmergencyFundWidget";
 
 export function AccountsPage() {
-  const { workspace, accounts, transactions, loading, message, setMessage, reload } =
+  const { ownerId, workspace, accounts, transactions, loading, message, setMessage, reload } =
     useFinance("accounts");
   const supabase = useMemo(() => createClient(), []);
   const [openDialog, setOpenDialog] = useState(false);
@@ -50,8 +50,31 @@ export function AccountsPage() {
     const is_shared = form.get("is_shared") === "on";
 
     try {
+      // 1. Tenta salvar na API local da VPS
+      try {
+        const res = await fetch("/api/accounts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workspace_id: workspace.id,
+            owner_id: ownerId,
+            name,
+            type,
+            initial_balance,
+            is_shared,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          setMessage("Conta adicionada.");
+          setOpenDialog(false);
+          await reload();
+          return;
+        }
+      } catch {}
+
       const { data: userData } = await supabase.auth.getUser();
-      const owner_id = userData.user?.id;
+      const owner_id = userData?.user?.id ?? ownerId;
       if (!owner_id) throw new Error("Usuário não autenticado");
 
       const { error } = await supabase.from("accounts").insert({

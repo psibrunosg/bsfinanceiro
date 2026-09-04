@@ -15,6 +15,21 @@ export default function DividasPage() {
 
   async function handleAddDebt(debt: Omit<import('@/app/components/types').Debt, 'id' | 'workspace_id' | 'created_at' | 'updated_at'>) {
     if (!workspace) return;
+    try {
+      const res = await fetch("/api/debts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...debt,
+          workspace_id: workspace.id,
+        }),
+      });
+      if (res.ok) {
+        window.location.reload();
+        return;
+      }
+    } catch {}
+
     const { error } = await supabase.from("debts").insert({
       ...debt,
       workspace_id: workspace.id,

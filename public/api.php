@@ -270,26 +270,68 @@ try {
             exit;
         }
 
-        $accounts = $db->prepare("SELECT * FROM accounts WHERE workspace_id = ? AND active = true ORDER BY name ASC");
+        $accounts = $db->prepare("SELECT id, name, type, initial_balance, is_shared, active, is_system FROM accounts WHERE workspace_id = ? AND active = true ORDER BY name ASC");
         $accounts->execute([$workspaceId]);
 
-        $categories = $db->prepare("SELECT * FROM categories WHERE workspace_id = ? ORDER BY name ASC");
+        $categories = $db->prepare("SELECT id, name, kind, color, budget_limit FROM categories WHERE workspace_id = ? AND active = true ORDER BY name ASC");
         $categories->execute([$workspaceId]);
 
-        $transactions = $db->prepare("SELECT * FROM transactions WHERE workspace_id = ? ORDER BY competence_date DESC, created_at DESC LIMIT 500");
+        $transactions = $db->prepare("SELECT id, account_id, destination_account_id, type, status, description, amount, competence_date, category_id, paid_at FROM transactions WHERE workspace_id = ? ORDER BY competence_date DESC, created_at DESC LIMIT 500");
         $transactions->execute([$workspaceId]);
 
-        $budgets = $db->prepare("SELECT * FROM monthly_budgets WHERE workspace_id = ?");
+        $budgets = $db->prepare("SELECT id, category_id, amount, month FROM monthly_budgets WHERE workspace_id = ?");
         $budgets->execute([$workspaceId]);
 
-        $goals = $db->prepare("SELECT * FROM financial_goals WHERE workspace_id = ? AND status = 'active'");
+        $goals = $db->prepare("SELECT id, name, target_amount, current_amount, deadline, status FROM financial_goals WHERE workspace_id = ? AND status = 'active'");
         $goals->execute([$workspaceId]);
 
-        $cards = $db->prepare("SELECT * FROM credit_cards WHERE workspace_id = ?");
+        $cards = $db->prepare("SELECT id, account_id, name, brand, last_four, credit_limit, closing_day, due_day FROM credit_cards WHERE workspace_id = ?");
         $cards->execute([$workspaceId]);
 
         $investments = $db->prepare("SELECT * FROM investment_assets WHERE workspace_id = ? AND active = true");
         $investments->execute([$workspaceId]);
+
+        $commitments = [];
+        try {
+            $stmt = $db->prepare("SELECT * FROM fixed_commitments WHERE workspace_id = ? AND active = true");
+            $stmt->execute([$workspaceId]);
+            $commitments = $stmt->fetchAll();
+        } catch (Exception $e) {}
+
+        $occurrences = [];
+        try {
+            $stmt = $db->prepare("SELECT o.* FROM fixed_commitment_occurrences o JOIN fixed_commitments c ON c.id = o.commitment_id WHERE c.workspace_id = ?");
+            $stmt->execute([$workspaceId]);
+            $occurrences = $stmt->fetchAll();
+        } catch (Exception $e) {}
+
+        $debts = [];
+        try {
+            $stmt = $db->prepare("SELECT * FROM debts WHERE workspace_id = ? ORDER BY created_at DESC");
+            $stmt->execute([$workspaceId]);
+            $debts = $stmt->fetchAll();
+        } catch (Exception $e) {}
+
+        $workspaceUsers = [];
+        try {
+            $stmt = $db->prepare("SELECT u.id, u.workspace_id, u.user_id, u.role, us.display_name, us.email FROM workspace_users u JOIN users us ON us.id = u.user_id WHERE u.workspace_id = ?");
+            $stmt->execute([$workspaceId]);
+            $workspaceUsers = $stmt->fetchAll();
+        } catch (Exception $e) {}
+
+        $alertPrefs = null;
+        try {
+            $stmt = $db->prepare("SELECT * FROM alert_preferences WHERE workspace_id = ? LIMIT 1");
+            $stmt->execute([$workspaceId]);
+            $alertPrefs = $stmt->fetch() ?: null;
+        } catch (Exception $e) {}
+
+        $workspacePrefs = null;
+        try {
+            $stmt = $db->prepare("SELECT * FROM workspace_preferences WHERE workspace_id = ? LIMIT 1");
+            $stmt->execute([$workspaceId]);
+            $workspacePrefs = $stmt->fetch() ?: null;
+        } catch (Exception $e) {}
 
         echo json_encode([
             'accounts' => $accounts->fetchAll(),
@@ -299,6 +341,12 @@ try {
             'goals' => $goals->fetchAll(),
             'cards' => $cards->fetchAll(),
             'investments' => $investments->fetchAll(),
+            'commitments' => $commitments,
+            'occurrences' => $occurrences,
+            'debts' => $debts,
+            'workspace_users' => $workspaceUsers,
+            'alert_preferences' => $alertPrefs,
+            'workspace_preferences' => $workspacePrefs,
         ]);
         exit;
     }
@@ -312,13 +360,21 @@ try {
         $type = $body['type'] ?? 'expense';
         $competenceDate = $body['competence_date'] ?? date('Y-m-d');
         $accountId = $body['account_id'] ?? null;
+        $destinationAccountId = $body['destination_account_id'] ?? null;
         $categoryId = $body['category_id'] ?? null;
         $interestAmount = (float)($body['interest_amount'] ?? 0);
+        $status = $body['status'] ?? 'paid';
 
-        if (!$workspaceId || !$ownerId || empty($description) || $amount <= 0) {
+        if (!$workspaceId || empty($description) || $amount <= 0) {
             http_response_code(400);
             echo json_encode(['error' => 'Dados de transação incompletos']);
             exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
         }
 
         // If no account provided, pick the first available
@@ -329,12 +385,25 @@ try {
         }
 
         $stmt = $db->prepare("INSERT INTO transactions 
-            (workspace_id, owner_id, account_id, category_id, type, description, amount, interest_amount, competence_date, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid') RETURNING *");
-        $stmt->execute([$workspaceId, $ownerId, $accountId, $categoryId, $type, $description, $amount, $interestAmount, $competenceDate]);
+            (workspace_id, owner_id, account_id, destination_account_id, category_id, type, description, amount, interest_amount, competence_date, paid_at, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $accountId, $destinationAccountId, $categoryId, $type, $description, $amount, $interestAmount, $competenceDate, $competenceDate, $status]);
         $tx = $stmt->fetch();
 
         echo json_encode(['success' => true, 'transaction' => $tx]);
+        exit;
+    }
+
+    if ($uri === '/transactions' && $method === 'DELETE') {
+        $id = $_GET['id'] ?? $body['id'] ?? null;
+        if (!$id) {
+            http_response_code(400);
+            echo json_encode(['error' => 'ID da transação é obrigatório']);
+            exit;
+        }
+        $stmt = $db->prepare("DELETE FROM transactions WHERE id = ?");
+        $stmt->execute([$id]);
+        echo json_encode(['success' => true]);
         exit;
     }
 
@@ -374,6 +443,7 @@ try {
         $name = trim($body['name'] ?? '');
         $type = $body['type'] ?? 'checking';
         $initialBalance = (float)($body['initial_balance'] ?? 0);
+        $isShared = !empty($body['is_shared']) ? true : false;
 
         if (!$workspaceId || empty($name)) {
             http_response_code(400);
@@ -387,8 +457,8 @@ try {
             $ownerId = $stmt->fetchColumn();
         }
 
-        $stmt = $db->prepare("INSERT INTO accounts (workspace_id, owner_id, name, type, initial_balance) VALUES (?, ?, ?, ?, ?) RETURNING *");
-        $stmt->execute([$workspaceId, $ownerId, $name, $type, $initialBalance]);
+        $stmt = $db->prepare("INSERT INTO accounts (workspace_id, owner_id, name, type, initial_balance, is_shared) VALUES (?, ?, ?, ?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $name, $type, $initialBalance, $isShared ? 'true' : 'false']);
         $acc = $stmt->fetch();
 
         echo json_encode(['success' => true, 'account' => $acc]);
@@ -502,6 +572,46 @@ try {
         $tx = $stmt->fetch();
 
         echo json_encode(['success' => true, 'transaction' => $tx]);
+        exit;
+    }
+
+    // 12. Data: Create & Delete Debt
+    if ($uri === '/debts' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $name = trim($body['name'] ?? '');
+        $totalAmount = (float)($body['total_amount'] ?? 0);
+        $outstandingBalance = (float)($body['outstanding_balance'] ?? $totalAmount);
+        $interestRate = (float)($body['interest_rate_percent_monthly'] ?? 0);
+        $dueDateDay = (int)($body['due_date_day'] ?? 10);
+        $monthlyInstallment = (float)($body['monthly_installment'] ?? 0);
+        $type = $body['type'] ?? 'other';
+
+        if (!$workspaceId || empty($name) || $totalAmount <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Nome e valor total da dívida são obrigatórios']);
+            exit;
+        }
+
+        $stmt = $db->prepare("INSERT INTO debts 
+            (workspace_id, name, total_amount, outstanding_balance, interest_rate_percent_monthly, due_date_day, monthly_installment, type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $name, $totalAmount, $outstandingBalance, $interestRate, $dueDateDay, $monthlyInstallment, $type]);
+        $debt = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'debt' => $debt]);
+        exit;
+    }
+
+    if ($uri === '/debts' && $method === 'DELETE') {
+        $id = $_GET['id'] ?? $body['id'] ?? null;
+        if (!$id) {
+            http_response_code(400);
+            echo json_encode(['error' => 'ID da dívida é obrigatório']);
+            exit;
+        }
+        $stmt = $db->prepare("DELETE FROM debts WHERE id = ?");
+        $stmt->execute([$id]);
+        echo json_encode(['success' => true]);
         exit;
     }
 

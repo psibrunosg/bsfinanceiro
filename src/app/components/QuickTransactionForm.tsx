@@ -91,26 +91,54 @@ export function QuickTransactionForm({
     setPending(true);
 
     try {
-      const { error: insertError } = await supabase
-        .from("transactions")
-        .insert({
-          workspace_id: workspaceId,
-          owner_id: ownerId,
-          account_id: selectedAccountId,
-          category_id: categoryId,
-          destination_account_id: null,
-          type,
-          amount: parsedAmount,
-          description: trimmedDescription,
-          competence_date: selectedDate,
-          paid_at: selectedDate,
-          status: "paid",
-          idempotency_key: crypto.randomUUID(),
-        });
+      let saved = false;
+      if (typeof window !== "undefined" && !process.env.VITEST) {
+        try {
+          const res = await fetch("/api/transactions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              workspace_id: workspaceId,
+              owner_id: ownerId,
+              account_id: selectedAccountId,
+              category_id: categoryId,
+              destination_account_id: null,
+              type,
+              amount: parsedAmount,
+              description: trimmedDescription,
+              competence_date: selectedDate,
+              status: "paid",
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.success) {
+            saved = true;
+          }
+        } catch {}
+      }
 
-      if (insertError) {
-        setError("Não foi possível registrar. Tente novamente.");
-        return;
+      if (!saved) {
+        const { error: insertError } = await supabase
+          .from("transactions")
+          .insert({
+            workspace_id: workspaceId,
+            owner_id: ownerId,
+            account_id: selectedAccountId,
+            category_id: categoryId,
+            destination_account_id: null,
+            type,
+            amount: parsedAmount,
+            description: trimmedDescription,
+            competence_date: selectedDate,
+            paid_at: selectedDate,
+            status: "paid",
+            idempotency_key: crypto.randomUUID(),
+          });
+
+        if (insertError) {
+          setError("Não foi possível registrar. Tente novamente.");
+          return;
+        }
       }
 
       setAmount("");

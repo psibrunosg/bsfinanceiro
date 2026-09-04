@@ -161,12 +161,7 @@ export function useFinance(
     let user: { id: string; email?: string } | null = null;
     let ws: import("./types").Workspace | null = null;
 
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      user = userData?.user;
-    } catch {}
-
-    if (!user && typeof window !== "undefined") {
+    if (typeof window !== "undefined") {
       const storedUser = localStorage.getItem("bsfinanceiro_user");
       const storedWs = localStorage.getItem("bsfinanceiro_workspace");
       if (storedUser) {
@@ -178,9 +173,18 @@ export function useFinance(
     }
 
     if (!user) {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        user = userData?.user ?? null;
+      } catch {}
+    }
+
+    if (!user) {
       window.location.replace(appPath("/entrar"));
       return;
     }
+
+    setOwnerId(user.id);
 
     if (!ws) {
       try {
@@ -201,7 +205,57 @@ export function useFinance(
       return;
     }
 
+    setWorkspace(ws);
+
     const today = todayInSaoPaulo();
+
+    // 1. Tenta carregar via API REST da VPS (PostgreSQL dedicado)
+    try {
+      const apiRes = await fetch(`/api/bootstrap?workspace_id=${encodeURIComponent(ws.id)}`);
+      if (apiRes.ok) {
+        const boot = await apiRes.json();
+        if (boot && Array.isArray(boot.accounts)) {
+          setAccounts(boot.accounts || []);
+          setCategories(boot.categories || []);
+          setCards(boot.cards || []);
+          setBudgets(boot.budgets || []);
+          setGoals(boot.goals || []);
+          setDebts(boot.debts || []);
+          setInvestmentAssets(boot.investments || []);
+          setWorkspaceUsers(boot.workspace_users || []);
+          if (boot.alert_preferences) setAlertPrefs(boot.alert_preferences);
+          if (boot.workspace_preferences) {
+            setWorkspacePrefs(boot.workspace_preferences);
+            if (boot.workspace_preferences.default_cash_account_id) {
+              setDefaultCashAccountId(boot.workspace_preferences.default_cash_account_id);
+            }
+          }
+          if (boot.commitments) setCommitments(boot.commitments);
+          if (boot.occurrences) setOccurrences(boot.occurrences);
+
+          const allTx: Transaction[] = boot.transactions || [];
+          setTransactions(allTx);
+          setDashboardTransactions(allTx);
+          setTransactionTotal(allTx.length);
+          setTodayTransactions(allTx.filter((t: Transaction) => t.competence_date === today && t.status === "paid"));
+
+          const spentByCat: Record<string, number> = {};
+          const currentMonthPrefix = today.slice(0, 7);
+          for (const tx of allTx) {
+            if (tx.type === "expense" && tx.status === "paid" && tx.competence_date.startsWith(currentMonthPrefix) && tx.category_id) {
+              spentByCat[tx.category_id] = (spentByCat[tx.category_id] || 0) + Number(tx.amount);
+            }
+          }
+          setMonthSpent(spentByCat);
+          setLoading(false);
+          hasLoaded.current = true;
+          return;
+        }
+      }
+    } catch {
+      // API não disponível, segue para o Supabase como fallback
+    }
+
     const [
       { data: accountRows },
       { data: categoryRows },
