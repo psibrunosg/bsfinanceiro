@@ -71,13 +71,18 @@ export function parseBankNotification(text: string): ParsedBankNotification {
   );
   const paraMatch = rawText.match(/\bpara\s+([^.,;\n]+)/i);
 
+  const cleanTrailing = (s: string) =>
+    s
+      .replace(/\s+(no\s+banco|via\s+pix|pelo\s+pix|no\s+d[eé]bito|no\s+cr[eé]dito|no\s+cart[aã]o|no\s+valor|com\s+sucesso).*$/i, "")
+      .trim();
+
   if (isIncome && validDeMatch) {
-    const nameOnly = validDeMatch[1].replace(/\s+no\s+banco.*$/i, "").trim();
+    const nameOnly = cleanTrailing(validDeMatch[1]);
     description = `Recebido de ${nameOnly}`;
   } else if (!isIncome && emMatch) {
-    description = emMatch[1].trim();
+    description = cleanTrailing(emMatch[1]);
   } else if (!isIncome && paraMatch) {
-    description = `Pix para ${paraMatch[1].trim()}`;
+    description = `Pix para ${cleanTrailing(paraMatch[1])}`;
   } else {
     description = isIncome ? `Pix Recebido (${bank})` : `Compra ${bank}`;
   }

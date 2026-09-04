@@ -12,6 +12,7 @@ import { MonthPicker } from "../components/MonthPicker";
 import { useMonth } from "../components/MonthContext";
 import { createClient } from "@/lib/supabase/client";
 import { addMonths } from "@/lib/finance/local-date";
+import { predictCategory } from "@/lib/finance/category-predictor";
 import { ArrowDownRight, ArrowUpRight, Check, Clock, LayoutGrid, ReceiptText, Repeat } from "lucide-react";
 import { SubscriptionHubWidget } from "../components/SubscriptionHubWidget";
 import { MicroExpenseRadarWidget } from "../components/MicroExpenseRadarWidget";
@@ -671,7 +672,23 @@ export default function GastosPage() {
         {dialog?.kind === "expense" && (
           <SimpleForm key="expense" onSubmit={submitExpense}>
             <label htmlFor="expense-description">Descrição</label>
-            <input id="expense-description" name="description" maxLength={160} placeholder="Descrição do gasto" required autoFocus />
+            <input
+              id="expense-description"
+              name="description"
+              maxLength={160}
+              placeholder="Descrição do gasto"
+              required
+              autoFocus
+              onChange={(e) => {
+                const cat = predictCategory(e.target.value, expenseCategories);
+                if (cat) {
+                  const select = document.getElementById("expense-category") as HTMLSelectElement | null;
+                  if (select && select.dataset.manual !== "true") {
+                    select.value = cat;
+                  }
+                }
+              }}
+            />
             <label htmlFor="expense-amount">Valor</label>
             <input id="expense-amount" name="amount" placeholder="0,00" required />
             <label htmlFor="expense-account">Conta</label>
@@ -682,7 +699,13 @@ export default function GastosPage() {
               ))}
             </select>
             <label htmlFor="expense-category">Categoria</label>
-            <select id="expense-category" name="category_id">
+            <select
+              id="expense-category"
+              name="category_id"
+              onChange={(e) => {
+                e.currentTarget.dataset.manual = "true";
+              }}
+            >
               <option value="">Sem categoria</option>
               {expenseCategories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>

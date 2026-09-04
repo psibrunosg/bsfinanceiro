@@ -32,4 +32,25 @@ describe("bank-notification-parser", () => {
     expect(res.amount).toBe(142.9);
     expect(res.suggestedCategory).toBe("Saúde");
   });
+
+  it("parses outgoing Pix transfer to merchant", () => {
+    const text = "Você transferiu R$ 45,00 para Farmácia Raia via Pix.";
+    const res = parseBankNotification(text);
+
+    expect(res.type).toBe("expense");
+    expect(res.amount).toBe(45);
+    expect(res.description).toContain("Farmácia Raia");
+    expect(res.suggestedCategory).toBe("Saúde");
+  });
+
+  it("parses Santander Pix payment", () => {
+    const text = "Santander: Pix enviado de R$ 85,00 para Posto Ipiranga com sucesso.";
+    const res = parseBankNotification(text);
+
+    expect(res.bank).toBe("Santander");
+    expect(res.type).toBe("expense");
+    expect(res.amount).toBe(85);
+    expect(res.description).toContain("Posto Ipiranga");
+    expect(res.suggestedCategory).toBe("Transporte");
+  });
 });

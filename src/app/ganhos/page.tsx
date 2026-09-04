@@ -820,7 +820,33 @@ export default function GanhosPage() {
                               </small>
                             </div>
                             {e.status === "pending" ? (
-                              <button type="button" onClick={() => setDialog({ kind: "receive", earningId: e.id })}>Receber</button>
+                              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                                <button
+                                  type="button"
+                                  title="Copiar lembrete cordial para WhatsApp"
+                                  onClick={() => {
+                                    const dateStr = dateFmt.format(new Date(`${e.appointment_date}T12:00:00`));
+                                    const firstName = p.full_name.split(" ")[0];
+                                    const msg = `Olá, ${firstName}! Tudo bem? Passando para compartilhar o resumo do atendimento do dia ${dateStr}, no valor de ${money(e.amount)}. Qualquer dúvida estou à disposição!`;
+                                    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+                                      navigator.clipboard.writeText(msg).catch(() => {});
+                                    }
+                                    alert("Lembrete copiado! Basta colar na conversa com o paciente no WhatsApp.");
+                                  }}
+                                  style={{
+                                    background: "rgba(34,197,94,.1)",
+                                    color: "#22C55E",
+                                    border: "1px solid rgba(34,197,94,.3)",
+                                    fontSize: "0.8rem",
+                                    padding: "4px 8px",
+                                    borderRadius: "6px",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  📱 WhatsApp
+                                </button>
+                                <button type="button" onClick={() => setDialog({ kind: "receive", earningId: e.id })}>Receber</button>
+                              </div>
                             ) : (
                               <b data-status={e.status} className={`tx-row__amount ${e.status === "received" ? "form-success" : "muted"}`}>
                                 {e.status === "received" ? "Recebido" : "Cancelado"}

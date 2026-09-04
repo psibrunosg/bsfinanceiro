@@ -4,6 +4,8 @@ import { useMemo, useRef, useState, type FormEvent } from "react";
 import { todayInSaoPaulo } from "@/lib/finance/local-date";
 import { createClient } from "@/lib/supabase/client";
 import { parseMoney } from "./Money";
+import { predictCategory } from "@/lib/finance/category-predictor";
+import { parseBankNotification } from "@/lib/finance/bank-notification-parser";
 import type { Account, Category } from "./types";
 
 type TransactionType = "expense" | "income";
@@ -37,6 +39,7 @@ export function QuickTransactionForm({
   const [selectedAccountId, setSelectedAccountId] =
     useState(initialAccountId);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [isAutoPredicted, setIsAutoPredicted] = useState(false);
   const [selectedDate, setSelectedDate] = useState(today);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -160,6 +163,56 @@ export function QuickTransactionForm({
     }
   }
 
+  async function handlePasteNotification() {
+    try {
+      let text = "";
+      if (typeof navigator !== "undefined" && navigator.clipboard?.readText) {
+        text = await navigator.clipboard.readText();
+      }
+      if (!text && typeof window !== "undefined") {
+        text = window.prompt("Cole o texto da notificação ou comprovante Pix:") ?? "";
+      }
+      if (!text.trim()) return;
+
+      const parsed = parseBankNotification(text);
+      if (parsed.amount > 0) {
+        setAmount(String(parsed.amount).replace(".", ","));
+        setDescription(parsed.description);
+        setType(parsed.type);
+        const matchCat = availableCategories.find(
+          (c) => c.name.toLowerCase() === parsed.suggestedCategory.toLowerCase()
+        );
+        if (matchCat) {
+          setSelectedCategoryId(matchCat.id);
+          setIsAutoPredicted(true);
+        }
+        setStatus(`✨ Reconhecido (${parsed.bank}): ${parsed.description}`);
+      } else {
+        setError("Não foi possível identificar valor no texto.");
+      }
+    } catch {
+      // Fallback para prompt manual
+      if (typeof window !== "undefined") {
+        const text = window.prompt("Cole o texto da notificação ou comprovante Pix:") ?? "";
+        if (text.trim()) {
+          const parsed = parseBankNotification(text);
+          if (parsed.amount > 0) {
+            setAmount(String(parsed.amount).replace(".", ","));
+            setDescription(parsed.description);
+            setType(parsed.type);
+            const matchCat = availableCategories.find(
+              (c) => c.name.toLowerCase() === parsed.suggestedCategory.toLowerCase()
+            );
+            if (matchCat) {
+              setSelectedCategoryId(matchCat.id);
+              setIsAutoPredicted(true);
+            }
+          }
+        }
+      }
+    }
+  }
+
   return (
     <section className="quick-transaction-card" aria-labelledby="quick-entry-title">
       <div className="quick-transaction-heading">
@@ -167,7 +220,26 @@ export function QuickTransactionForm({
           <p className="eyebrow">Registro rápido</p>
           <h2 id="quick-entry-title">Como seu saldo mudou?</h2>
         </div>
-        {selectedDate === today ? <span>Pago hoje</span> : null}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <button
+            type="button"
+            onClick={handlePasteNotification}
+            title="Colar notificação ou comprovante Pix"
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid var(--border)",
+              borderRadius: "8px",
+              padding: "4px 8px",
+              fontSize: "0.75rem",
+              cursor: "pointer",
+              color: "var(--accent, #10b981)",
+              fontWeight: 500,
+            }}
+          >
+            📋 Colar Pix
+          </button>
+          {selectedDate === today ? <span>Pago hoje</span> : null}
+        </div>
       </div>
       {!defaultCashAccountId ? (
         <p className="quick-default-account-help">
@@ -227,7 +299,17 @@ export function QuickTransactionForm({
             name="description"
             placeholder="Ex.: café, salário"
             value={description}
-            onChange={(event) => setDescription(event.currentTarget.value)}
+            onChange={(event) => {
+              const val = event.currentTarget.value;
+              setDescription(val);
+              if (!selectedCategoryId || isAutoPredicted) {
+                const predicted = predictCategory(val, availableCategories);
+                if (predicted) {
+                  setSelectedCategoryId(predicted);
+                  setIsAutoPredicted(true);
+                }
+              }
+            }}
             autoComplete="off"
             data-lpignore="true"
             aria-required="true"
@@ -271,13 +353,16 @@ export function QuickTransactionForm({
             </label>
 
             <label className="quick-transaction-field">
-              <span>Categoria</span>
+              <span>
+                Categoria {isAutoPredicted && <small style={{ color: "var(--accent, #10b981)", fontSize: "0.75rem", fontWeight: "normal" }}>✨ Sugerida</small>}
+              </span>
               <select
                 name="category_id"
                 value={selectedCategoryId}
-                onChange={(event) =>
-                  setSelectedCategoryId(event.currentTarget.value)
-                }
+                onChange={(event) => {
+                  setSelectedCategoryId(event.currentTarget.value);
+                  setIsAutoPredicted(false);
+                }}
               >
                 <option value="">Sem categoria</option>
                 {availableCategories.map((category) => (

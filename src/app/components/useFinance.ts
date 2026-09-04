@@ -104,48 +104,114 @@ export type FinanceData = {
   reload: () => Promise<void>;
 };
 
+const isTestEnv =
+  typeof process !== "undefined" &&
+  (process.env?.VITEST === "true" ||
+    process.env?.NODE_ENV === "test" ||
+    Boolean(process.env?.VITEST));
+
+interface BootstrapResponseData {
+  accounts?: Account[];
+  categories?: Category[];
+  cards?: Card[];
+  budgets?: Budget[];
+  goals?: Goal[];
+  debts?: import("./types").Debt[];
+  investments?: import("./types").InvestmentAsset[];
+  workspace_users?: import("./types").WorkspaceUser[];
+  alert_preferences?: AlertPreference;
+  workspace_preferences?: WorkspacePreference;
+  commitments?: Commitment[];
+  occurrences?: Occurrence[];
+  transactions?: Transaction[];
+}
+
+interface BootstrapCache {
+  workspaceId: string;
+  data: BootstrapResponseData;
+  timestamp: number;
+}
+
+let memoryBootstrapCache: BootstrapCache | null = null;
+
+export function clearFinanceCache() {
+  memoryBootstrapCache = null;
+}
+
 export function useFinance(
   route: string,
   cardId?: string,
   options: UseFinanceOptions = {},
 ): FinanceData {
   const supabase = useMemo(() => createClient(), []);
-  const [loading, setLoading] = useState(true);
-  const [ownerId, setOwnerId] = useState<string | null>(null);
-  const [workspace, setWorkspace] = useState<Workspace | null>(null);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const initialCache = !isTestEnv && memoryBootstrapCache ? memoryBootstrapCache.data : null;
+  const [loading, setLoading] = useState(!initialCache);
+  const [ownerId, setOwnerId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const u = localStorage.getItem("bsfinanceiro_user");
+      return u ? JSON.parse(u).id : null;
+    } catch {
+      return null;
+    }
+  });
+  const [workspace, setWorkspace] = useState<Workspace | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const w = localStorage.getItem("bsfinanceiro_workspace");
+      return w ? JSON.parse(w) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [accounts, setAccounts] = useState<Account[]>(initialCache?.accounts || []);
+  const [categories, setCategories] = useState<Category[]>(initialCache?.categories || []);
   const [categoryRules, setCategoryRules] = useState<TransactionCategoryRule[]>([]);
-  const [debts, setDebts] = useState<import("./types").Debt[]>([]);
-  const [investmentAssets, setInvestmentAssets] = useState<import("./types").InvestmentAsset[]>([]);
+  const [debts, setDebts] = useState<import("./types").Debt[]>(initialCache?.debts || []);
+  const [investmentAssets, setInvestmentAssets] = useState<import("./types").InvestmentAsset[]>(initialCache?.investments || []);
   const [investmentOperations, setInvestmentOperations] = useState<import("./types").InvestmentOperation[]>([]);
-  const [cards, setCards] = useState<Card[]>([]);
+  const [cards, setCards] = useState<Card[]>(initialCache?.cards || []);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [workspaceUsers, setWorkspaceUsers] = useState<import("./types").WorkspaceUser[]>([]);
+  const [workspaceUsers, setWorkspaceUsers] = useState<import("./types").WorkspaceUser[]>(initialCache?.workspace_users || []);
   const [workspaceInvites, setWorkspaceInvites] = useState<import("./types").WorkspaceInvite[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>(initialCache?.transactions || []);
   const [dashboardTransactions, setDashboardTransactions] = useState<
     Transaction[]
-  >([]);
-  const [transactionTotal, setTransactionTotal] = useState(0);
-  const [todayTransactions, setTodayTransactions] = useState<Transaction[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [monthSpent, setMonthSpent] = useState<Record<string, number>>({});
-  const [commitments, setCommitments] = useState<Commitment[]>([]);
-  const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
-  const [alertPrefs, setAlertPrefs] = useState<AlertPreference | null>(null);
+  >(initialCache?.transactions || []);
+  const [transactionTotal, setTransactionTotal] = useState(initialCache?.transactions?.length || 0);
+  const [todayTransactions, setTodayTransactions] = useState<Transaction[]>(() => {
+    if (!initialCache?.transactions) return [];
+    const today = todayInSaoPaulo();
+    return initialCache.transactions.filter((t: Transaction) => t.competence_date === today && t.status === "paid");
+  });
+  const [budgets, setBudgets] = useState<Budget[]>(initialCache?.budgets || []);
+  const [goals, setGoals] = useState<Goal[]>(initialCache?.goals || []);
+  const [monthSpent, setMonthSpent] = useState<Record<string, number>>(() => {
+    if (!initialCache?.transactions) return {};
+    const today = todayInSaoPaulo();
+    const currentMonthPrefix = today.slice(0, 7);
+    const spentByCat: Record<string, number> = {};
+    for (const tx of initialCache.transactions) {
+      if (tx.type === "expense" && tx.status === "paid" && tx.competence_date?.startsWith(currentMonthPrefix) && tx.category_id) {
+        spentByCat[tx.category_id] = (spentByCat[tx.category_id] || 0) + Number(tx.amount);
+      }
+    }
+    return spentByCat;
+  });
+  const [commitments, setCommitments] = useState<Commitment[]>(initialCache?.commitments || []);
+  const [occurrences, setOccurrences] = useState<Occurrence[]>(initialCache?.occurrences || []);
+  const [alertPrefs, setAlertPrefs] = useState<AlertPreference | null>(initialCache?.alert_preferences || null);
   const [statementImports, setStatementImports] = useState<StatementImport[]>([]);
   const [transactionImportBatches, setTransactionImportBatches] = useState<
     TransactionImportBatch[]
   >([]);
-  const [workspacePrefs, setWorkspacePrefs] = useState<WorkspacePreference | null>(null);
+  const [workspacePrefs, setWorkspacePrefs] = useState<WorkspacePreference | null>(initialCache?.workspace_preferences || null);
   const [contexts, setContexts] = useState<FinancialContext[]>([]);
   const [defaultCashAccountId, setDefaultCashAccountId] = useState<string | null>(
-    null,
+    initialCache?.workspace_preferences?.default_cash_account_id || null,
   );
   const [message, setMessage] = useState("");
-  const hasLoaded = useRef(false);
+  const hasLoaded = useRef(!!initialCache);
   const requestSequence = useRef(0);
 
   const historyQuery = options.transactionFilters?.query?.trim() ?? "";
@@ -247,6 +313,13 @@ export function useFinance(
             }
           }
           setMonthSpent(spentByCat);
+          if (!isTestEnv) {
+            memoryBootstrapCache = {
+              workspaceId: ws.id,
+              data: boot,
+              timestamp: Date.now(),
+            };
+          }
           setLoading(false);
           hasLoaded.current = true;
           return;

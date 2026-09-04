@@ -90,7 +90,7 @@ describe("QuickTransactionForm", () => {
         workspace_id: "w",
         owner_id: "u",
         account_id: "a",
-        category_id: null,
+        category_id: "food",
         destination_account_id: null,
         type: "expense",
         amount: 12.5,

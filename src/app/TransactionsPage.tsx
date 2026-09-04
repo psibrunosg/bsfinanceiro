@@ -14,6 +14,7 @@ import { BankNotificationAssistantWidget } from "./components/BankNotificationAs
 import { money, parseMoney } from "./components/Money";
 import { createClient } from "@/lib/supabase/client";
 import { todayInSaoPaulo } from "@/lib/finance/local-date";
+import { predictCategory } from "@/lib/finance/category-predictor";
 
 function TransactionsPageInner() {
   const searchParams = useSearchParams();
@@ -258,11 +259,35 @@ function TransactionsPageInner() {
             <label htmlFor="transaction-account">Conta</label>
             <select id="transaction-account" name="account_id" required><option value="">Conta</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
             <label htmlFor="transaction-category">Categoria</label>
-            <select id="transaction-category" name="category_id"><option value="">Categoria</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+            <select
+              id="transaction-category"
+              name="category_id"
+              onChange={(e) => {
+                e.currentTarget.dataset.manual = "true";
+              }}
+            >
+              <option value="">Categoria</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
             <label htmlFor="transaction-destination">Conta de destino</label>
             <select id="transaction-destination" name="destination_account_id"><option value="">Destino se transferência</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
             <label htmlFor="transaction-description">Descrição</label>
-            <input id="transaction-description" name="description" placeholder="Descrição" autoComplete="off" data-lpignore="true" />
+            <input
+              id="transaction-description"
+              name="description"
+              placeholder="Descrição"
+              autoComplete="off"
+              data-lpignore="true"
+              onChange={(e) => {
+                const cat = predictCategory(e.target.value, categories, transactions);
+                if (cat) {
+                  const select = document.getElementById("transaction-category") as HTMLSelectElement | null;
+                  if (select && select.dataset.manual !== "true") {
+                    select.value = cat;
+                  }
+                }
+              }}
+            />
             <label htmlFor="transaction-date">Data</label>
             <input id="transaction-date" name="competence_date" type="date" defaultValue={todayInSaoPaulo()} autoComplete="off" data-lpignore="true" required />
             <button>Salvar</button>
