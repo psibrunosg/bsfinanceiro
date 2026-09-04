@@ -345,8 +345,8 @@ function getAmount(item: PreviewItem | TransactionImportItem) {
 function getStatusLabel(item: PreviewItem | TransactionImportItem) {
   const status = getStatus(item);
   if (status === "ready") return "Pronta";
-  const reason = isPersistedItem(item) ? item.reason : item.reason;
-  if (status === "duplicate") return reason === "duplicate_in_file" ? "Duplicada no arquivo" : reason === "duplicate_existing" ? "Duplicada no histórico" : "Duplicada";
+  const reason = item.reason;
+  if (status === "duplicate") return (reason === "duplicate_file" || reason === "duplicate_in_file") ? "Duplicada no arquivo" : reason === "duplicate_existing" ? "Duplicada no histórico" : "Duplicada";
   return invalidReason(reason);
 }
 

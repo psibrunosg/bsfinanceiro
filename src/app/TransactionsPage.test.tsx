@@ -16,6 +16,7 @@ const navigationMocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({
   usePathname: () => navigationMocks.pathname,
   useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock("./components/useFinance", () => ({

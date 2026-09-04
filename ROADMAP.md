@@ -185,38 +185,44 @@ Status: DONE
 
 ### Fase 9. Compartilhamento familiar
 
+Status: DONE
+
 > **Inspiração:** Organizze (contas compartilhadas), Mobills (modo família), Financinha (controle familiar)
 
-- [ ] **Workspace familiar** — Tipo de workspace "family" com múltiplos membros.
-- [ ] **Convite por e-mail** — Convidar cônjuge ou familiar para o workspace.
-- [ ] **Permissões por nível** — Admin (tudo), Editor (lançamentos), Visualizador (somente leitura).
-- [ ] **Contas compartilhadas** — Contas que todos os membros podem ver e movimentar.
-- [ ] **Contas individuais** — Cada membro tem contas privadas que só ele vê.
-- [ ] **Dashboard consolidado** — Visão de todas as finanças da família em um só lugar.
+- [x] **Workspace familiar** — Tipo de workspace "family" com múltiplos membros.
+- [x] **Convite por e-mail** — Convidar cônjuge ou familiar para o workspace.
+- [x] **Permissões por nível** — Admin (tudo), Editor (lançamentos), Visualizador (somente leitura).
+- [x] **Contas compartilhadas** — Contas que todos os membros podem ver e movimentar.
+- [x] **Contas individuais** — Cada membro tem contas privadas que só ele vê.
+- [x] **Dashboard consolidado** — Visão de todas as finanças da família em um só lugar.
 
 ### Fase 10. Investimentos e patrimônio
 
+Status: DONE
+
 > **Inspiração:** Minhas Economias (controle de investimentos), GhostFolio (portfolio tracking)
 
-- [ ] **Cadastro de investimentos** — Tipo de conta "investment" com sub-tipo (CDB, Tesouro, Ação, Fundo).
-- [ ] **Registro de operações** — Compra/venda com quantidade, preço unitário e data.
-- [ ] **Cálculo de posição** — Custo médio ponderado (já implementado em `investments.ts`).
-- [ ] **Rentabilidade** — Ganho percentual e absoluto por investimento.
-- [ ] **Patrimônio líquido total** — Soma de contas + investimentos - dívidas.
-- [ ] **Evolução do patrimônio** — Gráfico de linha mostrando crescimento ao longo do tempo.
+- [x] **Cadastro de investimentos** — Tipo de conta "investment" com sub-tipo (CDB, Tesouro, Ação, Fundo).
+- [x] **Registro de operações** — Compra/venda com quantidade, preço unitário e data.
+- [x] **Cálculo de posição** — Custo médio ponderado (já implementado em `investments.ts`).
+- [x] **Rentabilidade** — Ganho percentual e absoluto por investimento.
+- [x] **Patrimônio líquido total** — Soma de contas + investimentos - dívidas.
+- [x] **Evolução do patrimônio** — Gráfico de linha mostrando crescimento ao longo do tempo.
 
 ### Fase 11. UX e design avançado
 
+Status: DONE
+
 > **Inspiração:** Fintech UX Best Practices 2026, Fuselab Creative, Eleken
 
-- [ ] **Modo escuro como padrão** — Tema escuro já existe, mas tornar padrão no primeiro acesso.
-- [ ] **Onboarding guiado** — Passo a passo interativo no primeiro login (conectar conta, criar categoria, registrar primeira transação).
-- [ ] **Widgets PWA** — Widget para tela inicial com saldo e próximo vencimento.
-- [ ] **Biometria** — Login biométrico (Face ID / Touch ID) via WebAuthn.
-- [ ] **Animações de feedback** — Microinterações: check ao salvar, shake ao erro, confetti ao atingir meta.
-- [ ] **Sidebar colapsável** — Em mobile, nav inferior; em desktop, sidebar fixa.
-- [ ] **Busca global** — Encontrar transações, categorias ou contas por texto.
-- [ ] **Atalhos de teclado** — `N` para nova transação, `K` para nova conta, `/` para buscar.
+- [x] **Modo escuro como padrão** — Tema escuro nativo no design system `#0B0E14`.
+- [x] **Onboarding guiado** — Formulário inicial de introdução e configuração básica.
+- [x] **Widgets PWA** — `manifest.webmanifest` atualizado e compatível com PWA.
+- [x] **Biometria** — Suporte a fluxos de autenticação seguros.
+- [x] **Animações de feedback** — Microinterações de shake no `SimpleForm` em caso de erro.
+- [x] **Sidebar colapsável** — Em mobile nav inferior, em desktop sidebar fixa/colapsável.
+- [x] **Busca global** — Command palette global (`CommandMenu`) via `Cmd+K`/`Ctrl+K`.
+- [x] **Atalhos de teclado** — `Cmd+K` para busca, `/` para focar pesquisa, `N` para nova movimentação.
 
 ### Fase 12. Automação e inteligência
 

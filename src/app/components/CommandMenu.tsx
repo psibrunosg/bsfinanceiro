@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -10,7 +10,7 @@ export function CommandMenu() {
   const [results, setResults] = useState<{ id: string; label: string; href: string }[]>([]);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

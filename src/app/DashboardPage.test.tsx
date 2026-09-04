@@ -68,6 +68,10 @@ vi.mock("./components/useFinance", () => ({
       defaultCashAccountId: "a",
       loading,
       reload,
+      investmentAssets: [],
+      investmentOperations: [],
+      workspaceUsers: [],
+      workspaceInvites: [],
     };
   },
 }));

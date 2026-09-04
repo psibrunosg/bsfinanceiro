@@ -11,7 +11,6 @@ import { money } from "./components/Money";
 import { DashboardChart } from "./components/DashboardChart";
 import { UserMenu } from "./components/UserMenu";
 import { useCurrentUser } from "./components/useCurrentUser";
-import { createClient } from "@/lib/supabase/client";
 import { addMonths } from "@/lib/finance/local-date";
 import { aggregateExpensesByCategory, computeMonthlyFlow, lastNMonths } from "@/lib/finance/aggregations";
 import { generateInsights } from "@/lib/finance/insights";
@@ -49,9 +48,6 @@ const ASSET_TYPE_LABEL: Record<string, string> = {
 
 const DONUT_COLORS = ["#8B5CF6", "#3B82F6", "#F97316", "#F5A623", "#22C55E"];
 
-type InvestmentAsset = { id: string; type: string };
-type InvestmentOperation = { asset_id: string; operation_type: "buy" | "sell"; quantity: number; unit_price: number; operation_date: string };
-
 function Trend({ pct }: { pct: number | null }) {
   if (pct === null) return null;
   const up = pct >= 0;
@@ -67,7 +63,6 @@ export function DashboardPage() {
   const { workspace, accounts, transactions, invoices, categories, goals, occurrences, budgets, alertPrefs, loading, investmentAssets, investmentOperations } = useFinance("dashboard");
   const { month, nextMonth } = useMonth();
   const { displayName } = useCurrentUser();
-  const supabase = useMemo(() => createClient(), []);
   const assets = investmentAssets;
   const operations = investmentOperations;
 

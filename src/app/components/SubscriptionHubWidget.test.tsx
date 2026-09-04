@@ -28,7 +28,7 @@ describe("SubscriptionHubWidget", () => {
 
     expect(screen.getByText("Hub de Assinaturas & Recorrências")).toBeDefined();
     expect(screen.getByText(/Custo Anualizado:/i)).toBeDefined();
-    expect(screen.getByText("Netflix")).toBeDefined();
+    expect(screen.getAllByText("Netflix").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Spotify")).toBeDefined();
   });
 
@@ -44,8 +44,8 @@ describe("SubscriptionHubWidget", () => {
 
     render(<SubscriptionHubWidget transactions={txs} />);
 
-    const netflixCard = screen.getByText("Netflix");
-    fireEvent.click(netflixCard);
+    const netflixCards = screen.getAllByText("Netflix");
+    fireEvent.click(netflixCards[netflixCards.length - 1]);
 
     expect(screen.getByText(/Potencial de Investimento/i)).toBeDefined();
   });

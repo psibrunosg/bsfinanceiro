@@ -64,6 +64,9 @@ function renderPanel({
       workspaceId="workspace-1"
       ownerId="owner-1"
       accounts={accounts}
+      categories={[]}
+      categoryRules={[]}
+      historyTransactions={[]}
       batches={batches}
       onReload={onReload}
       onMessage={onMessage}
