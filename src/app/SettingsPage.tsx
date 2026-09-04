@@ -26,13 +26,36 @@ export function SettingsPage() {
       const action = (form.get("action") as string) || (form.get("invite_role") ? "create_invite" : "");
       if (action === "create_invite") {
         const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        const role = String(form.get("invite_role") || "editor");
+
+        try {
+          const res = await fetch("/api/invites", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              workspace_id: workspace.id,
+              role,
+              token,
+            }),
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            setMessage("Convite gerado com sucesso!");
+            setSaving(false);
+            await reload();
+            return;
+          }
+        } catch {
+          // fallback to supabase
+        }
+
         const { error } = await supabase.from("workspace_invites").insert({
           workspace_id: workspace.id,
           token,
-          role: form.get("invite_role") || "editor"
+          role,
         });
         setMessage(error ? "Erro ao gerar convite." : "Convite gerado com sucesso!");
-        if (!error) reload();
+        if (!error) await reload();
       }
       setSaving(false);
       return;
@@ -52,6 +75,27 @@ export function SettingsPage() {
         low_balance_amount: Number(form.get("low_balance_amount") || 0),
         weekly_digest_day: Number(form.get("weekly_digest_day") || 1),
       };
+
+      try {
+        const res = await fetch("/api/preferences", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workspace_id: workspace.id,
+            alert_preferences: p,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setMessage("Preferências de alerta salvas.");
+          setSaving(false);
+          await reload();
+          return;
+        }
+      } catch {
+        // fallback to supabase
+      }
+
       const { error } = await supabase.from("alert_preferences").upsert(p, { onConflict: "workspace_id,owner_id" });
       setMessage(error ? "Não foi possível salvar alertas." : "Preferências de alerta salvas.");
     } else {
@@ -68,6 +112,29 @@ export function SettingsPage() {
       if (form.has("default_billing_deadline_days")) p.default_billing_deadline_days = Number(form.get("default_billing_deadline_days")) || 30;
       if (form.has("default_category_id")) p.default_category_id = (form.get("default_category_id") as string) || null;
       
+      try {
+        const res = await fetch("/api/preferences", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workspace_id: workspace.id,
+            workspace_preferences: {
+              ...p,
+              primary_color: p.personal_color,
+            },
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setMessage("Preferências salvas.");
+          setSaving(false);
+          await reload();
+          return;
+        }
+      } catch {
+        // fallback to supabase
+      }
+
       const { error } = await supabase.from("workspace_preferences").upsert(p, { onConflict: "workspace_id,owner_id" });
       setMessage(error ? "Não foi possível salvar preferências." : "Preferências salvas.");
     }

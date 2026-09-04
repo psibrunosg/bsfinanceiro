@@ -12,7 +12,7 @@ import { DashboardChart } from "../components/DashboardChart";
 import { MonthPicker } from "../components/MonthPicker";
 import { useMonth } from "../components/MonthContext";
 import { createClient } from "@/lib/supabase/client";
-import { addMonths } from "@/lib/finance/local-date";
+import { addMonths, todayInSaoPaulo } from "@/lib/finance/local-date";
 import { lastNMonths } from "@/lib/finance/aggregations";
 import { ArrowDownRight, ArrowUpRight, Briefcase, Check, Clock, HeartPulse, Wallet, X } from "lucide-react";
 import { TaxRadarWidget } from "../components/TaxRadarWidget";
@@ -87,53 +87,90 @@ export default function GanhosPage() {
   const loadHub = useCallback(async () => {
     if (!workspace) return;
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const ownerId = userData.user?.id;
-      if (!ownerId) return;
-      const [
-        { data: contextRows },
-        { data: patientRows },
-        { data: payslipRows },
-        { data: earningRows },
-        { data: incomeRows },
-      ] = await Promise.all([
-        supabase
-          .from("financial_contexts")
-          .select("id")
-          .eq("workspace_id", workspace.id)
-          .eq("kind", "pessoal")
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from("patients")
-          .select("id,full_name,created_at")
-          .eq("workspace_id", workspace.id)
-          .eq("active", true)
-          .order("full_name"),
-        supabase
-          .from("payslips")
-          .select("id,employer,competence,gross_amount,discounts_amount,net_amount,received_date,transaction_id,pdf_path,notes,created_at")
-          .eq("workspace_id", workspace.id)
-          .order("competence", { ascending: false })
-          .limit(50),
-        supabase
-          .from("patient_earnings")
-          .select("id,patient_id,amount,appointment_date,due_date,status,transaction_id,notes,created_at")
-          .eq("workspace_id", workspace.id)
-          .order("due_date", { ascending: false })
-          .limit(200),
-        // "Outras receitas" = receitas manuais; as criadas por RPC são
-        // identificadas pelo texto fixo de descrição.
-        supabase
-          .from("transactions")
-          .select("id,description,amount,competence_date,category_id")
-          .eq("workspace_id", workspace.id)
-          .eq("type", "income")
-          .not("description", "ilike", "Contracheque %")
-          .not("description", "ilike", "Recebimento de paciente%")
-          .order("competence_date", { ascending: false })
-          .limit(100),
-      ]);
+      try {
+        const res = await fetch(`/api/bootstrap?workspace_id=${encodeURIComponent(workspace.id)}`);
+        if (res.ok) {
+          const boot = await res.json();
+          if (boot.patients) {
+            setPatients(boot.patients.map((p: { id: string; name?: string; full_name?: string; created_at: string }) => ({
+              id: p.id,
+              full_name: p.full_name || p.name || "",
+              created_at: p.created_at,
+            })));
+          }
+          if (boot.payslips) {
+            setPayslips(boot.payslips.map((ps: { id: string; employer: string; competence: string; gross_amount: number | string; discounts_amount: number | string; net_amount: number | string; received_date: string | null; transaction_id: string | null; pdf_path: string | null; notes: string | null; created_at: string }) => ({
+              ...ps,
+              gross_amount: Number(ps.gross_amount),
+              discounts_amount: Number(ps.discounts_amount),
+              net_amount: Number(ps.net_amount),
+            })));
+          }
+          if (boot.patient_earnings) {
+            setEarnings(boot.patient_earnings.map((e: { id: string; patient_id: string; amount: number | string; appointment_date: string; due_date: string; status: "pending" | "received" | "cancelled"; transaction_id: string | null; notes: string | null; created_at: string }) => ({
+              ...e,
+              amount: Number(e.amount),
+            })));
+          }
+          if (boot.transactions) {
+            setOtherIncome(
+              boot.transactions
+                .filter((t: { type: string; description?: string }) => t.type === "income")
+                .filter((t: { description?: string }) => !t.description?.startsWith("Contracheque ") && !t.description?.startsWith("Recebimento de paciente"))
+                .map((t: { id: string; description: string; amount: number | string; competence_date: string; category_id: string | null }) => ({
+                  id: t.id,
+                  description: t.description,
+                  amount: Number(t.amount),
+                  competence_date: t.competence_date,
+                  category_id: t.category_id,
+                }))
+            );
+          }
+          setHubLoading(false);
+          return;
+        }
+      } catch {
+        // Fallback to direct supabase queries
+      }
+
+      const [{ data: contextRows }, { data: patientRows }, { data: payslipRows }, { data: earningRows }, { data: incomeRows }] =
+        await Promise.all([
+          supabase
+            .from("financial_contexts")
+            .select("id")
+            .eq("workspace_id", workspace.id)
+            .eq("kind", "clinica")
+            .eq("active", true)
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from("patients")
+            .select("id,full_name,created_at")
+            .eq("workspace_id", workspace.id)
+            .eq("active", true)
+            .order("full_name"),
+          supabase
+            .from("payslips")
+            .select("id,employer,competence,gross_amount,discounts_amount,net_amount,received_date,transaction_id,pdf_path,notes,created_at")
+            .eq("workspace_id", workspace.id)
+            .order("competence", { ascending: false })
+            .limit(50),
+          supabase
+            .from("patient_earnings")
+            .select("id,patient_id,amount,appointment_date,due_date,status,transaction_id,notes,created_at")
+            .eq("workspace_id", workspace.id)
+            .order("due_date", { ascending: false })
+            .limit(200),
+          supabase
+            .from("transactions")
+            .select("id,description,amount,competence_date,category_id")
+            .eq("workspace_id", workspace.id)
+            .eq("type", "income")
+            .not("description", "ilike", "Contracheque %")
+            .not("description", "ilike", "Recebimento de paciente%")
+            .order("competence_date", { ascending: false })
+            .limit(100),
+        ]);
       setDefaultContextId(contextRows?.id ?? null);
       setPatients(patientRows ?? []);
       setPayslips(payslipRows ?? []);
@@ -161,26 +198,30 @@ export default function GanhosPage() {
           ? { label: "Registrar receita", onClick: () => setDialog({ kind: "other" }) }
           : { label: "Registrar ganho", onClick: () => setDialog({ kind: "other" }) };
 
-  const dialogTitle =
-    dialog?.kind === "patient" ? "Cadastrar paciente"
-      : dialog?.kind === "earning" ? "Registrar atendimento"
-        : dialog?.kind === "payslip" ? "Cadastrar contracheque"
-          : dialog?.kind === "receive" ? "Registrar recebimento"
-            : dialog?.kind === "other" ? "Registrar receita" : "";
-
   const earningDialog = dialog?.kind === "earning" ? dialog : null;
   const receiveDialog = dialog?.kind === "receive" ? dialog : null;
   const receiveEarning = receiveDialog
     ? earnings.find((e) => e.id === receiveDialog.earningId)
     : null;
 
-  // Agregados da visão geral seguem o mês global; as listas por aba continuam
-  // sendo o registro completo (pacientes, arquivo de contracheques).
+  const dialogTitle =
+    dialog?.kind === "patient"
+      ? "Cadastrar paciente"
+      : dialog?.kind === "earning"
+        ? "Registrar atendimento"
+        : dialog?.kind === "payslip"
+          ? "Cadastrar contracheque"
+          : dialog?.kind === "receive"
+            ? "Registrar recebimento"
+            : dialog?.kind === "other"
+              ? "Registrar receita"
+              : "";
+
+  const today = todayInSaoPaulo();
+
   const inMonth = (date: string | null) => !!date && date >= month && date < nextMonth;
   const inRange = (date: string | null, from: string, to: string) => !!date && date >= from && date < to;
   const payslipReceived = payslips.filter((p) => p.transaction_id && inMonth(p.received_date));
-  // ponytail: patient_earnings não guarda data de recebimento; due_date é o eixo
-  // de caixa disponível. Trocar por received_date se a coluna for criada.
   const earningsReceived = earnings.filter((e) => e.status === "received" && inMonth(e.due_date));
   const payslipTotal = payslipReceived.reduce((s, p) => s + Number(p.net_amount), 0);
   const patientTotal = earningsReceived.reduce((s, e) => s + Number(e.amount), 0);
@@ -188,9 +229,7 @@ export default function GanhosPage() {
     .filter((t) => inMonth(t.competence_date))
     .reduce((s, t) => s + Number(t.amount), 0);
   const totalIncome = payslipTotal + patientTotal + otherTotal;
-  const today = new Date().toISOString().slice(0, 10);
 
-  // Comparativo com o mês anterior, pro badge de trend dos cards.
   const prevMonth = addMonths(month, -1);
   const prevPayslipReceived = payslips.filter((p) => p.transaction_id && inRange(p.received_date, prevMonth, month));
   const prevEarningsReceived = earnings.filter((e) => e.status === "received" && inRange(e.due_date, prevMonth, month));
@@ -203,7 +242,6 @@ export default function GanhosPage() {
   const payslipCountTrend = pct(payslipReceived.length, prevPayslipReceived.length);
   const patientTrend = pct(patientTotal, prevPatientTotal);
 
-  // Comparativo mensal por fonte de receita (últimos 12 meses).
   const employers = Array.from(new Set(payslips.map((p) => p.employer)));
   const { months: seriesMonths, labels: seriesLabels } = lastNMonths(12);
   const monthlySeries = [
@@ -242,21 +280,45 @@ export default function GanhosPage() {
     },
   ];
 
-  // Tabela "Receitas do mês selecionado": une as 3 fontes num único extrato.
-  type IncomeRow = { id: string; source: string; kind: string; competence: string; receivedAt: string | null; gross: number; discounts: number; net: number };
-  const monthRows: IncomeRow[] = [
-    ...payslipReceived.map((p) => ({ id: p.id, source: p.employer, kind: "Emprego", competence: p.competence, receivedAt: p.received_date, gross: Number(p.gross_amount), discounts: Number(p.discounts_amount), net: Number(p.net_amount) })),
-    ...earningsReceived.map((e) => ({ id: e.id, source: patients.find((p) => p.id === e.patient_id)?.full_name ?? "Paciente", kind: "Clínica", competence: e.due_date, receivedAt: e.due_date, gross: Number(e.amount), discounts: 0, net: Number(e.amount) })),
+  type GainRow = { id: string; source: string; kind: string; competence: string; receivedAt: string | null; gross: number; discounts: number; net: number };
+  const monthRows: GainRow[] = [
+    ...payslipReceived.map((p) => ({ id: p.id, source: p.employer, kind: "Contracheque", competence: p.competence, receivedAt: p.received_date, gross: Number(p.gross_amount), discounts: Number(p.discounts_amount), net: Number(p.net_amount) })),
+    ...earningsReceived.map((e) => {
+      const patient = patients.find((p) => p.id === e.patient_id);
+      return { id: e.id, source: patient?.full_name ?? "Paciente", kind: "Clínica", competence: e.appointment_date, receivedAt: e.due_date, gross: Number(e.amount), discounts: 0, net: Number(e.amount) };
+    }),
     ...otherIncome.filter((t) => inMonth(t.competence_date)).map((t) => ({ id: t.id, source: t.description, kind: "Outras", competence: t.competence_date, receivedAt: t.competence_date, gross: Number(t.amount), discounts: 0, net: Number(t.amount) })),
   ].sort((a, b) => (a.competence < b.competence ? 1 : -1));
   const incomeCategories = categories.filter((c) => c.kind === "income");
 
   async function submitPatient(form: FormData) {
+    const fullName = String(form.get("full_name") || "");
+    try {
+      const res = await fetch("/api/patients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          name: fullName,
+          full_name: fullName,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Paciente cadastrado.");
+        setDialog(null);
+        await loadHub();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("patients").insert({
       workspace_id: workspace.id,
       owner_id: userData.user?.id,
-      full_name: form.get("full_name"),
+      full_name: fullName,
       context_id: defaultContextId,
     });
     setMessage(error ? "Não foi possível cadastrar o paciente." : "Paciente cadastrado.");
@@ -265,16 +327,45 @@ export default function GanhosPage() {
   }
 
   async function submitEarning(form: FormData, patientId: string) {
+    const amount = parseMoney(form.get("amount"));
+    const appointment_date = String(form.get("appointment_date"));
+    const due_date = String(form.get("due_date"));
+    const notes = form.get("notes") ? String(form.get("notes")) : null;
+
+    try {
+      const res = await fetch("/api/patient-earnings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          patient_id: patientId,
+          amount,
+          appointment_date,
+          due_date,
+          notes,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Atendimento registrado.");
+        setDialog(null);
+        await loadHub();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("patient_earnings").insert({
       workspace_id: workspace.id,
       owner_id: userData.user?.id,
       patient_id: patientId,
       context_id: defaultContextId,
-      amount: parseMoney(form.get("amount")),
-      appointment_date: form.get("appointment_date"),
-      due_date: form.get("due_date"),
-      notes: form.get("notes") || null,
+      amount,
+      appointment_date,
+      due_date,
+      notes,
     });
     setMessage(error ? "Não foi possível registrar o atendimento." : "Atendimento registrado.");
     if (!error) setDialog(null);
@@ -282,10 +373,34 @@ export default function GanhosPage() {
   }
 
   async function submitReceive(earningId: string, form: FormData) {
+    const accountId = String(form.get("account_id") || "");
+    const receivedDate = String(form.get("received_date") || "");
+
+    try {
+      const res = await fetch("/api/patient-earnings/receive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          earning_id: earningId,
+          account_id: accountId,
+          received_date: receivedDate,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Recebimento registrado.");
+        setDialog(null);
+        await loadHub();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { error } = await supabase.rpc("receive_patient_earning", {
       p_earning_id: earningId,
-      p_account_id: form.get("account_id"),
-      p_received_date: form.get("received_date"),
+      p_account_id: accountId,
+      p_received_date: receivedDate,
     });
     setMessage(error ? "Não foi possível registrar o recebimento." : "Recebimento registrado.");
     if (!error) setDialog(null);
@@ -298,18 +413,54 @@ export default function GanhosPage() {
   }
 
   async function submitPayslip(form: FormData) {
+    const employer = String(form.get("employer") || "");
+    const competence = String(form.get("competence") || "");
+    const gross_amount = parseMoney(form.get("gross_amount"));
+    const discounts_amount = parseMoney(form.get("discounts_amount"));
+    const net_amount = parseMoney(form.get("net_amount"));
+    const receivedDate = form.get("received_date") ? String(form.get("received_date")) : null;
+    const accountId = form.get("account_id") ? String(form.get("account_id")) : null;
+    const notes = form.get("notes") ? String(form.get("notes")) : null;
+
+    if (receivedDate && !accountId) {
+      setMessage("Escolha a conta de recebimento para gerar a receita.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/payslips", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          employer,
+          competence,
+          gross_amount,
+          discounts_amount,
+          net_amount,
+          received_date: receivedDate,
+          account_id: accountId,
+          notes,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Contracheque cadastrado.");
+        setDialog(null);
+        await loadHub();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { data: userData } = await supabase.auth.getUser();
     const ownerId = userData.user?.id;
     if (!ownerId) {
       setMessage("Sessão expirada. Entre novamente.");
       return;
     }
-    const receivedDate = form.get("received_date") || null;
-    const accountId = form.get("account_id") || null;
-    if (receivedDate && !accountId) {
-      setMessage("Escolha a conta de recebimento para gerar a receita.");
-      return;
-    }
+
     const file = form.get("pdf") as File | null;
     let pdfPath: string | null = null;
     if (file && file.size > 0) {
@@ -321,8 +472,6 @@ export default function GanhosPage() {
         setMessage("O PDF deve ter no máximo 10 MB.");
         return;
       }
-      // Bucket privado "payslips"; caminho com prefixo do owner garante
-      // isolamento via policy (ver migração payslips_pdf_bucket).
       pdfPath = `${ownerId}/${crypto.randomUUID()}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from("payslips")
@@ -332,19 +481,20 @@ export default function GanhosPage() {
         return;
       }
     }
+
     const { error } = await supabase.rpc("register_payslip", {
       p_workspace_id: workspace.id,
       p_owner_id: ownerId,
       p_context_id: defaultContextId,
-      p_employer: form.get("employer"),
-      p_competence: form.get("competence"),
-      p_gross_amount: parseMoney(form.get("gross_amount")),
-      p_discounts_amount: parseMoney(form.get("discounts_amount")),
-      p_net_amount: parseMoney(form.get("net_amount")),
+      p_employer: employer,
+      p_competence: competence,
+      p_gross_amount: gross_amount,
+      p_discounts_amount: discounts_amount,
+      p_net_amount: net_amount,
       p_received_date: receivedDate,
       p_account_id: accountId,
       p_pdf_path: pdfPath,
-      p_notes: form.get("notes") || null,
+      p_notes: notes,
     });
     if (error) {
       setMessage("Não foi possível cadastrar o contracheque.");
@@ -357,17 +507,48 @@ export default function GanhosPage() {
   }
 
   async function submitOtherIncome(form: FormData) {
+    const account_id = form.get("account_id");
+    const category_id = form.get("category_id") || null;
+    const amount = parseMoney(form.get("amount"));
+    const description = form.get("description");
+    const competence_date = form.get("competence_date");
+
+    try {
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          account_id,
+          category_id,
+          type: "income",
+          amount,
+          description,
+          competence_date,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Receita registrada.");
+        setDialog(null);
+        await loadHub();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("transactions").insert({
       workspace_id: workspace.id,
       owner_id: userData.user?.id,
-      account_id: form.get("account_id"),
-      category_id: form.get("category_id") || null,
+      account_id,
+      category_id,
       type: "income",
-      amount: parseMoney(form.get("amount")),
-      description: form.get("description"),
-      competence_date: form.get("competence_date"),
-      paid_at: form.get("competence_date"),
+      amount,
+      description,
+      competence_date,
+      paid_at: competence_date,
       status: "paid",
       idempotency_key: crypto.randomUUID(),
     });

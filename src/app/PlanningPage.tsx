@@ -105,8 +105,39 @@ function PlanningPageInner() {
   }
 
   async function submitContribution(goalId: string, form: FormData) {
+    const amount = parseMoney(form.get("amount"));
+    const note = form.get("note") ? String(form.get("note")) : "Aporte";
+
+    try {
+      const res = await fetch("/api/goals/contributions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          financial_goal_id: goalId,
+          amount,
+          note,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Aporte registrado.");
+        await reload();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("goal_contributions").insert({ workspace_id: workspace.id, owner_id: userData?.user?.id, financial_goal_id: goalId, amount: parseMoney(form.get("amount")), idempotency_key: crypto.randomUUID() });
+    const { error } = await supabase.from("goal_contributions").insert({
+      workspace_id: workspace.id,
+      owner_id: userData?.user?.id,
+      financial_goal_id: goalId,
+      amount,
+      note,
+      idempotency_key: crypto.randomUUID(),
+    });
     setMessage(error ? "Não foi possível registrar o aporte." : "Aporte registrado.");
     await reload();
   }

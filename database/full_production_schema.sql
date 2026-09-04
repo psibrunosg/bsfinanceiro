@@ -237,7 +237,37 @@ CREATE TABLE IF NOT EXISTS patients (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 19. Módulo Investimentos (Ativos e Operações)
+CREATE TABLE IF NOT EXISTS patient_earnings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    amount NUMERIC(14,2) NOT NULL CHECK (amount > 0),
+    appointment_date DATE NOT NULL,
+    due_date DATE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','received','cancelled')),
+    transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS payslips (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    employer VARCHAR(120) NOT NULL,
+    competence DATE NOT NULL,
+    gross_amount NUMERIC(14,2) NOT NULL CHECK (gross_amount >= 0),
+    discounts_amount NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (discounts_amount >= 0),
+    net_amount NUMERIC(14,2) NOT NULL CHECK (net_amount >= 0),
+    received_date DATE,
+    transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
+    pdf_path TEXT,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 19. Módulo Investimentos (Ativos, Operações e Cotações)
 CREATE TABLE IF NOT EXISTS investment_assets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID NOT NULL,
@@ -246,7 +276,8 @@ CREATE TABLE IF NOT EXISTS investment_assets (
     name VARCHAR(100) NOT NULL,
     type VARCHAR(30) NOT NULL DEFAULT 'stock' CHECK (type IN ('stock', 'reit', 'fund', 'cdb', 'treasury', 'crypto')),
     active BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    is_shared BOOLEAN DEFAULT false
 );
 
 CREATE TABLE IF NOT EXISTS investment_operations (
@@ -258,6 +289,16 @@ CREATE TABLE IF NOT EXISTS investment_operations (
     quantity NUMERIC(14, 6) NOT NULL DEFAULT 0,
     unit_price NUMERIC(14, 4) NOT NULL DEFAULT 0,
     operation_date DATE NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS investment_quotes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL REFERENCES investment_assets(id) ON DELETE CASCADE,
+    quote_date DATE NOT NULL,
+    unit_price NUMERIC(14,2) NOT NULL CHECK (unit_price > 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

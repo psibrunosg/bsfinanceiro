@@ -350,6 +350,48 @@ try {
             $workspacePrefs = $stmt->fetch() ?: null;
         } catch (Exception $e) {}
 
+        $patients = [];
+        try {
+            $stmt = $db->prepare("SELECT * FROM patients WHERE workspace_id = ? ORDER BY name ASC");
+            $stmt->execute([$workspaceId]);
+            $patients = $stmt->fetchAll();
+        } catch (Exception $e) {}
+
+        $patientEarnings = [];
+        try {
+            $stmt = $db->prepare("SELECT e.*, p.name as patient_name FROM patient_earnings e JOIN patients p ON p.id = e.patient_id WHERE e.workspace_id = ? ORDER BY e.appointment_date DESC");
+            $stmt->execute([$workspaceId]);
+            $patientEarnings = $stmt->fetchAll();
+        } catch (Exception $e) {}
+
+        $payslips = [];
+        try {
+            $stmt = $db->prepare("SELECT * FROM payslips WHERE workspace_id = ? ORDER BY competence DESC");
+            $stmt->execute([$workspaceId]);
+            $payslips = $stmt->fetchAll();
+        } catch (Exception $e) {}
+
+        $investmentOps = [];
+        try {
+            $stmt = $db->prepare("SELECT o.*, a.name as asset_name, a.ticker FROM investment_operations o JOIN investment_assets a ON a.id = o.asset_id WHERE o.workspace_id = ? ORDER BY o.operation_date DESC");
+            $stmt->execute([$workspaceId]);
+            $investmentOps = $stmt->fetchAll();
+        } catch (Exception $e) {}
+
+        $investmentQuotes = [];
+        try {
+            $stmt = $db->prepare("SELECT * FROM investment_quotes WHERE workspace_id = ? ORDER BY quote_date DESC");
+            $stmt->execute([$workspaceId]);
+            $investmentQuotes = $stmt->fetchAll();
+        } catch (Exception $e) {}
+
+        $goalContribs = [];
+        try {
+            $stmt = $db->prepare("SELECT * FROM goal_contributions WHERE workspace_id = ? ORDER BY created_at DESC");
+            $stmt->execute([$workspaceId]);
+            $goalContribs = $stmt->fetchAll();
+        } catch (Exception $e) {}
+
         echo json_encode([
             'accounts' => $accounts->fetchAll(),
             'categories' => $categories->fetchAll(),
@@ -358,9 +400,15 @@ try {
             'goals' => $goals->fetchAll(),
             'cards' => $cards->fetchAll(),
             'investments' => $investments->fetchAll(),
+            'investment_operations' => $investmentOps,
+            'investment_quotes' => $investmentQuotes,
             'commitments' => $commitments,
             'occurrences' => $occurrences,
             'debts' => $debts,
+            'patients' => $patients,
+            'patient_earnings' => $patientEarnings,
+            'payslips' => $payslips,
+            'goal_contributions' => $goalContribs,
             'workspace_users' => $workspaceUsers,
             'alert_preferences' => $alertPrefs,
             'workspace_preferences' => $workspacePrefs,
@@ -732,6 +780,422 @@ try {
         $stmtUp->execute([$txId, $occurrenceId]);
 
         echo json_encode(['success' => true, 'transaction_id' => $txId]);
+        exit;
+    }
+
+    // 14. Data: Patients
+    if ($uri === '/patients' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $name = trim($body['name'] ?? $body['full_name'] ?? '');
+        $sessionPrice = (float)($body['session_price'] ?? 0);
+        $status = $body['status'] ?? 'active';
+        $paymentDay = !empty($body['payment_day']) ? (int)$body['payment_day'] : null;
+        $notes = $body['notes'] ?? null;
+
+        if (!$workspaceId || empty($name)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Nome do paciente é obrigatório']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $stmt = $db->prepare("INSERT INTO patients (workspace_id, owner_id, name, session_price, status, payment_day, notes) 
+            VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $name, $sessionPrice, $status, $paymentDay, $notes]);
+        $patient = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'patient' => $patient]);
+        exit;
+    }
+
+    // 15. Data: Patient Earnings & Receive
+    if ($uri === '/patient-earnings' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $patientId = $body['patient_id'] ?? null;
+        $amount = (float)($body['amount'] ?? 0);
+        $appointmentDate = $body['appointment_date'] ?? date('Y-m-d');
+        $dueDate = $body['due_date'] ?? $appointmentDate;
+        $notes = $body['notes'] ?? null;
+
+        if (!$workspaceId || !$patientId || $amount <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Paciente e valor válido são obrigatórios']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $stmt = $db->prepare("INSERT INTO patient_earnings (workspace_id, owner_id, patient_id, amount, appointment_date, due_date, status, notes) 
+            VALUES (?, ?, ?, ?, ?, ?, 'pending', ?) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $patientId, $amount, $appointmentDate, $dueDate, $notes]);
+        $earning = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'earning' => $earning]);
+        exit;
+    }
+
+    if ($uri === '/patient-earnings/receive' && $method === 'POST') {
+        $earningId = $body['earning_id'] ?? null;
+        $accountId = $body['account_id'] ?? null;
+        $receivedDate = $body['received_date'] ?? date('Y-m-d');
+
+        if (!$earningId || !$accountId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Atendimento e conta são obrigatórios']);
+            exit;
+        }
+
+        $stmt = $db->prepare("SELECT e.*, p.name as patient_name FROM patient_earnings e JOIN patients p ON p.id = e.patient_id WHERE e.id = ?");
+        $stmt->execute([$earningId]);
+        $earning = $stmt->fetch();
+
+        if (!$earning) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Atendimento não encontrado']);
+            exit;
+        }
+
+        if ($earning['status'] === 'received') {
+            echo json_encode(['success' => true, 'already_received' => true, 'transaction_id' => $earning['transaction_id']]);
+            exit;
+        }
+
+        $stmtTx = $db->prepare("INSERT INTO transactions 
+            (workspace_id, owner_id, account_id, type, description, amount, interest_amount, competence_date, paid_at, status) 
+            VALUES (?, ?, ?, 'income', ?, ?, 0, ?, ?, 'paid') RETURNING id");
+        $stmtTx->execute([
+            $earning['workspace_id'],
+            $earning['owner_id'],
+            $accountId,
+            'Recebimento de paciente - ' . $earning['patient_name'],
+            $earning['amount'],
+            $receivedDate,
+            $receivedDate
+        ]);
+        $txId = $stmtTx->fetchColumn();
+
+        $stmtUp = $db->prepare("UPDATE patient_earnings SET status = 'received', transaction_id = ? WHERE id = ?");
+        $stmtUp->execute([$txId, $earningId]);
+
+        echo json_encode(['success' => true, 'transaction_id' => $txId]);
+        exit;
+    }
+
+    // 16. Data: Payslips (Holerites)
+    if ($uri === '/payslips' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $employer = trim($body['employer'] ?? '');
+        $competence = $body['competence'] ?? date('Y-m-01');
+        $grossAmount = (float)($body['gross_amount'] ?? 0);
+        $discountsAmount = (float)($body['discounts_amount'] ?? 0);
+        $netAmount = (float)($body['net_amount'] ?? ($grossAmount - $discountsAmount));
+        $receivedDate = $body['received_date'] ?? null;
+        $accountId = $body['account_id'] ?? null;
+        $notes = $body['notes'] ?? null;
+
+        if (!$workspaceId || empty($employer) || $netAmount < 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Empregador e valor líquido válido são obrigatórios']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $txId = null;
+        if ($accountId && $receivedDate && $netAmount > 0) {
+            $stmtTx = $db->prepare("INSERT INTO transactions 
+                (workspace_id, owner_id, account_id, type, description, amount, interest_amount, competence_date, paid_at, status) 
+                VALUES (?, ?, ?, 'income', ?, ?, 0, ?, ?, 'paid') RETURNING id");
+            $stmtTx->execute([$workspaceId, $ownerId, $accountId, 'Contracheque ' . $employer, $netAmount, $receivedDate, $receivedDate]);
+            $txId = $stmtTx->fetchColumn();
+        }
+
+        $stmt = $db->prepare("INSERT INTO payslips 
+            (workspace_id, owner_id, employer, competence, gross_amount, discounts_amount, net_amount, received_date, transaction_id, notes) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $employer, $competence, $grossAmount, $discountsAmount, $netAmount, $receivedDate, $txId, $notes]);
+        $payslip = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'payslip' => $payslip, 'transaction_id' => $txId]);
+        exit;
+    }
+
+    // 17. Data: Investments (Assets, Operations, Quotes)
+    if ($uri === '/investments/assets' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $name = trim($body['name'] ?? '');
+        $ticker = trim($body['ticker'] ?? $body['exchange'] ?? $name);
+        $type = $body['type'] ?? 'stock';
+        $isShared = !empty($body['is_shared']) ? true : false;
+
+        if (!$workspaceId || empty($name)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Nome do ativo é obrigatório']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $stmt = $db->prepare("INSERT INTO investment_assets (workspace_id, owner_id, ticker, name, type, is_shared, active) 
+            VALUES (?, ?, ?, ?, ?, ?, true) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $ticker, $name, $type, $isShared ? 'true' : 'false']);
+        $asset = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'asset' => $asset]);
+        exit;
+    }
+
+    if ($uri === '/investments/operations' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $assetId = $body['asset_id'] ?? null;
+        $accountId = $body['account_id'] ?? null;
+        $opType = $body['operation_type'] ?? $body['type'] ?? 'buy';
+        $quantity = (float)($body['quantity'] ?? 0);
+        $unitPrice = (float)($body['unit_price'] ?? 0);
+        $opDate = $body['operation_date'] ?? date('Y-m-d');
+        $notes = $body['notes'] ?? null;
+
+        if (!$workspaceId || !$assetId || $quantity <= 0 || $unitPrice <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Ativo, quantidade e preço válidos são obrigatórios']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $stmtAsset = $db->prepare("SELECT name, ticker FROM investment_assets WHERE id = ?");
+        $stmtAsset->execute([$assetId]);
+        $asset = $stmtAsset->fetch();
+
+        $stmt = $db->prepare("INSERT INTO investment_operations (workspace_id, owner_id, asset_id, operation_type, quantity, unit_price, operation_date) 
+            VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $assetId, $opType, $quantity, $unitPrice, $opDate]);
+        $operation = $stmt->fetch();
+
+        $txId = null;
+        if ($accountId) {
+            $totalAmount = round($quantity * $unitPrice, 2);
+            $txType = ($opType === 'buy') ? 'expense' : 'income';
+            $desc = ($opType === 'buy' ? 'Compra de ativo' : 'Venda de ativo') . ' - ' . ($asset['name'] ?? $asset['ticker'] ?? '');
+            $stmtTx = $db->prepare("INSERT INTO transactions 
+                (workspace_id, owner_id, account_id, type, description, amount, interest_amount, competence_date, paid_at, status) 
+                VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, 'paid') RETURNING id");
+            $stmtTx->execute([$workspaceId, $ownerId, $accountId, $txType, $desc, $totalAmount, $opDate, $opDate]);
+            $txId = $stmtTx->fetchColumn();
+        }
+
+        echo json_encode(['success' => true, 'operation' => $operation, 'transaction_id' => $txId]);
+        exit;
+    }
+
+    if ($uri === '/investments/quotes' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $assetId = $body['asset_id'] ?? null;
+        $unitPrice = (float)($body['unit_price'] ?? 0);
+        $quoteDate = $body['quote_date'] ?? date('Y-m-d');
+
+        if (!$workspaceId || !$assetId || $unitPrice <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Ativo e cotação válida são obrigatórios']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $stmt = $db->prepare("INSERT INTO investment_quotes (workspace_id, owner_id, asset_id, unit_price, quote_date) 
+            VALUES (?, ?, ?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $assetId, $unitPrice, $quoteDate]);
+        $quote = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'quote' => $quote]);
+        exit;
+    }
+
+    // 18. Data: Credit Card Purchase (Installments)
+    if ($uri === '/cards/purchase' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $cardId = $body['credit_card_id'] ?? null;
+        $description = trim($body['description'] ?? '');
+        $totalAmount = (float)($body['total_amount'] ?? 0);
+        $purchasedOn = $body['purchased_on'] ?? date('Y-m-d');
+        $installments = max(1, (int)($body['installment_count'] ?? 1));
+        $categoryId = !empty($body['category_id']) ? $body['category_id'] : null;
+        $notes = $body['notes'] ?? null;
+
+        if (!$workspaceId || !$cardId || empty($description) || $totalAmount <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Cartão, descrição e valor total válidos são obrigatórios']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $stmtCard = $db->prepare("SELECT account_id FROM credit_cards WHERE id = ?");
+        $stmtCard->execute([$cardId]);
+        $accountId = $stmtCard->fetchColumn();
+
+        if (!$accountId) {
+            $stmtAcc = $db->prepare("SELECT id FROM accounts WHERE workspace_id = ? LIMIT 1");
+            $stmtAcc->execute([$workspaceId]);
+            $accountId = $stmtAcc->fetchColumn();
+        }
+
+        $instAmount = round($totalAmount / $installments, 2);
+        $startDate = new DateTime($purchasedOn);
+
+        for ($i = 1; $i <= $installments; $i++) {
+            $compDate = clone $startDate;
+            if ($i > 1) {
+                $compDate->modify('+' . ($i - 1) . ' month');
+            }
+            $compDateStr = $compDate->format('Y-m-d');
+            $desc = $description . ($installments > 1 ? " ($i/$installments)" : '');
+
+            $stmtTx = $db->prepare("INSERT INTO transactions 
+                (workspace_id, owner_id, account_id, category_id, type, description, amount, interest_amount, competence_date, due_date, status, installment_current, installment_total, notes) 
+                VALUES (?, ?, ?, ?, 'expense', ?, ?, 0, ?, ?, 'pending', ?, ?, ?)");
+            $stmtTx->execute([
+                $workspaceId, $ownerId, $accountId, $categoryId, $desc, $instAmount, $compDateStr, $compDateStr, $i, $installments, $notes
+            ]);
+        }
+
+        echo json_encode(['success' => true, 'installments' => $installments]);
+        exit;
+    }
+
+    // 19. Data: Goal Contributions
+    if ($uri === '/goals/contributions' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $goalId = $body['financial_goal_id'] ?? null;
+        $amount = (float)($body['amount'] ?? 0);
+        $note = $body['note'] ?? 'Aporte';
+
+        if (!$workspaceId || !$goalId || $amount <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Meta e valor válido são obrigatórios']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $stmt = $db->prepare("INSERT INTO goal_contributions (workspace_id, owner_id, financial_goal_id, amount, note) 
+            VALUES (?, ?, ?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $goalId, $amount, $note]);
+        $contrib = $stmt->fetch();
+
+        $stmtUp = $db->prepare("UPDATE financial_goals SET current_amount = current_amount + ? WHERE id = ?");
+        $stmtUp->execute([$amount, $goalId]);
+
+        echo json_encode(['success' => true, 'contribution' => $contrib]);
+        exit;
+    }
+
+    // 20. Data: Preferences & Invites
+    if ($uri === '/preferences' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+
+        if (!$workspaceId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'workspace_id é obrigatório']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        if (isset($body['alert_preferences'])) {
+            $ap = $body['alert_preferences'];
+            $interest = !empty($ap['interest_alerts']) ? 'true' : 'false';
+            $closing = !empty($ap['invoice_closing_alerts']) ? 'true' : 'false';
+            $subs = !empty($ap['subscription_alerts']) ? 'true' : 'false';
+
+            $stmt = $db->prepare("INSERT INTO alert_preferences (workspace_id, owner_id, interest_alerts, invoice_closing_alerts, subscription_alerts) 
+                VALUES (?, ?, ?, ?, ?) 
+                ON CONFLICT (workspace_id, owner_id) DO UPDATE SET 
+                    interest_alerts = EXCLUDED.interest_alerts, 
+                    invoice_closing_alerts = EXCLUDED.invoice_closing_alerts, 
+                    subscription_alerts = EXCLUDED.subscription_alerts");
+            $stmt->execute([$workspaceId, $ownerId, $interest, $closing, $subs]);
+        }
+
+        if (isset($body['workspace_preferences'])) {
+            $wp = $body['workspace_preferences'];
+            $cashAcc = !empty($wp['default_cash_account_id']) ? $wp['default_cash_account_id'] : null;
+            $color = !empty($wp['primary_color']) ? $wp['primary_color'] : null;
+
+            $stmt = $db->prepare("INSERT INTO workspace_preferences (workspace_id, owner_id, default_cash_account_id, primary_color) 
+                VALUES (?, ?, ?, ?) 
+                ON CONFLICT (workspace_id, owner_id) DO UPDATE SET 
+                    default_cash_account_id = COALESCE(EXCLUDED.default_cash_account_id, workspace_preferences.default_cash_account_id), 
+                    primary_color = COALESCE(EXCLUDED.primary_color, workspace_preferences.primary_color)");
+            $stmt->execute([$workspaceId, $ownerId, $cashAcc, $color]);
+        }
+
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    if ($uri === '/invites' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $role = $body['role'] ?? 'editor';
+        $token = $body['token'] ?? bin2hex(random_bytes(16));
+
+        if (!$workspaceId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'workspace_id é obrigatório']);
+            exit;
+        }
+
+        $stmt = $db->prepare("INSERT INTO workspace_invites (workspace_id, role, token) VALUES (?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $role, $token]);
+        $inv = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'invite' => $inv, 'token' => $token]);
         exit;
     }
 

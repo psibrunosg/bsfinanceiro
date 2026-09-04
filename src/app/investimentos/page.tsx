@@ -26,7 +26,8 @@ type Asset = {
   name: string;
   type: string;
   exchange: string | null;
-  created_at: string;
+  is_shared?: boolean;
+  created_at?: string;
 };
 type Operation = {
   id: string;
@@ -35,7 +36,8 @@ type Operation = {
   quantity: number;
   unit_price: number;
   operation_date: string;
-  transaction_id: string | null;
+  transaction_id?: string | null;
+  created_at?: string;
 };
 type Quote = {
   id: string;
@@ -65,9 +67,39 @@ export default function InvestimentosPage() {
   const loadHub = useCallback(async () => {
     if (!workspace) return;
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const ownerId = userData.user?.id;
-      if (!ownerId) return;
+      try {
+        const res = await fetch(`/api/bootstrap?workspace_id=${encodeURIComponent(workspace.id)}`);
+        if (res.ok) {
+          const boot = await res.json();
+          if (boot.investments) {
+            setAssets(boot.investments.map((a: { id: string; name: string; type: string; exchange?: string | null; ticker?: string; is_shared?: boolean }) => ({
+              id: a.id,
+              name: a.name || a.ticker || "",
+              type: a.type,
+              exchange: a.exchange || a.ticker || null,
+              is_shared: !!a.is_shared,
+            })));
+          }
+          if (boot.investment_operations) {
+            setOperations(boot.investment_operations.map((o: { id: string; asset_id: string; operation_type: "buy" | "sell"; quantity: number | string; unit_price: number | string; operation_date: string; created_at: string }) => ({
+              ...o,
+              quantity: Number(o.quantity),
+              unit_price: Number(o.unit_price),
+            })));
+          }
+          if (boot.investment_quotes) {
+            setQuotes(boot.investment_quotes.map((q: { id: string; asset_id: string; quote_date: string; unit_price: number | string }) => ({
+              ...q,
+              unit_price: Number(q.unit_price),
+            })));
+          }
+          setHubLoading(false);
+          return;
+        }
+      } catch {
+        // Fallback to direct supabase queries
+      }
+
       const [{ data: contextRows }, { data: assetRows }, { data: operationRows }, { data: quoteRows }] =
         await Promise.all([
           supabase
@@ -79,16 +111,16 @@ export default function InvestimentosPage() {
             .maybeSingle(),
           supabase
             .from("investment_assets")
-            .select("id,name,type,exchange,created_at")
+            .select("id,name,type,exchange,is_shared,created_at")
             .eq("workspace_id", workspace.id)
             .eq("active", true)
             .order("name"),
           supabase
             .from("investment_operations")
-            .select("id,asset_id,operation_type,quantity,unit_price,operation_date,transaction_id")
+            .select("id,asset_id,operation_type,quantity,unit_price,operation_date,transaction_id,created_at")
             .eq("workspace_id", workspace.id)
             .order("operation_date", { ascending: false })
-            .limit(500),
+            .limit(200),
           supabase
             .from("investment_quotes")
             .select("id,asset_id,quote_date,unit_price")
@@ -158,15 +190,44 @@ export default function InvestimentosPage() {
           : dialog?.kind === "quote" ? "Atualizar cotação" : "";
 
   async function submitAsset(form: FormData) {
+    const name = String(form.get("name") || "");
+    const type = String(form.get("type") || "stock");
+    const exchange = form.get("exchange") ? String(form.get("exchange")) : null;
+    const isShared = form.get("is_shared") === "on";
+
+    try {
+      const res = await fetch("/api/investments/assets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          name,
+          ticker: exchange || name,
+          type,
+          exchange,
+          is_shared: isShared,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Ativo cadastrado.");
+        setDialog(null);
+        await loadHub();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("investment_assets").insert({
       workspace_id: workspace.id,
       owner_id: userData.user?.id,
       context_id: defaultContextId,
-      name: form.get("name"),
-      type: form.get("type"),
-      exchange: form.get("exchange") || null,
-      is_shared: form.get("is_shared") === "on",
+      name,
+      type,
+      exchange,
+      is_shared: isShared,
     });
     setMessage(error ? "Não foi possível cadastrar o ativo." : "Ativo cadastrado.");
     if (!error) setDialog(null);
@@ -182,6 +243,34 @@ export default function InvestimentosPage() {
     const quantity = Number(String(form.get("quantity")).replace(",", "."));
     const price = parseMoney(form.get("unit_price"));
     const amount = Math.round(quantity * price * 100) / 100;
+    const operation_date = String(form.get("operation_date") || "");
+
+    try {
+      const res = await fetch("/api/investments/operations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          asset_id: assetId,
+          account_id: accountId,
+          operation_type: kind,
+          type: kind,
+          quantity,
+          unit_price: price,
+          operation_date,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage(`${kind === "buy" ? "Compra" : "Venda"} registrada.`);
+        setDialog(null);
+        await loadHub();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { error } = await supabase.rpc("record_investment_operation", {
       p_asset_id: assetId,
       p_account_id: accountId,
@@ -189,7 +278,7 @@ export default function InvestimentosPage() {
       p_quantity: quantity,
       p_price: price,
       p_amount: amount,
-      p_date: form.get("operation_date"),
+      p_date: operation_date,
     });
     setMessage(
       error
@@ -201,14 +290,39 @@ export default function InvestimentosPage() {
   }
 
   async function submitQuote(assetId: string, form: FormData) {
+    const unitPrice = parseMoney(form.get("unit_price"));
+    const quoteDate = String(form.get("quote_date") || "");
+
+    try {
+      const res = await fetch("/api/investments/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          asset_id: assetId,
+          unit_price: unitPrice,
+          quote_date: quoteDate,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Cotação atualizada.");
+        setDialog(null);
+        await loadHub();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("investment_quotes").insert({
       workspace_id: workspace.id,
       owner_id: userData.user?.id,
       context_id: defaultContextId,
       asset_id: assetId,
-      quote_date: form.get("quote_date"),
-      unit_price: parseMoney(form.get("unit_price")),
+      quote_date: quoteDate,
+      unit_price: unitPrice,
     });
     setMessage(error ? "Não foi possível atualizar a cotação." : "Cotação atualizada.");
     if (!error) setDialog(null);

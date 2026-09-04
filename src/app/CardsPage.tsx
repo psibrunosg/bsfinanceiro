@@ -197,14 +197,46 @@ function CardsPageInner() {
   }
 
   async function submitPurchase(form: FormData) {
+    const description = String(form.get("description") || "");
+    const total_amount = parseMoney(form.get("total_amount"));
+    const purchased_on = String(form.get("purchased_on") || "");
+    const installment_count = Number(form.get("installment_count") || 1);
+    const category_id = form.get("category_id") ? String(form.get("category_id")) : null;
+    const notes = form.get("notes") ? String(form.get("notes")) : null;
+
+    try {
+      const res = await fetch("/api/cards/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          credit_card_id: selectedCardId,
+          description,
+          total_amount,
+          purchased_on,
+          installment_count,
+          category_id,
+          notes,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Compra registrada.");
+        await reload();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { error } = await supabase.rpc("create_installment_purchase", {
       p_credit_card_id: selectedCardId,
-      p_description: form.get("description"),
-      p_total_amount: parseMoney(form.get("total_amount")),
-      p_purchased_on: form.get("purchased_on"),
-      p_installment_count: Number(form.get("installment_count") || 1),
-      p_category_id: form.get("category_id") || null,
-      p_notes: form.get("notes") || null,
+      p_description: description,
+      p_total_amount: total_amount,
+      p_purchased_on: purchased_on,
+      p_installment_count: installment_count,
+      p_category_id: category_id,
+      p_notes: notes,
       p_idempotency_key: crypto.randomUUID(),
     });
     setMessage(
