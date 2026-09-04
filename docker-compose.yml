@@ -42,6 +42,8 @@ services:
       - DB_NAME=bsfinanceiro
       - DB_USER=bstrainer
       - DB_PASSWORD=eTEklwZkO8dwrbazpVzeQpOXWwVraRcS7x48
+    volumes:
+      - /opt/backups/bsfinanceiro:/opt/backups/bsfinanceiro:ro
     restart: unless-stopped
     depends_on:
       - db
