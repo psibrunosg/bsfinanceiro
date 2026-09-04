@@ -273,7 +273,7 @@ try {
         $accounts = $db->prepare("SELECT id, name, type, initial_balance, is_shared, active, is_system FROM accounts WHERE workspace_id = ? AND active = true ORDER BY name ASC");
         $accounts->execute([$workspaceId]);
 
-        $categories = $db->prepare("SELECT id, name, kind, color, budget_limit FROM categories WHERE workspace_id = ? AND active = true ORDER BY name ASC");
+        $categories = $db->prepare("SELECT id, name, kind, color, budget_limit FROM categories WHERE workspace_id = ? ORDER BY name ASC");
         $categories->execute([$workspaceId]);
 
         $transactions = $db->prepare("SELECT id, account_id, destination_account_id, type, status, description, amount, competence_date, category_id, paid_at FROM transactions WHERE workspace_id = ? ORDER BY competence_date DESC, created_at DESC LIMIT 500");
@@ -285,7 +285,7 @@ try {
         $goals = $db->prepare("SELECT id, name, target_amount, current_amount, deadline, status FROM financial_goals WHERE workspace_id = ? AND status = 'active'");
         $goals->execute([$workspaceId]);
 
-        $cards = $db->prepare("SELECT id, account_id, name, brand, last_four, credit_limit, closing_day, due_day FROM credit_cards WHERE workspace_id = ?");
+        $cards = $db->prepare("SELECT id, account_id, name, closing_day, due_day, limit_amount as credit_limit FROM credit_cards WHERE workspace_id = ?");
         $cards->execute([$workspaceId]);
 
         $investments = $db->prepare("SELECT * FROM investment_assets WHERE workspace_id = ? AND active = true");
