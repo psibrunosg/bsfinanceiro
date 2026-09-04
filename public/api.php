@@ -56,6 +56,18 @@ try {
         exit;
     }
 
+    // 1.1 Backup Status
+    if ($uri === '/backup-status' && $method === 'GET') {
+        $statusFile = '/opt/backups/bsfinanceiro/latest.json';
+        if (file_exists($statusFile)) {
+            $data = json_decode(file_get_contents($statusFile), true);
+            echo json_encode(array_merge(['configured' => true], is_array($data) ? $data : []));
+        } else {
+            echo json_encode(['configured' => true, 'status' => 'pending', 'message' => 'Nenhum backup registrado ainda']);
+        }
+        exit;
+    }
+
     // 2. Auth: Register
     if ($uri === '/auth/register' && $method === 'POST') {
         $email = trim(strtolower($body['email'] ?? ''));
