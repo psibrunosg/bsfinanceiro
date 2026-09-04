@@ -21,12 +21,12 @@ type EmergencyFundWidgetProps = {
 };
 
 export function EmergencyFundWidget({
-  monthlyFixedExpenses = 5000,
-  initialFundBalance = 15000,
+  monthlyFixedExpenses = 0,
+  initialFundBalance = 0,
 }: EmergencyFundWidgetProps) {
   const [fundBalance, setFundBalance] = useState<number>(initialFundBalance);
   const [targetMonths, setTargetMonths] = useState<6 | 12>(6);
-  const [withdrawInput, setWithdrawInput] = useState("3000");
+  const [withdrawInput, setWithdrawInput] = useState("");
 
   const fundMetrics = useMemo(
     () =>

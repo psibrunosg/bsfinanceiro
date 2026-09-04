@@ -19,11 +19,11 @@ type ImpulseCalculatorWidgetProps = {
 };
 
 export function ImpulseCalculatorWidget({
-  estimatedMonthlyIncome = 8000,
+  estimatedMonthlyIncome = 0,
 }: ImpulseCalculatorWidgetProps) {
   const [productName, setProductName] = useState("");
   const [priceInput, setPriceInput] = useState("");
-  const [incomeInput, setIncomeInput] = useState(String(estimatedMonthlyIncome || ""));
+  const [incomeInput, setIncomeInput] = useState(estimatedMonthlyIncome > 0 ? String(estimatedMonthlyIncome) : "");
   const [coolingOffHours] = useState<number>(48);
 
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);

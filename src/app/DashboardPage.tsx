@@ -337,23 +337,23 @@ export function DashboardPage() {
     </div>
 
     <div style={{ marginTop: '24px' }}>
-      <ImpulseCalculatorWidget />
+      <ImpulseCalculatorWidget estimatedMonthlyIncome={metrics.monthIncome} />
     </div>
 
     <div style={{ marginTop: '24px' }}>
-      <FireDashboardWidget monthlyExpenses={metrics.monthExpense || 6000} currentNetWorth={investments.total} currentMonth={month} />
+      <FireDashboardWidget monthlyExpenses={metrics.monthExpense} currentNetWorth={investments.total} currentMonth={month} />
     </div>
 
     <div style={{ marginTop: '24px' }}>
-      <ScenarioSimulatorWidget estimatedMonthlyIncome={metrics.monthIncome || 8000} estimatedMonthlyExpenses={metrics.monthExpense || 6000} currentBalance={metrics.balance} />
+      <ScenarioSimulatorWidget estimatedMonthlyIncome={metrics.monthIncome} estimatedMonthlyExpenses={metrics.monthExpense} currentBalance={metrics.balance} />
     </div>
 
     <div style={{ marginTop: '24px' }}>
-      <AcademicRoiWidget currentMonthlyIncome={metrics.monthIncome || 10000} currentMonth={month} />
+      <AcademicRoiWidget currentMonthlyIncome={metrics.monthIncome} currentMonth={month} />
     </div>
 
     <div style={{ marginTop: '24px' }}>
-      <EmergencyFundWidget monthlyFixedExpenses={metrics.monthExpense || 5000} initialFundBalance={Math.max(0, metrics.balance)} />
+      <EmergencyFundWidget monthlyFixedExpenses={metrics.monthExpense} initialFundBalance={Math.max(0, metrics.balance)} />
     </div>
 
     <div style={{ marginTop: '24px' }}>

@@ -22,7 +22,7 @@ type FireDashboardWidgetProps = {
 export function FireDashboardWidget({
   monthlyExpenses,
   currentNetWorth,
-  estimatedMonthlyContribution = 2000,
+  estimatedMonthlyContribution = 0,
   currentMonth = new Date().toISOString().slice(0, 7),
 }: FireDashboardWidgetProps) {
   const [simulatedContribution, setSimulatedContribution] = useState<number>(

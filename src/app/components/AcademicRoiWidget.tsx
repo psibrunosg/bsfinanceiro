@@ -21,14 +21,14 @@ type AcademicRoiWidgetProps = {
 };
 
 export function AcademicRoiWidget({
-  currentMonthlyIncome = 10000,
+  currentMonthlyIncome = 0,
   currentMonth = new Date().toISOString().slice(0, 7),
 }: AcademicRoiWidgetProps) {
   const [courses, setCourses] = useState<AcademicCourse[]>([]);
 
   // Simulador de Próximo Curso
-  const [simCost, setSimCost] = useState("6000");
-  const [simPercent, setSimPercent] = useState("15");
+  const [simCost, setSimCost] = useState("");
+  const [simPercent, setSimPercent] = useState("");
 
   const roiResult = useMemo(
     () => computeAcademicRoi(courses, currentMonth),

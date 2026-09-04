@@ -21,20 +21,20 @@ type ScenarioSimulatorWidgetProps = {
 };
 
 export function ScenarioSimulatorWidget({
-  estimatedMonthlyIncome = 8000,
-  estimatedMonthlyExpenses = 6000,
-  currentBalance = 5000,
+  estimatedMonthlyIncome = 0,
+  estimatedMonthlyExpenses = 0,
+  currentBalance = 0,
 }: ScenarioSimulatorWidgetProps) {
   const [tab, setTab] = useState<"cash_vs_installment" | "what_if">("cash_vs_installment");
 
   // Estados da Aba 1: À Vista vs Parcelado
-  const [productPrice, setProductPrice] = useState("3000");
-  const [discountPercent, setDiscountPercent] = useState("10");
-  const [installments, setInstallments] = useState("10");
+  const [productPrice, setProductPrice] = useState("");
+  const [discountPercent, setDiscountPercent] = useState("");
+  const [installments, setInstallments] = useState("");
 
   // Estados da Aba 2: What-If
-  const [newExpenseName, setNewExpenseName] = useState("Parcela de Financiamento");
-  const [newExpenseAmount, setNewExpenseAmount] = useState("1200");
+  const [newExpenseName, setNewExpenseName] = useState("");
+  const [newExpenseAmount, setNewExpenseAmount] = useState("");
   const [simulationDuration] = useState<number>(12);
 
   const numPrice = Number(productPrice.replace(",", ".")) || 0;

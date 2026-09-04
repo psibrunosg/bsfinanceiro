@@ -34,7 +34,13 @@ export function ZeroBasedBudgetWidget({
         const stored = localStorage.getItem("bsf_budget_envelopes");
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) return parsed;
+          if (Array.isArray(parsed)) {
+            const cleaned = parsed.filter((e: BudgetEnvelope) => !["env-1", "env-2", "env-3", "env-4"].includes(e.id));
+            if (cleaned.length !== parsed.length) {
+              localStorage.setItem("bsf_budget_envelopes", JSON.stringify(cleaned));
+            }
+            return cleaned;
+          }
         }
       } catch (err) {
         console.error("Erro ao carregar envelopes do localStorage", err);

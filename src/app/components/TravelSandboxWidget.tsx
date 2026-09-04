@@ -26,7 +26,12 @@ export function TravelSandboxWidget({ initialTrip }: TravelSandboxWidgetProps = 
       try {
         const stored = localStorage.getItem("bsf_travel_trip");
         if (stored) {
-          return JSON.parse(stored);
+          const parsed = JSON.parse(stored);
+          if (parsed?.id === "trip-1" || parsed?.destination === "Santiago, Chile") {
+            localStorage.removeItem("bsf_travel_trip");
+            return null;
+          }
+          return parsed;
         }
       } catch (err) {
         console.error("Erro ao carregar viagem do localStorage", err);

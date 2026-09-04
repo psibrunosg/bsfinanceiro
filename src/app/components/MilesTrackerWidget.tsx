@@ -25,7 +25,13 @@ export function MilesTrackerWidget({
         const stored = localStorage.getItem("bsf_miles_programs");
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) return parsed;
+          if (Array.isArray(parsed)) {
+            const cleaned = parsed.filter((p: LoyaltyProgram) => !["prog-1", "prog-2", "prog-3"].includes(p.id));
+            if (cleaned.length !== parsed.length) {
+              localStorage.setItem("bsf_miles_programs", JSON.stringify(cleaned));
+            }
+            return cleaned;
+          }
         }
       } catch (err) {
         console.error("Erro ao carregar milhas do localStorage", err);

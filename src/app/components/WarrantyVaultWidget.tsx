@@ -27,7 +27,13 @@ export function WarrantyVaultWidget({
         const stored = localStorage.getItem("bsf_warranty_items");
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) return parsed;
+          if (Array.isArray(parsed)) {
+            const cleaned = parsed.filter((i: WarrantyItem) => !["item-1", "item-2", "item-3"].includes(i.id));
+            if (cleaned.length !== parsed.length) {
+              localStorage.setItem("bsf_warranty_items", JSON.stringify(cleaned));
+            }
+            return cleaned;
+          }
         }
       } catch (err) {
         console.error("Erro ao carregar garantias do localStorage", err);
