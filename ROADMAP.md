@@ -241,6 +241,15 @@ Status: DONE
 - [x] **Diagnóstico financeiro** — Score de 0-1000 com radar de hábitos, poupança e endividamento (`HealthScoreWidget`).
 - [x] **Assistente financeiro** — Chat interativo de perguntas em linguagem natural sobre despesas, saldos, contas e categorias (`FinancialAssistantWidget`).
 
+### Fase 13. Proteção Patrimonial e Fidelidade
+
+Status: DONE
+
+> **Inspiração:** Superpowers Spec (Módulos 12 e 19)
+
+- [x] **Cofre de Garantias e Notas Fiscais (Módulo 12)** — Cadastro de bens de alto valor, cálculo automático de vigência de garantia legal/estendida, alerta de expiração em até 30 dias e valor patrimonial protegido (`WarrantyVaultWidget`).
+- [x] **Radar de Milhas e Pontos (Módulo 19)** — Consolidação de programas de fidelidade (Livelo, Smiles, Latam Pass), estimativa de valor em moeda corrente (R$) e alerta de milhas prestes a expirar (`MilesTrackerWidget`).
+
 ### Priorização sugerida
 
 | Fase | Impacto | Esforço | Prioridade |

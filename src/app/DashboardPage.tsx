@@ -38,6 +38,8 @@ import { BankNotificationAssistantWidget } from "./components/BankNotificationAs
 import { FinancialAssistantWidget } from "./components/FinancialAssistantWidget";
 import { ZeroBasedBudgetWidget } from "./components/ZeroBasedBudgetWidget";
 import { TravelSandboxWidget } from "./components/TravelSandboxWidget";
+import { WarrantyVaultWidget } from "./components/WarrantyVaultWidget";
+import { MilesTrackerWidget } from "./components/MilesTrackerWidget";
 
 const ASSET_TYPE_LABEL: Record<string, string> = {
   stock: "Ações",
@@ -392,6 +394,14 @@ export function DashboardPage() {
 
     <div style={{ marginTop: '24px' }}>
       <TravelSandboxWidget />
+    </div>
+
+    <div style={{ marginTop: '24px' }}>
+      <WarrantyVaultWidget referenceDate={`${month}-15`} />
+    </div>
+
+    <div style={{ marginTop: '24px' }}>
+      <MilesTrackerWidget />
     </div>
 
     <div className="dashboard-bento-grid" style={{ marginTop: '24px', gridTemplateColumns: '1fr 1fr' }}>
