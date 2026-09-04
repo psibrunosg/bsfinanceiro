@@ -87,6 +87,56 @@ export default function GastosPage() {
   const loadHub = useCallback(async () => {
     if (!workspace) return;
     try {
+      try {
+        const res = await fetch(`/api/bootstrap?workspace_id=${encodeURIComponent(workspace.id)}`);
+        if (res.ok) {
+          const boot = await res.json();
+          if (boot.commitments) {
+            setCommitments(
+              boot.commitments.map((c: { id: string; description: string; amount: number | string; due_day: number | string; category_id: string | null }) => ({
+                id: c.id,
+                description: c.description,
+                amount: Number(c.amount),
+                due_day: Number(c.due_day),
+                category_id: c.category_id,
+              }))
+            );
+          }
+          if (boot.occurrences) {
+            setOccurrences(
+              boot.occurrences.map((o: { id: string; fixed_commitment_id?: string; commitment_id?: string; due_date?: string; month_date?: string; due_day?: number; description?: string; amount?: number | string; status: string }) => ({
+                id: o.id,
+                fixed_commitment_id: o.fixed_commitment_id || o.commitment_id || "",
+                due_date: o.due_date || (o.month_date ? `${o.month_date.slice(0, 7)}-${String(o.due_day || 1).padStart(2, "0")}` : ""),
+                description: o.description || "",
+                amount: Number(o.amount || 0),
+                status: o.status === "pending" ? "planned" : o.status,
+              }))
+            );
+          }
+          if (boot.transactions) {
+            setExpenses(
+              boot.transactions
+                .filter((t: { type: string; description?: string }) => t.type === "expense")
+                .filter((t: { description?: string }) => !t.description?.startsWith("Pagamento de fatura") && !t.description?.startsWith("Fatura "))
+                .map((t: { id: string; description: string; amount: number | string; competence_date: string; category_id: string | null; context_id?: string | null; status: string }) => ({
+                  id: t.id,
+                  description: t.description,
+                  amount: Number(t.amount),
+                  competence_date: t.competence_date,
+                  category_id: t.category_id,
+                  context_id: t.context_id || null,
+                  status: t.status,
+                }))
+            );
+          }
+          setHubLoading(false);
+          return;
+        }
+      } catch {
+        // Fallback to Supabase queries (e.g. for unit tests)
+      }
+
       const [{ data: contextRows }, { data: expenseRows }, { data: commitmentRows }, { data: occurrenceData }] =
         await Promise.all([
           supabase
@@ -191,18 +241,49 @@ export default function GastosPage() {
       : { label: "Registrar gasto", onClick: () => setDialog({ kind: "expense" }) };
 
   async function submitExpense(form: FormData) {
+    const account_id = form.get("account_id");
+    const category_id = form.get("category_id") || null;
+    const amount = parseMoney(form.get("amount"));
+    const description = form.get("description");
+    const competence_date = form.get("competence_date");
+
+    try {
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          account_id,
+          category_id,
+          type: "expense",
+          amount,
+          description,
+          competence_date,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Gasto registrado.");
+        setDialog(null);
+        await loadHub();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("transactions").insert({
       workspace_id: workspace.id,
       owner_id: userData.user?.id,
-      account_id: form.get("account_id"),
-      category_id: form.get("category_id") || null,
+      account_id,
+      category_id,
       context_id: defaultContextId,
       type: "expense",
-      amount: parseMoney(form.get("amount")),
-      description: form.get("description"),
-      competence_date: form.get("competence_date"),
-      paid_at: form.get("competence_date"),
+      amount,
+      description,
+      competence_date,
+      paid_at: competence_date,
       status: "paid",
       idempotency_key: crypto.randomUUID(),
     });
@@ -212,15 +293,45 @@ export default function GastosPage() {
   }
 
   async function submitRecurrent(form: FormData) {
+    const description = form.get("description");
+    const amount = parseMoney(form.get("amount"));
+    const due_day = Number(form.get("due_day"));
+    const account_id = form.get("account_id") || null;
+    const category_id = form.get("category_id") || null;
+
+    try {
+      const res = await fetch("/api/commitments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          description,
+          amount,
+          due_day,
+          account_id,
+          category_id,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Compromisso criado.");
+        setDialog(null);
+        await loadHub();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { data: userData } = await supabase.auth.getUser();
     const { error } = await supabase.from("fixed_commitments").insert({
       workspace_id: workspace.id,
       owner_id: userData.user?.id,
-      description: form.get("description"),
-      amount: parseMoney(form.get("amount")),
-      due_day: Number(form.get("due_day")),
-      account_id: form.get("account_id") || null,
-      category_id: form.get("category_id") || null,
+      description,
+      amount,
+      due_day,
+      account_id,
+      category_id,
     });
     setMessage(error ? "Não foi possível criar o compromisso." : "Compromisso criado.");
     if (!error) setDialog(null);
@@ -233,10 +344,32 @@ export default function GastosPage() {
       setMessage("Escolha uma conta para pagar.");
       return;
     }
+    const paid_on = new Date().toISOString().slice(0, 10);
+
+    try {
+      const res = await fetch("/api/commitments/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          occurrence_id: occurrenceId,
+          account_id: accountId,
+          paid_on,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Compromisso pago.");
+        await loadHub();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { error } = await supabase.rpc("pay_fixed_commitment_occurrence", {
       p_occurrence_id: occurrenceId,
       p_account_id: accountId,
-      p_paid_on: new Date().toISOString().slice(0, 10),
+      p_paid_on: paid_on,
       p_idempotency_key: crypto.randomUUID(),
     });
     setMessage(error ? "Não foi possível pagar o compromisso." : "Compromisso pago.");
@@ -486,7 +619,7 @@ export default function GastosPage() {
               <div style={{ display: "grid", gap: 8 }}>
                 {occurrences.map((o) => {
                   const paid = o.status === "paid";
-                  const payable = o.status === "planned";
+                  const payable = o.status === "planned" || o.status === "pending";
                   return (
                     <article className="tx-row" key={o.id} style={payable ? { alignItems: "flex-start" } : undefined}>
                       <span

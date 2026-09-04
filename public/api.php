@@ -293,14 +293,31 @@ try {
 
         $commitments = [];
         try {
-            $stmt = $db->prepare("SELECT * FROM fixed_commitments WHERE workspace_id = ? AND active = true");
+            $stmt = $db->prepare("SELECT * FROM fixed_commitments WHERE workspace_id = ? AND active = true ORDER BY due_day ASC");
             $stmt->execute([$workspaceId]);
             $commitments = $stmt->fetchAll();
+
+            $currentMonthDate = date('Y-m-01');
+            foreach ($commitments as $c) {
+                $chk = $db->prepare("SELECT id FROM fixed_commitment_occurrences WHERE commitment_id = ? AND month_date = ?");
+                $chk->execute([$c['id'], $currentMonthDate]);
+                if (!$chk->fetch()) {
+                    $ins = $db->prepare("INSERT INTO fixed_commitment_occurrences (commitment_id, workspace_id, owner_id, month_date, status) VALUES (?, ?, ?, ?, 'pending')");
+                    $ins->execute([$c['id'], $c['workspace_id'], $c['owner_id'], $currentMonthDate]);
+                }
+            }
         } catch (Exception $e) {}
 
         $occurrences = [];
         try {
-            $stmt = $db->prepare("SELECT o.* FROM fixed_commitment_occurrences o JOIN fixed_commitments c ON c.id = o.commitment_id WHERE c.workspace_id = ?");
+            $stmt = $db->prepare("SELECT o.id, o.commitment_id AS fixed_commitment_id, o.commitment_id, o.workspace_id, o.owner_id, o.month_date, 
+                CASE WHEN o.status = 'pending' THEN 'planned' ELSE o.status END AS status,
+                o.transaction_id, o.created_at,
+                c.description, c.amount, c.due_day, c.category_id,
+                TO_CHAR(o.month_date, 'YYYY-MM') || '-' || LPAD(c.due_day::text, 2, '0') AS due_date
+                FROM fixed_commitment_occurrences o 
+                JOIN fixed_commitments c ON c.id = o.commitment_id 
+                WHERE c.workspace_id = ? ORDER BY o.month_date ASC, c.due_day ASC");
             $stmt->execute([$workspaceId]);
             $occurrences = $stmt->fetchAll();
         } catch (Exception $e) {}
@@ -612,6 +629,107 @@ try {
         $stmt = $db->prepare("DELETE FROM debts WHERE id = ?");
         $stmt->execute([$id]);
         echo json_encode(['success' => true]);
+        exit;
+    }
+
+    // 13. Data: Create, Delete & Pay Fixed Commitments
+    if ($uri === '/commitments' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $description = trim($body['description'] ?? '');
+        $amount = (float)($body['amount'] ?? 0);
+        $dueDay = (int)($body['due_day'] ?? 1);
+        $accountId = !empty($body['account_id']) ? $body['account_id'] : null;
+        $categoryId = !empty($body['category_id']) ? $body['category_id'] : null;
+
+        if (!$workspaceId || empty($description) || $amount <= 0 || $dueDay < 1 || $dueDay > 31) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Descrição, valor e dia de vencimento válidos são obrigatórios']);
+            exit;
+        }
+
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+            $stmt->execute([$workspaceId]);
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        $stmt = $db->prepare("INSERT INTO fixed_commitments (workspace_id, owner_id, account_id, category_id, description, amount, due_day, active) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, true) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $accountId, $categoryId, $description, $amount, $dueDay]);
+        $commitment = $stmt->fetch();
+
+        $currentMonthDate = date('Y-m-01');
+        $stmtOcc = $db->prepare("INSERT INTO fixed_commitment_occurrences (commitment_id, workspace_id, owner_id, month_date, status) 
+            VALUES (?, ?, ?, ?, 'pending') RETURNING *");
+        $stmtOcc->execute([$commitment['id'], $workspaceId, $ownerId, $currentMonthDate]);
+        $occurrence = $stmtOcc->fetch();
+
+        echo json_encode(['success' => true, 'commitment' => $commitment, 'occurrence' => $occurrence]);
+        exit;
+    }
+
+    if ($uri === '/commitments' && $method === 'DELETE') {
+        $id = $_GET['id'] ?? $body['id'] ?? null;
+        if (!$id) {
+            http_response_code(400);
+            echo json_encode(['error' => 'ID do compromisso é obrigatório']);
+            exit;
+        }
+        $stmt = $db->prepare("UPDATE fixed_commitments SET active = false WHERE id = ?");
+        $stmt->execute([$id]);
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    if ($uri === '/commitments/pay' && $method === 'POST') {
+        $occurrenceId = $body['occurrence_id'] ?? null;
+        $accountId = $body['account_id'] ?? null;
+        $paidOn = $body['paid_on'] ?? date('Y-m-d');
+
+        if (!$occurrenceId || !$accountId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Ocorrência e conta de pagamento são obrigatórias']);
+            exit;
+        }
+
+        $stmt = $db->prepare("SELECT o.*, c.description, c.amount, c.category_id, c.workspace_id, c.owner_id 
+            FROM fixed_commitment_occurrences o 
+            JOIN fixed_commitments c ON c.id = o.commitment_id 
+            WHERE o.id = ?");
+        $stmt->execute([$occurrenceId]);
+        $occ = $stmt->fetch();
+
+        if (!$occ) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Compromisso não encontrado']);
+            exit;
+        }
+
+        if ($occ['status'] === 'paid') {
+            echo json_encode(['success' => true, 'already_paid' => true, 'transaction_id' => $occ['transaction_id']]);
+            exit;
+        }
+
+        $stmtTx = $db->prepare("INSERT INTO transactions 
+            (workspace_id, owner_id, account_id, category_id, type, description, amount, interest_amount, competence_date, paid_at, status)
+            VALUES (?, ?, ?, ?, 'expense', ?, ?, 0, ?, ?, 'paid') RETURNING id");
+        $stmtTx->execute([
+            $occ['workspace_id'],
+            $occ['owner_id'],
+            $accountId,
+            $occ['category_id'],
+            $occ['description'],
+            $occ['amount'],
+            $paidOn,
+            $paidOn
+        ]);
+        $txId = $stmtTx->fetchColumn();
+
+        $stmtUp = $db->prepare("UPDATE fixed_commitment_occurrences SET status = 'paid', transaction_id = ? WHERE id = ?");
+        $stmtUp->execute([$txId, $occurrenceId]);
+
+        echo json_encode(['success' => true, 'transaction_id' => $txId]);
         exit;
     }
 
