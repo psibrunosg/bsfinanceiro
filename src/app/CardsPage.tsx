@@ -135,6 +135,8 @@ function CardsPageInner() {
         setMessage("Cartão adicionado.");
         setEditingCardId(null);
         setOpenDialog(false);
+        await reload();
+        return;
       } else {
         const { data: userData } = await supabase.auth.getUser();
         const { error } = await supabase.rpc("create_credit_card", {
@@ -176,15 +178,49 @@ function CardsPageInner() {
 
   async function updateCard(form: FormData) {
     if (!editingCardId) return;
+    const name = form.get("name");
+    const brand = form.get("brand") || null;
+    const last_four = form.get("last_four") || null;
+    const credit_limit = parseMoney(form.get("credit_limit"));
+    const closing_day = Number(form.get("closing_day"));
+    const due_day = Number(form.get("due_day"));
+
+    try {
+      const res = await fetch("/api/cards", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingCardId,
+          workspace_id: workspace.id,
+          name,
+          brand,
+          last_four,
+          credit_limit,
+          closing_day,
+          due_day,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("Cartão atualizado.");
+        setEditingCardId(null);
+        setOpenDialog(false);
+        await reload();
+        return;
+      }
+    } catch {
+      // fallback to supabase
+    }
+
     const { error } = await supabase
       .from("credit_cards")
       .update({
-        name: form.get("name"),
-        brand: form.get("brand") || null,
-        last_four: form.get("last_four") || null,
-        credit_limit: parseMoney(form.get("credit_limit")),
-        closing_day: Number(form.get("closing_day")),
-        due_day: Number(form.get("due_day")),
+        name,
+        brand,
+        last_four,
+        credit_limit,
+        closing_day,
+        due_day,
       })
       .eq("id", editingCardId)
       .eq("workspace_id", workspace.id);

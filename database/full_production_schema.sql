@@ -112,13 +112,16 @@ CREATE TABLE IF NOT EXISTS categories (
 -- 10. Cartões de Crédito
 CREATE TABLE IF NOT EXISTS credit_cards (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    account_id UUID REFERENCES accounts(id) ON DELETE CASCADE,
     workspace_id UUID NOT NULL,
     owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(100),
+    brand VARCHAR(50),
+    last_four VARCHAR(10),
     closing_day SMALLINT NOT NULL CHECK (closing_day BETWEEN 1 AND 31),
     due_day SMALLINT NOT NULL CHECK (due_day BETWEEN 1 AND 31),
     limit_amount NUMERIC(14, 2) DEFAULT 0.00,
+    credit_limit NUMERIC(14, 2) DEFAULT 0.00,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

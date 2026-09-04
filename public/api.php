@@ -297,7 +297,7 @@ try {
         $goals = $db->prepare("SELECT id, name, target_amount, current_amount, deadline, status FROM financial_goals WHERE workspace_id = ? AND status = 'active'");
         $goals->execute([$workspaceId]);
 
-        $cards = $db->prepare("SELECT id, account_id, name, closing_day, due_day, limit_amount as credit_limit FROM credit_cards WHERE workspace_id = ?");
+        $cards = $db->prepare("SELECT id, account_id, name, brand, last_four, closing_day, due_day, COALESCE(credit_limit, limit_amount, 0) as credit_limit FROM credit_cards WHERE workspace_id = ?");
         $cards->execute([$workspaceId]);
 
         $investments = $db->prepare("SELECT * FROM investment_assets WHERE workspace_id = ? AND active = true");
@@ -606,11 +606,11 @@ try {
         $workspaceId = $body['workspace_id'] ?? null;
         $ownerId = $body['owner_id'] ?? null;
         $name = trim($body['name'] ?? '');
-        $brand = $body['brand'] ?? 'mastercard';
-        $lastFour = $body['last_four'] ?? null;
+        $brand = !empty($body['brand']) ? $body['brand'] : 'mastercard';
+        $lastFour = !empty($body['last_four']) ? trim($body['last_four']) : null;
         $creditLimit = (float)($body['credit_limit'] ?? 0);
-        $closingDay = (int)($body['closing_day'] ?? 1);
-        $dueDay = (int)($body['due_day'] ?? 10);
+        $closingDay = max(1, min(31, (int)($body['closing_day'] ?? 1)));
+        $dueDay = max(1, min(31, (int)($body['due_day'] ?? 10)));
 
         if (!$workspaceId || empty($name)) {
             http_response_code(400);
@@ -624,12 +624,62 @@ try {
             $ownerId = $stmt->fetchColumn();
         }
 
-        $stmt = $db->prepare("INSERT INTO credit_cards (workspace_id, owner_id, name, brand, last_four, credit_limit, closing_day, due_day) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *");
-        $stmt->execute([$workspaceId, $ownerId, $name, $brand, $lastFour, $creditLimit, $closingDay, $dueDay]);
+        if (!$ownerId) {
+            $stmt = $db->prepare("SELECT id FROM users LIMIT 1");
+            $stmt->execute();
+            $ownerId = $stmt->fetchColumn();
+        }
+
+        // 1. Criar a conta técnica vinculada ao cartão de crédito
+        $stmtAcc = $db->prepare("INSERT INTO accounts (workspace_id, owner_id, name, type, initial_balance, is_system, active) 
+            VALUES (?, ?, ?, 'credit_card', 0, true, true) RETURNING id");
+        $stmtAcc->execute([$workspaceId, $ownerId, 'Cartão ' . $name]);
+        $accountId = $stmtAcc->fetchColumn();
+
+        // 2. Criar o registro do cartão com os campos de limite sincronizados
+        $stmt = $db->prepare("INSERT INTO credit_cards (workspace_id, owner_id, account_id, name, brand, last_four, limit_amount, credit_limit, closing_day, due_day) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, account_id, name, brand, last_four, closing_day, due_day, credit_limit");
+        $stmt->execute([$workspaceId, $ownerId, $accountId, $name, $brand, $lastFour, $creditLimit, $creditLimit, $closingDay, $dueDay]);
         $card = $stmt->fetch();
 
         echo json_encode(['success' => true, 'card' => $card]);
+        exit;
+    }
+
+    // 10.1 Data: Update Card
+    if (($uri === '/cards/update' || $uri === '/cards') && ($method === 'PUT' || $method === 'POST') && !empty($body['id'])) {
+        $cardId = $body['id'];
+        $name = trim($body['name'] ?? '');
+        $brand = !empty($body['brand']) ? $body['brand'] : null;
+        $lastFour = !empty($body['last_four']) ? trim($body['last_four']) : null;
+        $creditLimit = (float)($body['credit_limit'] ?? 0);
+        $closingDay = max(1, min(31, (int)($body['closing_day'] ?? 1)));
+        $dueDay = max(1, min(31, (int)($body['due_day'] ?? 10)));
+
+        $stmt = $db->prepare("UPDATE credit_cards SET 
+            name = COALESCE(NULLIF(?, ''), name),
+            brand = COALESCE(?, brand),
+            last_four = ?,
+            limit_amount = ?,
+            credit_limit = ?,
+            closing_day = ?,
+            due_day = ?
+            WHERE id = ? RETURNING id, account_id, name, brand, last_four, closing_day, due_day, credit_limit");
+        $stmt->execute([$name, $brand, $lastFour, $creditLimit, $creditLimit, $closingDay, $dueDay, $cardId]);
+        $card = $stmt->fetch();
+
+        echo json_encode(['success' => true, 'card' => $card]);
+        exit;
+    }
+
+    // 10.2 Data: Delete Card
+    if ($uri === '/cards/delete' && $method === 'POST') {
+        $cardId = $body['id'] ?? null;
+        if ($cardId) {
+            $stmt = $db->prepare("DELETE FROM credit_cards WHERE id = ?");
+            $stmt->execute([$cardId]);
+        }
+        echo json_encode(['success' => true]);
         exit;
     }
 
