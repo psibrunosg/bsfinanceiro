@@ -289,17 +289,21 @@ export default function GanhosPage() {
           .reduce((s, p) => s + Number(p.net_amount), 0);
       }),
     })),
-    {
-      label: "Clínica",
-      color: SERIES_COLORS[employers.length % SERIES_COLORS.length],
-      values: seriesMonths.map((m) => {
-        const from = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-01`;
-        const to = addMonths(from, 1);
-        return earnings
-          .filter((e) => e.status === "received" && inRange(e.due_date, from, to))
-          .reduce((s, e) => s + Number(e.amount), 0);
-      }),
-    },
+    ...(earnings.length > 0
+      ? [
+          {
+            label: "Clínica",
+            color: SERIES_COLORS[employers.length % SERIES_COLORS.length],
+            values: seriesMonths.map((m) => {
+              const from = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-01`;
+              const to = addMonths(from, 1);
+              return earnings
+                .filter((e) => e.status === "received" && inRange(e.due_date, from, to))
+                .reduce((s, e) => s + Number(e.amount), 0);
+            }),
+          },
+        ]
+      : []),
     ...(otherIncome.length > 0
       ? [
           {
