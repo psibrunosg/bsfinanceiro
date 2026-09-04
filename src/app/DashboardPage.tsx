@@ -35,6 +35,7 @@ import { ExpenseReviewWidget } from "./components/ExpenseReviewWidget";
 import { FinancialCalendarWidget } from "./components/FinancialCalendarWidget";
 import { AnnualWrappedWidget } from "./components/AnnualWrappedWidget";
 import { BankNotificationAssistantWidget } from "./components/BankNotificationAssistantWidget";
+import { FinancialAssistantWidget } from "./components/FinancialAssistantWidget";
 import { ZeroBasedBudgetWidget } from "./components/ZeroBasedBudgetWidget";
 import { TravelSandboxWidget } from "./components/TravelSandboxWidget";
 
@@ -60,7 +61,7 @@ function Trend({ pct }: { pct: number | null }) {
 }
 
 export function DashboardPage() {
-  const { workspace, accounts, transactions, invoices, categories, goals, occurrences, budgets, alertPrefs, loading, investmentAssets, investmentOperations } = useFinance("dashboard");
+  const { workspace, accounts, transactions, invoices, categories, goals, occurrences, budgets, alertPrefs, loading, investmentAssets, investmentOperations, commitments = [] } = useFinance("dashboard");
   const { month, nextMonth } = useMonth();
   const { displayName } = useCurrentUser();
   const assets = investmentAssets;
@@ -363,6 +364,22 @@ export function DashboardPage() {
 
     <div style={{ marginTop: '24px' }}>
       <AnnualWrappedWidget transactions={transactions} year={parseInt(month.slice(0, 4), 10) || 2026} />
+    </div>
+
+    <div style={{ marginTop: '24px' }}>
+      <FinancialAssistantWidget
+        data={{
+          accounts,
+          categories,
+          transactions,
+          commitments: commitments.map((c) => ({
+            id: c.id,
+            description: c.description,
+            amount: Number(c.amount) || 0,
+            due_day: Number(c.due_day) || 1,
+          })),
+        }}
+      />
     </div>
 
     <div style={{ marginTop: '24px' }}>

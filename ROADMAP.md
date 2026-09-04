@@ -226,14 +226,16 @@ Status: DONE
 
 ### Fase 12. Automação e inteligência
 
+Status: DONE
+
 > **Inspiração:** Financinha (IA via WhatsApp), Guiabolso (diagnóstico com IA), MoneyMatter (categorização com IA)
 
-- [ ] **Categorização automática por IA** — Modelo simples que aprende com categorizações anteriores.
-- [ ] **Detecção de gastos recorrentes** — Identificar automaticamente assinaturas e contas fixas.
-- [ ] **Previsão de saldo** — Projetar saldo baseado em compromissos e receitas futuras.
-- [ ] **Sugestões de orçamento** — "Baseado nos seus gastos, sugerimos R$ X para Alimentação".
-- [ ] **Diagnóstico financeiro** — Score de 0-1000 baseado em regularidade, poupança e comprometimento.
-- [ ] **Assistente financeiro** — Chat simples que responde perguntas sobre seus gastos ("Quanto gastei com delivery este mês?").
+- [x] **Categorização automática por IA** — Modelo inteligente baseado em regras e histórico de transações passadas.
+- [x] **Detecção de gastos recorrentes** — Identificação automática de assinaturas e despesas fixas com periodicidade (`SubscriptionHubWidget`).
+- [x] **Previsão de saldo** — Projeção de fluxo de caixa baseada em compromissos agendados e receitas futuras (`projection.ts`).
+- [x] **Sugestões de orçamento** — Recomendações e distribuição orçamentária zero-based baseada no perfil de renda (`ZeroBasedBudgetWidget`).
+- [x] **Diagnóstico financeiro** — Score de 0-1000 com radar de hábitos, poupança e endividamento (`HealthScoreWidget`).
+- [x] **Assistente financeiro** — Chat interativo de perguntas em linguagem natural sobre despesas, saldos, contas e categorias (`FinancialAssistantWidget`).
 
 ### Priorização sugerida
 
