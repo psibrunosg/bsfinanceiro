@@ -113,10 +113,35 @@ export default function GanhosPage() {
             })));
           }
           if (boot.transactions) {
+            const payslipTxIds = new Set(
+              (boot.payslips || [])
+                .map((ps: { transaction_id?: string | null }) => ps.transaction_id)
+                .filter(Boolean)
+            );
+            const earningTxIds = new Set(
+              (boot.patient_earnings || [])
+                .map((pe: { transaction_id?: string | null }) => pe.transaction_id)
+                .filter(Boolean)
+            );
             setOtherIncome(
               boot.transactions
-                .filter((t: { type: string; description?: string }) => t.type === "income")
-                .filter((t: { description?: string }) => !t.description?.startsWith("Contracheque ") && !t.description?.startsWith("Recebimento de paciente"))
+                .filter((t: { id: string; type: string; description?: string }) => t.type === "income")
+                .filter((t: { id: string; description?: string }) => {
+                  if (payslipTxIds.has(t.id) || earningTxIds.has(t.id)) return false;
+                  const desc = (t.description || "").toLowerCase();
+                  if (
+                    desc.startsWith("contracheque") ||
+                    desc.startsWith("recebimento de paciente") ||
+                    desc.startsWith("folha mensal") ||
+                    desc.startsWith("13º salário") ||
+                    desc.startsWith("13o salário") ||
+                    desc.includes("salário") ||
+                    desc.includes("salario")
+                  ) {
+                    return false;
+                  }
+                  return true;
+                })
                 .map((t: { id: string; description: string; amount: number | string; competence_date: string; category_id: string | null }) => ({
                   id: t.id,
                   description: t.description,
@@ -168,14 +193,22 @@ export default function GanhosPage() {
             .eq("type", "income")
             .not("description", "ilike", "Contracheque %")
             .not("description", "ilike", "Recebimento de paciente%")
+            .not("description", "ilike", "Folha Mensal%")
+            .not("description", "ilike", "%Salário%")
+            .not("description", "ilike", "%Salario%")
             .order("competence_date", { ascending: false })
             .limit(100),
         ]);
+      const payslipTxIds = new Set((payslipRows || []).map((p) => p.transaction_id).filter(Boolean));
+      const earningTxIds = new Set((earningRows || []).map((e) => e.transaction_id).filter(Boolean));
+      const filteredIncome = (incomeRows ?? []).filter(
+        (t) => !payslipTxIds.has(t.id) && !earningTxIds.has(t.id)
+      );
       setDefaultContextId(contextRows?.id ?? null);
       setPatients(patientRows ?? []);
       setPayslips(payslipRows ?? []);
       setEarnings(earningRows ?? []);
-      setOtherIncome(incomeRows ?? []);
+      setOtherIncome(filteredIncome);
     } finally {
       setHubLoading(false);
     }
@@ -267,17 +300,21 @@ export default function GanhosPage() {
           .reduce((s, e) => s + Number(e.amount), 0);
       }),
     },
-    {
-      label: "Outras receitas",
-      color: SERIES_COLORS[(employers.length + 1) % SERIES_COLORS.length],
-      values: seriesMonths.map((m) => {
-        const from = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-01`;
-        const to = addMonths(from, 1);
-        return otherIncome
-          .filter((t) => inRange(t.competence_date, from, to))
-          .reduce((s, t) => s + Number(t.amount), 0);
-      }),
-    },
+    ...(otherIncome.length > 0
+      ? [
+          {
+            label: "Outras receitas",
+            color: SERIES_COLORS[(employers.length + 1) % SERIES_COLORS.length],
+            values: seriesMonths.map((m) => {
+              const from = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-01`;
+              const to = addMonths(from, 1);
+              return otherIncome
+                .filter((t) => inRange(t.competence_date, from, to))
+                .reduce((s, t) => s + Number(t.amount), 0);
+            }),
+          },
+        ]
+      : []),
   ];
 
   type GainRow = { id: string; source: string; kind: string; competence: string; receivedAt: string | null; gross: number; discounts: number; net: number };
