@@ -9,8 +9,10 @@ RUN npm ci
 COPY . .
 
 # Set environment variables for build
-ENV NEXT_PUBLIC_SUPABASE_URL=https://wgntlhzjyriwhncumjsv.supabase.co
-ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_placeholder_for_local_build
+ARG NEXT_PUBLIC_SUPABASE_URL=https://wgntlhzjyriwhncumjsv.supabase.co
+ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_vFa47pDTRu189gOyTLORfg_2QGcr6Qx
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
 RUN npm run build
 
