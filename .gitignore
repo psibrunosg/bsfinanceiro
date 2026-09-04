@@ -16,3 +16,4 @@ graphify-out
 .claude-flow
 work/
 /.agents/skills
+database/backup*.sql

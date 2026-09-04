@@ -1,6 +1,22 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: bsfinanceiro-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=bsfinanceiro
+      - POSTGRES_USER=bstrainer
+      - POSTGRES_PASSWORD=eTEklwZkO8dwrbazpVzeQpOXWwVraRcS7x48
+    volumes:
+      - bsfinanceiro-db-data:/var/lib/postgresql/data
+      - ./database/full_production_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    ports:
+      - "127.0.0.1:5433:5432"
+    networks:
+      - default
+
   frontend:
     build:
       context: .
@@ -21,17 +37,23 @@ services:
       dockerfile: deploy/api.Dockerfile
     container_name: bsfinanceiro-api
     environment:
-      - DB_HOST=deploy-nginx-fpm-db-1
+      - DB_HOST=bsfinanceiro-db
       - DB_PORT=5432
       - DB_NAME=bsfinanceiro
       - DB_USER=bstrainer
       - DB_PASSWORD=eTEklwZkO8dwrbazpVzeQpOXWwVraRcS7x48
     restart: unless-stopped
+    depends_on:
+      - db
     networks:
       - default
       - deploy-nginx-fpm_default
+
+volumes:
+  bsfinanceiro-db-data:
 
 networks:
   default:
   deploy-nginx-fpm_default:
     external: true
+
