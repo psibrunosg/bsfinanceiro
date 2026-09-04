@@ -127,34 +127,40 @@ Baseado em pesquisa dos principais apps brasileiros (Mobills, Organizze, Guiabol
 
 ### Fase 4. Visualização de dados e gráficos
 
+Status: DONE
+
 > **Inspiração:** Mobills (gráficos interativos), Organizze (relatórios de evolução), Guiabolso (diagnóstico financeiro)
 
-- [ ] **Dashboard com gráficos interativos** — Gráfico de pizza (gastos por categoria), barra (receitas vs despesas mensais), linha (evolução do saldo nos últimos 6 meses).
-- [ ] **Relatório mensal comparativo** — "Em relação ao mês passado, seus gastos com alimentação diminuíram 12%". Data storytelling, não apenas números.
-- [ ] **Gráfico de fluxo de caixa** — Visualização semanal/mensal de entradas vs saídas com saldo projetado.
-- [ ] **Resumo por categoria** — Top 5 categorias de despesa com percentual e valor, comparativo mês a mês.
-- [ ] **Evolução de metas** — Barra de progresso visual com previsão de conclusão baseada no ritmo atual.
+- [x] **Dashboard com gráficos interativos** — Gráfico de pizza (gastos por categoria), barra (receitas vs despesas mensais), linha (evolução do saldo nos últimos 6 meses).
+- [x] **Relatório mensal comparativo** — "Em relação ao mês passado, seus gastos com alimentação diminuíram 12%". Data storytelling, não apenas números.
+- [x] **Gráfico de fluxo de caixa** — Visualização semanal/mensal de entradas vs saídas com saldo projetado.
+- [x] **Resumo por categoria** — Top 5 categorias de despesa com percentual e valor, comparativo mês a mês.
+- [x] **Evolução de metas** — Barra de progresso visual com previsão de conclusão baseada no ritmo atual.
 
 ### Fase 5. Alertas e notificações inteligentes
 
+Status: DONE
+
 > **Inspiração:** Mobills (alerta de fatura), Organizze (limite por categoria), Financinha (alertas via WhatsApp)
 
-- [ ] **Alerta de orçamento 80%** — Notificação quando uma categoria atingir 80% do limite mensal.
-- [ ] **Alerta de fatura próxima do vencimento** — 3 dias antes do vencimento da fatura do cartão.
-- [ ] **Alerta de compromisso fixo** — 2 dias antes do vencimento de contas fixas.
-- [ ] **Alerta de meta atingida** — Celebração quando completar 100% de uma meta financeira.
-- [ ] **Resumo semanal automático** — Domingo à noite: resumo do semana (gastos, receitas, saldo).
-- [ ] **Alerta de saldo baixo** — Quando o saldo de uma conta cair abaixo do limite configurado.
-- [ ] **Notificações push** — Web Push API para notificações mesmo com o app fechado.
+- [x] **Alerta de orçamento 80%** — Notificação quando uma categoria atingir 80% do limite mensal.
+- [x] **Alerta de fatura próxima do vencimento** — 3 dias antes do vencimento da fatura do cartão.
+- [x] **Alerta de compromisso fixo** — 2 dias antes do vencimento de contas fixas.
+- [x] **Alerta de meta atingida** — Celebração quando completar 100% de uma meta financeira.
+- [x] **Resumo semanal automático** — Domingo à noite: resumo do semana (gastos, receitas, saldo).
+- [x] **Alerta de saldo baixo** — Quando o saldo de uma conta cair abaixo do limite configurado.
+- [x] **Notificações push** — Web Push API para notificações mesmo com o app fechado.
 
 ### Fase 6. Importação de dados
+
+Status: DONE
 
 > **Inspiração:** Organizze (importação OFX/CSV), Mobills (sync bancário), Minhas Economias (importação manual)
 
 - [x] **Importação de extrato OFX** — Upload de arquivo OFX gerado pelo internet banking, com prévia e confirmação.
 - [x] **Importação de CSV** — Upload de CSV UTF-8 com prévia, deduplicação e confirmação.
-- [ ] **Categorização automática por regras** — "Se a descrição contém 'iFood', categorizar como 'Alimentação'".
-- [ ] **Mapeamento inteligente de categorias** — Sugerir categorias baseado em descrições históricas.
+- [x] **Categorização automática por regras** — "Se a descrição contém 'iFood', categorizar como 'Alimentação'".
+- [x] **Mapeamento inteligente de categorias** — Sugerir categorias baseado em descrições históricas.
 - [x] **Deduplicação de transações** — Evitar duplicatas ao importar o mesmo extrato duas vezes.
 - [x] **Preview antes de importar** — Mostrar transações que serão importadas antes de confirmar.
 
@@ -164,12 +170,12 @@ Status: DONE
 
 > **Inspiração:** Organizze (export CSV/PDF), Mobills (relatórios premium), Minhas Economias (relatórios detalhados)
 
-- [ ] **Exportar transações em CSV** — Filtro por período, categoria, tipo e conta.
-- [ ] **Exportar transações em PDF** — Relatório formatado com gráficos e resumo.
-- [ ] **Relatório anual** — Resumo de 12 meses: total recebido, total gasto, saldo, top categorias.
-- [ ] **Relatório por período personalizado** — Selecionar período livre (ex: 15/03 a 20/06).
-- [ ] **Relatório de imposto de renda** — Resumo de despesas dedutíveis por categoria (saúde, educação, moradia).
-- [ ] **Compartilhar relatório** — Gerar link temporário para compartilhar resumo com contador ou parceiro.
+- [x] **Exportar transações em CSV** — Filtro por período, categoria, tipo e conta.
+- [x] **Exportar transações em PDF** — Relatório formatado com gráficos e resumo.
+- [x] **Relatório anual** — Resumo de 12 meses: total recebido, total gasto, saldo, top categorias.
+- [x] **Relatório por período personalizado** — Selecionar período livre (ex: 15/03 a 20/06).
+- [x] **Relatório de imposto de renda** — Resumo de despesas dedutíveis por categoria (saúde, educação, moradia).
+- [x] **Compartilhar relatório** — Gerar link temporário para compartilhar resumo com contador ou parceiro.
 
 ### Fase 8. Controle de dívidas e parcelamentos
 
@@ -177,11 +183,11 @@ Status: DONE
 
 > **Inspiração:** Mobills (módulo de dívidas), Organizze (acompanhamento de parcelas)
 
-- [ ] **Painel de dívidas** — Lista de todas as dívidas ativas com saldo devedor, parcela mensal e previsão de quitação.
-- [ ] **Simulação de quitação antecipada** — "Se eu pagar R$ 200 a mais por mês, quito em X meses e economizo R$ Y de juros."
-- [ ] **Hierarquia de dívidas** — Método snowball (menor saldo primeiro) ou avalanche (maior juros primeiro).
-- [ ] **Gráfico de progresso de quitação** — Visualização do saldo devedor caindo mês a mês.
-- [ ] **Alerta de parcela próxima** — Notificação antes do vencimento de cada parcela.
+- [x] **Painel de dívidas** — Lista de todas as dívidas ativas com saldo devedor, parcela mensal e previsão de quitação.
+- [x] **Simulação de quitação antecipada** — "Se eu pagar R$ 200 a mais por mês, quito em X meses e economizo R$ Y de juros."
+- [x] **Hierarquia de dívidas** — Método snowball (menor saldo primeiro) ou avalanche (maior juros primeiro).
+- [x] **Gráfico de progresso de quitação** — Visualização do saldo devedor caindo mês a mês.
+- [x] **Alerta de parcela próxima** — Notificação antes do vencimento de cada parcela.
 
 ### Fase 9. Compartilhamento familiar
 
