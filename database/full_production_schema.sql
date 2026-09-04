@@ -129,10 +129,14 @@ CREATE TABLE IF NOT EXISTS credit_cards (
 CREATE TABLE IF NOT EXISTS credit_card_invoices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    credit_card_id UUID REFERENCES credit_cards(id) ON DELETE CASCADE,
     workspace_id UUID NOT NULL,
     owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     month INTEGER NOT NULL,
     year INTEGER NOT NULL,
+    due_date DATE,
+    closing_date DATE,
+    paid_at DATE,
     status VARCHAR(20) DEFAULT 'open' CHECK (status IN ('open', 'closed', 'paid')),
     total_amount NUMERIC(14, 2) DEFAULT 0.00,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

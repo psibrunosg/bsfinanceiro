@@ -404,6 +404,13 @@ try {
             $goalContribs = $stmt->fetchAll();
         } catch (Exception $e) {}
 
+        $invoices = [];
+        try {
+            $stmt = $db->prepare("SELECT id, account_id, credit_card_id, workspace_id, month, year, due_date, closing_date, paid_at, status, total_amount FROM credit_card_invoices WHERE workspace_id = ? ORDER BY due_date DESC, year DESC, month DESC");
+            $stmt->execute([$workspaceId]);
+            $invoices = $stmt->fetchAll();
+        } catch (Exception $e) {}
+
         echo json_encode([
             'accounts' => $accounts->fetchAll(),
             'categories' => $categories->fetchAll(),
@@ -411,6 +418,7 @@ try {
             'budgets' => $budgets->fetchAll(),
             'goals' => $goals->fetchAll(),
             'cards' => $cards->fetchAll(),
+            'invoices' => $invoices,
             'investments' => $investments->fetchAll(),
             'investment_operations' => $investmentOps,
             'investment_quotes' => $investmentQuotes,
