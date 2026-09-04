@@ -77,7 +77,14 @@ export function SettingsPage() {
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("bsfinanceiro_user");
+      localStorage.removeItem("bsfinanceiro_workspace");
+      localStorage.removeItem("bsfinanceiro_token");
+    }
     window.location.replace(appPath("/entrar"));
   }
 
