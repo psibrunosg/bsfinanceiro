@@ -1,4 +1,4 @@
-﻿-- Migration Phase 10: Fix Investments Schema & RLS for Family Workspaces
+-- Migration Phase 10: Fix Investments Schema & RLS for Family Workspaces
 
 -- 1. Alter investment_assets
 ALTER TABLE public.investment_assets DROP CONSTRAINT IF EXISTS investment_assets_workspace_id_owner_id_fkey;

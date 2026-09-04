@@ -1,4 +1,4 @@
-﻿-- 1. Create the transaction_category_rules table
+-- 1. Create the transaction_category_rules table
 create table public.transaction_category_rules (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.workspaces(id) on delete cascade,

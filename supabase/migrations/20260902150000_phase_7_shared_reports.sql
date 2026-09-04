@@ -1,4 +1,4 @@
-﻿create table public.shared_reports (
+create table public.shared_reports (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
   owner_id uuid not null references auth.users(id) on delete cascade,

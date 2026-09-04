@@ -1,4 +1,4 @@
-﻿-- Fase 9: Family Workspaces
+-- Fase 9: Family Workspaces
 
 -- 1. Create tables
 CREATE TABLE public.workspace_users (

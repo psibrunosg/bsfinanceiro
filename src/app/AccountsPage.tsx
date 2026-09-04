@@ -77,17 +77,30 @@ export function AccountsPage() {
       const owner_id = userData?.user?.id ?? ownerId;
       if (!owner_id) throw new Error("Usuário não autenticado");
 
-      const { error } = await supabase.from("accounts").insert({
+      let { error } = await supabase.from("accounts").insert({
         workspace_id: workspace.id,
         owner_id,
         name,
         type,
         initial_balance,
-        is_shared
+        is_shared,
       });
 
-      setMessage(error ? "Não foi possível adicionar a conta." : "Conta adicionada.");
-      if (!error) {
+      if (error && (error.message?.includes("is_shared") || error.code === "PGRST204" || error.code === "42703")) {
+        const fallback = await supabase.from("accounts").insert({
+          workspace_id: workspace.id,
+          owner_id,
+          name,
+          type,
+          initial_balance,
+        });
+        error = fallback.error;
+      }
+
+      if (error) {
+        setMessage(`Não foi possível adicionar a conta: ${error.message}`);
+      } else {
+        setMessage("Conta adicionada.");
         setOpenDialog(false);
         reload();
       }
