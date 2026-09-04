@@ -317,7 +317,7 @@ try {
                 TO_CHAR(o.month_date, 'YYYY-MM') || '-' || LPAD(c.due_day::text, 2, '0') AS due_date
                 FROM fixed_commitment_occurrences o 
                 JOIN fixed_commitments c ON c.id = o.commitment_id 
-                WHERE c.workspace_id = ? ORDER BY o.month_date ASC, c.due_day ASC");
+                WHERE c.workspace_id = ? AND c.active = true ORDER BY o.month_date ASC, c.due_day ASC");
             $stmt->execute([$workspaceId]);
             $occurrences = $stmt->fetchAll();
         } catch (Exception $e) {}
@@ -678,6 +678,8 @@ try {
         }
         $stmt = $db->prepare("UPDATE fixed_commitments SET active = false WHERE id = ?");
         $stmt->execute([$id]);
+        $stmtDelOcc = $db->prepare("DELETE FROM fixed_commitment_occurrences WHERE commitment_id = ? AND status = 'pending'");
+        $stmtDelOcc->execute([$id]);
         echo json_encode(['success' => true]);
         exit;
     }
