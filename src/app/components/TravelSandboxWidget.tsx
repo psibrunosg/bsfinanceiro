@@ -13,36 +13,86 @@ import {
   TravelTrip,
 } from "@/lib/finance/travel-sandbox";
 
-export function TravelSandboxWidget() {
-  const [trip, setTrip] = useState<TravelTrip>({
-    id: "trip-active",
-    destination: "Férias em Gramado & Canela",
-    budgetBrl: 6000,
-    startDate: "2026-07-10",
-    endDate: "2026-07-16",
-    expenses: [
-      { id: "e1", description: "Hotel Ritta Höppner", amount: 2800, category: "Hospedagem", date: "2026-07-10" },
-      { id: "e2", description: "Jantar Sequência de Fondue", amount: 450, category: "Alimentação", date: "2026-07-11" },
-      { id: "e3", description: "Ingressos Parque Snowland", amount: 650, category: "Passeios", date: "2026-07-12" },
-    ],
+type TravelSandboxWidgetProps = {
+  initialTrip?: TravelTrip | null;
+};
+
+export function TravelSandboxWidget({ initialTrip }: TravelSandboxWidgetProps = {}) {
+  const [trip, setTrip] = useState<TravelTrip | null>(() => {
+    if (initialTrip !== undefined) {
+      return initialTrip;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("bsf_travel_trip");
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar viagem do localStorage", err);
+      }
+    }
+    return null;
   });
+
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [dest, setDest] = useState("");
+  const [budgetInput, setBudgetInput] = useState("");
+  const [startDateInput, setStartDateInput] = useState(new Date().toISOString().slice(0, 10));
+  const [endDateInput, setEndDateInput] = useState(
+    new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
+  );
 
   const [newDesc, setNewDesc] = useState("");
   const [newAmt, setNewAmt] = useState("");
   const [newCat, setNewCat] = useState("Alimentação");
   const [newCurrency, setNewCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
 
-  const summary = useMemo(() => computeTravelSandbox(trip), [trip]);
+  const summary = useMemo(() => (trip ? computeTravelSandbox(trip) : null), [trip]);
+
+  function handleCreateTrip(e: React.FormEvent) {
+    e.preventDefault();
+    if (!dest.trim()) return;
+    const budgetVal = Number(budgetInput.replace(",", ".")) || 1000;
+    const newTrip: TravelTrip = {
+      id: `trip-${Date.now()}`,
+      destination: dest.trim(),
+      budgetBrl: budgetVal,
+      startDate: startDateInput,
+      endDate: endDateInput,
+      expenses: [],
+    };
+
+    setTrip(newTrip);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("bsf_travel_trip", JSON.stringify(newTrip));
+      } catch {}
+    }
+    setDest("");
+    setBudgetInput("");
+    setShowCreateForm(false);
+  }
+
+  function handleEndTrip() {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("bsf_travel_trip");
+      } catch {}
+    }
+    setTrip(null);
+  }
 
   function handleAddExpense(e: React.FormEvent) {
     e.preventDefault();
+    if (!trip) return;
     const amt = Number(newAmt.replace(",", "."));
     if (!newDesc.trim() || isNaN(amt) || amt <= 0) return;
 
     const rate = newCurrency === "USD" ? 5.5 : newCurrency === "EUR" ? 6.0 : 1;
 
-    setTrip((prev) => ({
-      ...prev,
+    const updatedTrip: TravelTrip = {
+      ...trip,
       expenses: [
         {
           id: `exp-${Date.now()}`,
@@ -53,12 +103,230 @@ export function TravelSandboxWidget() {
           category: newCat,
           date: new Date().toISOString().slice(0, 10),
         },
-        ...prev.expenses,
+        ...trip.expenses,
       ],
-    }));
+    };
+
+    setTrip(updatedTrip);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("bsf_travel_trip", JSON.stringify(updatedTrip));
+      } catch {}
+    }
 
     setNewDesc("");
     setNewAmt("");
+  }
+
+  if (!trip || !summary) {
+    return (
+      <section
+        aria-label="Modo Viagem e Sandbox de Gastos Isolado"
+        className="dashboard-card"
+        style={{
+          padding: "1.5rem",
+          borderRadius: "16px",
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
+          marginBottom: "1.5rem",
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "1.25rem",
+            flexWrap: "wrap",
+            gap: "10px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "36px",
+                height: "36px",
+                borderRadius: "10px",
+                background: "rgba(59, 130, 246, 0.15)",
+                color: "var(--primary, #3b82f6)",
+              }}
+            >
+              <Plane size={20} aria-hidden="true" />
+            </span>
+            <div>
+              <h2
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: 700,
+                  letterSpacing: "-0.02em",
+                  margin: 0,
+                  color: "var(--text)",
+                }}
+              >
+                Modo Viagem (Sandbox de Gastos)
+              </h2>
+              <p style={{ fontSize: "0.8rem", color: "var(--muted)", margin: 0 }}>
+                Orçamento isolado para viagens: acompanhe a diária sem distorcer as médias de custo de vida mensal.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowCreateForm((s) => !s)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "rgba(59, 130, 246, 0.12)",
+              color: "var(--primary, #3b82f6)",
+              border: "1px solid rgba(59, 130, 246, 0.3)",
+              borderRadius: "8px",
+              padding: "6px 12px",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            <Plus size={14} />
+            {showCreateForm ? "Cancelar" : "Iniciar Viagem"}
+          </button>
+        </header>
+
+        {showCreateForm ? (
+          <form
+            onSubmit={handleCreateTrip}
+            style={{
+              padding: "14px",
+              borderRadius: "12px",
+              background: "var(--surface-2, rgba(255,255,255,0.04))",
+              border: "1px solid var(--border)",
+              display: "grid",
+              gap: "10px",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            }}
+          >
+            <div>
+              <label style={{ fontSize: "0.75rem", color: "var(--muted)", display: "block", marginBottom: "4px" }}>
+                Destino / Nome da Viagem
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: Férias na Praia"
+                value={dest}
+                onChange={(e) => setDest(e.target.value)}
+                required
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  fontSize: "0.85rem",
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: "0.75rem", color: "var(--muted)", display: "block", marginBottom: "4px" }}>
+                Orçamento Total (R$)
+              </label>
+              <input
+                type="number"
+                placeholder="Ex: 5000"
+                value={budgetInput}
+                onChange={(e) => setBudgetInput(e.target.value)}
+                required
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  fontSize: "0.85rem",
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: "0.75rem", color: "var(--muted)", display: "block", marginBottom: "4px" }}>
+                Data de Início
+              </label>
+              <input
+                type="date"
+                value={startDateInput}
+                onChange={(e) => setStartDateInput(e.target.value)}
+                required
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  fontSize: "0.85rem",
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: "0.75rem", color: "var(--muted)", display: "block", marginBottom: "4px" }}>
+                Data de Término
+              </label>
+              <input
+                type="date"
+                value={endDateInput}
+                onChange={(e) => setEndDateInput(e.target.value)}
+                required
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  fontSize: "0.85rem",
+                }}
+              />
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: "8px" }}>
+              <button
+                type="submit"
+                style={{
+                  padding: "9px 14px",
+                  borderRadius: "8px",
+                  background: "var(--primary, #3b82f6)",
+                  color: "#fff",
+                  border: "none",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  cursor: "pointer",
+                }}
+              >
+                Criar Sandbox de Viagem
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div
+            style={{
+              padding: "2rem 1rem",
+              textAlign: "center",
+              borderRadius: "10px",
+              background: "var(--surface-2, rgba(255,255,255,0.02))",
+              border: "1px dashed var(--border)",
+              color: "var(--muted)",
+              fontSize: "0.875rem",
+            }}
+          >
+            Nenhuma viagem ativa no momento. Clique em &quot;Iniciar Viagem&quot; para registrar gastos de férias ou trabalho isoladamente.
+          </div>
+        )}
+      </section>
+    );
   }
 
   return (
@@ -118,7 +386,7 @@ export function TravelSandboxWidget() {
         </div>
 
         {/* Badges */}
-        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
           <span
             style={{
               fontSize: "0.75rem",
@@ -150,6 +418,24 @@ export function TravelSandboxWidget() {
           >
             <ShieldCheck size={12} /> Médias Mensais Blindadas
           </span>
+
+          <button
+            type="button"
+            onClick={handleEndTrip}
+            title="Encerrar esta viagem e limpar o sandbox"
+            style={{
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              padding: "0.3rem 0.6rem",
+              borderRadius: "20px",
+              background: "rgba(239, 68, 68, 0.12)",
+              color: "var(--danger, #ef4444)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
+              cursor: "pointer",
+            }}
+          >
+            Encerrar Viagem
+          </button>
         </div>
       </header>
 

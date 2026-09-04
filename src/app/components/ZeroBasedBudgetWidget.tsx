@@ -7,6 +7,7 @@ import {
   Mail,
   Plus,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { money } from "./Money";
 import {
@@ -17,22 +18,34 @@ import {
 
 type ZeroBasedBudgetWidgetProps = {
   monthlyIncome?: number;
+  initialEnvelopes?: BudgetEnvelope[];
 };
 
 export function ZeroBasedBudgetWidget({
-  monthlyIncome = 10000,
+  monthlyIncome = 0,
+  initialEnvelopes,
 }: ZeroBasedBudgetWidgetProps) {
-  const [envelopes, setEnvelopes] = useState<BudgetEnvelope[]>([
-    { id: "env-1", name: "Moradia & Contas", allocated: 3500, spent: 3200, category: "Moradia" },
-    { id: "env-2", name: "Alimentação & Mercado", allocated: 2000, spent: 2150, category: "Alimentação" },
-    { id: "env-3", name: "Lazer & Restaurantes", allocated: 1500, spent: 800, category: "Lazer" },
-    { id: "env-4", name: "Saúde & Farmácia", allocated: 1000, spent: 650, category: "Saúde" },
-    { id: "env-5", name: "Aportes & F.I.R.E.", allocated: 2000, spent: 2000, category: "Investimentos" },
-  ]);
+  const [envelopes, setEnvelopes] = useState<BudgetEnvelope[]>(() => {
+    if (initialEnvelopes !== undefined) {
+      return initialEnvelopes;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("bsf_budget_envelopes");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (err) {
+        console.error("Erro ao carregar envelopes do localStorage", err);
+      }
+    }
+    return [];
+  });
 
-  const [fromEnv, setFromEnv] = useState<string>("env-3");
-  const [toEnv, setToEnv] = useState<string>("env-2");
-  const [transferAmt, setTransferAmt] = useState<string>("150");
+  const [fromEnv, setFromEnv] = useState<string>("");
+  const [toEnv, setToEnv] = useState<string>("");
+  const [transferAmt, setTransferAmt] = useState<string>("50");
 
   const [newEnvName, setNewEnvName] = useState("");
   const [newEnvAllocated, setNewEnvAllocated] = useState("");
@@ -44,10 +57,32 @@ export function ZeroBasedBudgetWidget({
 
   function handleTransfer(e: React.FormEvent) {
     e.preventDefault();
+    const sourceEnv = fromEnv || (envelopes[0] ? envelopes[0].id : "");
+    const targetEnv = toEnv || (envelopes[1] ? envelopes[1].id : "");
     const amt = Number(transferAmt.replace(",", "."));
-    if (isNaN(amt) || amt <= 0 || fromEnv === toEnv) return;
+    if (isNaN(amt) || amt <= 0 || !sourceEnv || !targetEnv || sourceEnv === targetEnv) return;
 
-    setEnvelopes((prev) => transferBetweenEnvelopes(prev, fromEnv, toEnv, amt));
+    setEnvelopes((prev) => {
+      const updated = transferBetweenEnvelopes(prev, sourceEnv, targetEnv, amt);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("bsf_budget_envelopes", JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
+  }
+
+  function handleDeleteEnvelope(id: string) {
+    setEnvelopes((prev) => {
+      const updated = prev.filter((e) => e.id !== id);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("bsf_budget_envelopes", JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
   }
 
   function handleAddEnvelope(e: React.FormEvent) {
@@ -55,15 +90,22 @@ export function ZeroBasedBudgetWidget({
     const alloc = Number(newEnvAllocated.replace(",", "."));
     if (!newEnvName.trim() || isNaN(alloc) || alloc <= 0) return;
 
-    setEnvelopes((prev) => [
-      ...prev,
-      {
-        id: `env-${Date.now()}`,
-        name: newEnvName.trim(),
-        allocated: alloc,
-        spent: 0,
-      },
-    ]);
+    const newEnv: BudgetEnvelope = {
+      id: `env-${Date.now()}`,
+      name: newEnvName.trim(),
+      allocated: alloc,
+      spent: 0,
+    };
+
+    setEnvelopes((prev) => {
+      const updated = [...prev, newEnv];
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("bsf_budget_envelopes", JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
 
     setNewEnvName("");
     setNewEnvAllocated("");
@@ -164,79 +206,119 @@ export function ZeroBasedBudgetWidget({
       </header>
 
       {/* Grid de Envelopes Virtuais */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-          gap: "12px",
-          marginBottom: "1.25rem",
-        }}
-      >
-        {budget.envelopesWithMetrics.map((env) => {
-          let barBg = "var(--primary, #0ea5e9)";
-          if (env.spentPercent >= 100) {
-            barBg = "var(--danger, #ef4444)";
-          } else if (env.spentPercent >= 80) {
-            barBg = "var(--warning, #f59e0b)";
-          }
+      {envelopes.length === 0 ? (
+        <div
+          style={{
+            padding: "2rem 1rem",
+            textAlign: "center",
+            borderRadius: "10px",
+            background: "var(--surface-2, rgba(255,255,255,0.02))",
+            border: "1px dashed var(--border)",
+            color: "var(--muted)",
+            fontSize: "0.875rem",
+            marginBottom: "1.25rem",
+          }}
+        >
+          Nenhum envelope virtual criado. Crie envelopes abaixo (ex: Moradia, Alimentação, Lazer) para distribuir sua receita e planejar seus gastos.
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gap: "12px",
+            marginBottom: "1.25rem",
+          }}
+        >
+          {budget.envelopesWithMetrics.map((env) => {
+            let barBg = "var(--primary, #0ea5e9)";
+            if (env.spentPercent >= 100) {
+              barBg = "var(--danger, #ef4444)";
+            } else if (env.spentPercent >= 80) {
+              barBg = "var(--warning, #f59e0b)";
+            }
 
-          return (
-            <div
-              key={env.id}
-              style={{
-                padding: "12px",
-                borderRadius: "12px",
-                background: "var(--surface-2, rgba(255,255,255,0.03))",
-                border: `1px solid ${env.isOverspent ? "rgba(239, 68, 68, 0.4)" : "var(--border)"}`,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-              }}
-            >
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "4px" }}>
-                  <strong style={{ fontSize: "0.85rem", color: "var(--text)" }}>{env.name}</strong>
-                  <span
-                    style={{
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      color: env.isOverspent ? "var(--danger, #ef4444)" : "var(--positive, #22c55e)",
-                    }}
-                  >
-                    {env.isOverspent ? `Estourado em ${money(env.overspentAmount)}` : `${money(env.remaining)} restante`}
-                  </span>
-                </div>
+            return (
+              <div
+                key={env.id}
+                style={{
+                  padding: "12px",
+                  borderRadius: "12px",
+                  background: "var(--surface-2, rgba(255,255,255,0.03))",
+                  border: `1px solid ${env.isOverspent ? "rgba(239, 68, 68, 0.4)" : "var(--border)"}`,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "4px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <strong style={{ fontSize: "0.85rem", color: "var(--text)" }}>{env.name}</strong>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEnvelope(env.id)}
+                        title="Remover envelope"
+                        aria-label={`Remover envelope ${env.name}`}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "var(--muted)",
+                          cursor: "pointer",
+                          padding: "2px",
+                          borderRadius: "4px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--danger, #ef4444)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: "0.7rem",
+                        fontWeight: 700,
+                        color: env.isOverspent ? "var(--danger, #ef4444)" : "var(--positive, #22c55e)",
+                      }}
+                    >
+                      {env.isOverspent ? `Estourado em ${money(env.overspentAmount)}` : `${money(env.remaining)} restante`}
+                    </span>
+                  </div>
 
-                <small style={{ color: "var(--muted)", fontSize: "0.75rem", display: "block" }}>
-                  Gasto {money(env.spent)} de {money(env.allocated)} ({env.spentPercent}%)
-                </small>
+                  <small style={{ color: "var(--muted)", fontSize: "0.75rem", display: "block" }}>
+                    Gasto {money(env.spent)} de {money(env.allocated)} ({env.spentPercent}%)
+                  </small>
 
-                {/* Barra de Progresso */}
-                <div
-                  style={{
-                    width: "100%",
-                    height: "8px",
-                    borderRadius: "4px",
-                    background: "var(--surface)",
-                    marginTop: "8px",
-                    overflow: "hidden",
-                  }}
-                >
+                  {/* Barra de Progresso */}
                   <div
                     style={{
-                      width: `${Math.min(100, env.spentPercent)}%`,
-                      height: "100%",
-                      background: barBg,
+                      width: "100%",
+                      height: "8px",
                       borderRadius: "4px",
-                      transition: "width 0.3s ease",
+                      background: "var(--surface)",
+                      marginTop: "8px",
+                      overflow: "hidden",
                     }}
-                  />
+                  >
+                    <div
+                      style={{
+                        width: `${Math.min(100, env.spentPercent)}%`,
+                        height: "100%",
+                        background: barBg,
+                        borderRadius: "4px",
+                        transition: "width 0.3s ease",
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Ações Rápidas: Remanejar Orçamento + Novo Envelope */}
       <div
@@ -256,51 +338,57 @@ export function ZeroBasedBudgetWidget({
             <ArrowRightLeft size={14} /> Cobrir Estouro / Remanejar
           </strong>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 80px auto", gap: "6px" }}>
-            <select
-              value={fromEnv}
-              onChange={(e) => setFromEnv(e.target.value)}
-              style={{ padding: "4px 6px", fontSize: "0.75rem", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
-            >
-              {envelopes.map((e) => (
-                <option key={e.id} value={e.id}>De: {e.name}</option>
-              ))}
-            </select>
+          {envelopes.length < 2 ? (
+            <p style={{ fontSize: "0.75rem", color: "var(--muted)", margin: 0 }}>
+              Crie ao menos dois envelopes para remanejar valores entre eles.
+            </p>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 80px auto", gap: "6px" }}>
+              <select
+                value={fromEnv || (envelopes[0] ? envelopes[0].id : "")}
+                onChange={(e) => setFromEnv(e.target.value)}
+                style={{ padding: "4px 6px", fontSize: "0.75rem", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
+              >
+                {envelopes.map((e) => (
+                  <option key={e.id} value={e.id}>De: {e.name}</option>
+                ))}
+              </select>
 
-            <select
-              value={toEnv}
-              onChange={(e) => setToEnv(e.target.value)}
-              style={{ padding: "4px 6px", fontSize: "0.75rem", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
-            >
-              {envelopes.map((e) => (
-                <option key={e.id} value={e.id}>Para: {e.name}</option>
-              ))}
-            </select>
+              <select
+                value={toEnv || (envelopes[1] ? envelopes[1].id : "")}
+                onChange={(e) => setToEnv(e.target.value)}
+                style={{ padding: "4px 6px", fontSize: "0.75rem", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
+              >
+                {envelopes.map((e) => (
+                  <option key={e.id} value={e.id}>Para: {e.name}</option>
+                ))}
+              </select>
 
-            <input
-              type="text"
-              value={transferAmt}
-              onChange={(e) => setTransferAmt(e.target.value)}
-              placeholder="R$"
-              style={{ padding: "4px 6px", fontSize: "0.75rem", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
-            />
+              <input
+                type="text"
+                value={transferAmt}
+                onChange={(e) => setTransferAmt(e.target.value)}
+                placeholder="R$"
+                style={{ padding: "4px 6px", fontSize: "0.75rem", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
+              />
 
-            <button
-              type="submit"
-              style={{
-                padding: "4px 10px",
-                borderRadius: "6px",
-                background: "var(--primary, #0ea5e9)",
-                color: "#fff",
-                border: "none",
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Mover
-            </button>
-          </div>
+              <button
+                type="submit"
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  background: "var(--primary, #0ea5e9)",
+                  color: "#fff",
+                  border: "none",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Mover
+              </button>
+            </div>
+          )}
         </form>
 
         {/* Adicionar Novo Envelope */}

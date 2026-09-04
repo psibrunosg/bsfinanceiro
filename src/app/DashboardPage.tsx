@@ -389,7 +389,7 @@ export function DashboardPage() {
     </div>
 
     <div style={{ marginTop: '24px' }}>
-      <ZeroBasedBudgetWidget monthlyIncome={metrics.monthIncome || 10000} />
+      <ZeroBasedBudgetWidget monthlyIncome={metrics.monthIncome || 0} />
     </div>
 
     <div style={{ marginTop: '24px' }}>
