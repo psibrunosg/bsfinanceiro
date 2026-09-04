@@ -15,17 +15,50 @@ import { money, parseMoney } from "./components/Money";
 import { createClient } from "@/lib/supabase/client";
 import { todayInSaoPaulo } from "@/lib/finance/local-date";
 import { predictCategory } from "@/lib/finance/category-predictor";
+import { parseBankNotification } from "@/lib/finance/bank-notification-parser";
 
 function TransactionsPageInner() {
   const searchParams = useSearchParams();
-  const presetType = searchParams.get("type") === "income" ? "income" : "expense";
+  const rawNotif = searchParams.get("notif") || searchParams.get("text");
+  const parsedNotif = useMemo(() => {
+    if (!rawNotif) return null;
+    return parseBankNotification(rawNotif);
+  }, [rawNotif]);
+
+  const presetType = parsedNotif
+    ? parsedNotif.type
+    : searchParams.get("type") === "income"
+    ? "income"
+    : searchParams.get("type") === "transfer"
+    ? "transfer"
+    : "expense";
+
+  const presetAmount = parsedNotif
+    ? (parsedNotif.amount > 0 ? parsedNotif.amount.toFixed(2).replace(".", ",") : "")
+    : searchParams.get("amount")
+    ? (searchParams.get("amount") || "").replace(".", ",")
+    : "";
+
+  const presetDescription = parsedNotif
+    ? parsedNotif.description
+    : searchParams.get("description") || searchParams.get("desc") || "";
+
+  const shouldAutoOpen = Boolean(
+    rawNotif ||
+    searchParams.get("amount") ||
+    searchParams.get("description") ||
+    searchParams.get("desc") ||
+    searchParams.get("open") === "true" ||
+    searchParams.get("novo") === "true"
+  );
+
   const supabase = useMemo(() => createClient(), []);
   const [query, setQuery] = useState("");
   const [type, setType] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [page, setPage] = useState(0);
-  const [openDialog, setOpenDialog] = useState(false);
+  const [openDialog, setOpenDialog] = useState(shouldAutoOpen);
   const {
     workspace,
     ownerId,
@@ -44,6 +77,28 @@ function TransactionsPageInner() {
     transactionFilters: { query, type, from, to },
     transactionPage: page,
   });
+
+  const matchedCategoryId = useMemo(() => {
+    if (!categories?.length) return "";
+    if (parsedNotif?.suggestedCategory) {
+      const found = categories.find(
+        (c) => c.name.toLowerCase() === parsedNotif.suggestedCategory.toLowerCase()
+      );
+      if (found) return found.id;
+    }
+    const directCat = searchParams.get("category_id") || searchParams.get("categoria");
+    if (directCat) {
+      const found = categories.find(
+        (c) => c.id === directCat || c.name.toLowerCase() === directCat.toLowerCase()
+      );
+      if (found) return found.id;
+    }
+    if (presetDescription) {
+      const predicted = predictCategory(presetDescription, categories, transactions);
+      if (predicted) return predicted;
+    }
+    return "";
+  }, [parsedNotif, categories, searchParams, presetDescription, transactions]);
 
   if (loading || !workspace) return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
 
@@ -98,6 +153,7 @@ function TransactionsPageInner() {
   const messageIsError = message.startsWith("Não");
   const hasActiveFilters = Boolean(query.trim() || type || from || to);
   const pageSize = transactionPageSize || 25;
+
   const total = transactionTotal ?? transactions.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -257,13 +313,14 @@ function TransactionsPageInner() {
             <label htmlFor="transaction-type">Tipo de movimentação</label>
             <select id="transaction-type" name="type" defaultValue={presetType}><option value="expense">Despesa</option><option value="income">Receita</option><option value="transfer">Transferência</option></select>
             <label htmlFor="transaction-amount">Valor</label>
-            <input id="transaction-amount" name="amount" placeholder="0,00" autoComplete="off" data-lpignore="true" required />
+            <input id="transaction-amount" name="amount" defaultValue={presetAmount} placeholder="0,00" autoComplete="off" data-lpignore="true" required />
             <label htmlFor="transaction-account">Conta</label>
-            <select id="transaction-account" name="account_id" required><option value="">Conta</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+            <select id="transaction-account" name="account_id" defaultValue={accounts[0]?.id ?? ""} required><option value="">Conta</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
             <label htmlFor="transaction-category">Categoria</label>
             <select
               id="transaction-category"
               name="category_id"
+              defaultValue={matchedCategoryId}
               onChange={(e) => {
                 e.currentTarget.dataset.manual = "true";
               }}
@@ -277,6 +334,7 @@ function TransactionsPageInner() {
             <input
               id="transaction-description"
               name="description"
+              defaultValue={presetDescription}
               placeholder="Descrição"
               autoComplete="off"
               data-lpignore="true"

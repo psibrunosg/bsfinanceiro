@@ -11,12 +11,13 @@ vi.mock("./components/Dialog", () => ({
 const navigationMocks = vi.hoisted(() => ({
   pathname: "/movimentacoes",
   useFinance: vi.fn(),
+  searchParams: new URLSearchParams(),
 }));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => navigationMocks.pathname,
-  useSearchParams: () => new URLSearchParams(),
-  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => navigationMocks.searchParams,
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 
 vi.mock("./components/useFinance", () => ({
@@ -88,6 +89,7 @@ vi.mock("@/lib/supabase/client", () => ({
 
 beforeEach(() => {
   navigationMocks.pathname = "/movimentacoes";
+  navigationMocks.searchParams = new URLSearchParams();
   navigationMocks.useFinance.mockReset().mockImplementation(
     (
       _route: string,
@@ -227,5 +229,70 @@ describe("TransactionsPage", () => {
     expect(
       screen.getByText("Nenhuma movimentação corresponde aos filtros."),
     ).toBeTruthy();
+  });
+
+  it("opens dialog and pre-fills transaction fields when notif query param is present", async () => {
+    navigationMocks.searchParams = new URLSearchParams({
+      notif: "Compra de R$ 42,90 aprovada no Nubank em Padaria Estrela.",
+    });
+
+    render(<TransactionsPage />);
+
+    expect(screen.getByTestId("dialog")).toBeTruthy();
+    const amountInput = screen.getByLabelText<HTMLInputElement>("Valor");
+    const descInput = screen.getByLabelText<HTMLInputElement>("Descrição");
+    const typeSelect = screen.getByLabelText<HTMLSelectElement>("Tipo de movimentação");
+
+    expect(amountInput.value).toBe("42,90");
+    expect(descInput.value).toBe("Padaria Estrela");
+    expect(typeSelect.value).toBe("expense");
+  });
+
+  it("opens dialog and pre-fills transaction fields when direct amount and desc query params are present", async () => {
+    navigationMocks.searchParams = new URLSearchParams({
+      amount: "150,00",
+      description: "Consulta Médica",
+      type: "income",
+    });
+
+    render(<TransactionsPage />);
+
+    expect(screen.getByTestId("dialog")).toBeTruthy();
+    const amountInput = screen.getByLabelText<HTMLInputElement>("Valor");
+    const descInput = screen.getByLabelText<HTMLInputElement>("Descrição");
+    const typeSelect = screen.getByLabelText<HTMLSelectElement>("Tipo de movimentação");
+
+    expect(amountInput.value).toBe("150,00");
+    expect(descInput.value).toBe("Consulta Médica");
+    expect(typeSelect.value).toBe("income");
+  });
+
+  it("auto-matches category when notification suggests a known category", async () => {
+    navigationMocks.useFinance.mockImplementation(() => ({
+      ownerId: "owner-1",
+      workspace: { id: "workspace-1", name: "Pessoal" },
+      accounts: [{ id: "acc-1", name: "Nubank", type: "checking", initial_balance: 0 }],
+      categories: [
+        { id: "cat-alim", name: "Alimentação", kind: "expense" },
+        { id: "cat-trans", name: "Transporte", kind: "expense" },
+      ],
+      transactions: [],
+      transactionTotal: 0,
+      transactionPageSize: 25,
+      transactionImportBatches: [],
+      loading: false,
+      message: "",
+      setMessage: vi.fn(),
+      reload: vi.fn().mockResolvedValue(undefined),
+    }));
+
+    navigationMocks.searchParams = new URLSearchParams({
+      notif: "Compra de R$ 42,90 aprovada no Nubank em Padaria Estrela.",
+    });
+
+    render(<TransactionsPage />);
+
+    const catSelect = screen.getByLabelText<HTMLSelectElement>("Categoria");
+    expect(catSelect.value).toBe("cat-alim");
   });
 });

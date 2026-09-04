@@ -80,6 +80,7 @@ export default function GastosPage() {
   const [commitments, setCommitments] = useState<Commitment[]>([]);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [defaultContextId, setDefaultContextId] = useState<string | null>(null);
+  const [hasClinicContext, setHasClinicContext] = useState(false);
   const [contextFilter, setContextFilter] = useState<"all" | "pessoal" | "clinica">("all");
   const [dialog, setDialog] = useState<DialogState>(null);
   const [message, setMessage] = useState("");
@@ -168,6 +169,7 @@ export default function GastosPage() {
           }),
         ]);
       setDefaultContextId((contextRows ?? []).find((c: { kind: string }) => c.kind === "pessoal")?.id ?? null);
+      setHasClinicContext((contextRows ?? []).some((c: { kind: string }) => c.kind === "clinica"));
       setExpenses(expenseRows ?? []);
       setCommitments(commitmentRows ?? []);
       setOccurrences(occurrenceData ?? []);
@@ -407,7 +409,7 @@ export default function GastosPage() {
           >
             <option value="all">Todos</option>
             <option value="pessoal">Pessoal</option>
-            <option value="clinica">Clínica</option>
+            {hasClinicContext && <option value="clinica">Clínica</option>}
           </select>
         </label>
       </div>

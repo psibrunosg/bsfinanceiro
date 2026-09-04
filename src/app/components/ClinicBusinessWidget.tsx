@@ -49,6 +49,14 @@ export function ClinicBusinessWidget({
     [transactions, currentMonth, initialCashBalance]
   );
 
+  if (
+    dre.grossRevenue === 0 &&
+    dre.operatingExpenses === 0 &&
+    loan.totalLentByPartner === 0
+  ) {
+    return null;
+  }
+
   return (
     <section
       aria-label="Módulo Empresa e Gestão de Consultório"

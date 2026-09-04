@@ -41,6 +41,10 @@ export function BankNotificationAssistantWidget({
   );
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [copiedShortcut, setCopiedShortcut] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://app.bsfinanceiro.com";
+  const shortcutUrl = `${baseUrl}/movimentacoes?notif=`;
 
   function handleProcessText(text: string) {
     setInputText(text);
@@ -64,8 +68,24 @@ export function BankNotificationAssistantWidget({
     }
   }
 
+  function handleCopyShortcutUrl() {
+    if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(shortcutUrl).catch(() => {});
+    }
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 2500);
+  }
+
   function handleCopyShortcutInstructions() {
-    const text = `1. Abra o app 'Atalhos' no iPhone e vá na aba 'Automação'.\n2. Toque em '+' e escolha 'Notificação do App'.\n3. Selecione os apps de banco (Nubank, Itaú, Inter, C6).\n4. Adicione a ação 'Obter texto da notificação' e chame o BS Financeiro para registrar a transação automaticamente.`;
+    const text = `Passo a Passo da Automação no iPhone:\n` +
+      `1. Abra o app 'Atalhos' (Shortcuts) no iPhone e vá na aba 'Automação'.\n` +
+      `2. Toque em '+' e escolha 'Notificação do App'.\n` +
+      `3. Selecione os apps de banco (Nubank, Itaú, Inter, C6, etc.).\n` +
+      `4. Marque 'Executar Imediatamente' e desmarque 'Notificar ao Executar'.\n` +
+      `5. Adicione a Ação 1: 'Codificar URL' (URL Encode), passando o 'Texto da Notificação'.\n` +
+      `6. Adicione a Ação 2: 'Abrir URLs' (Open URL) com o destino:\n` +
+      `   ${shortcutUrl}[Texto Codificado]\n` +
+      `7. Ao receber a notificação, o BS Financeiro abrirá com valor, descrição e categoria pré-preenchidos para confirmação com 1 toque!`;
     if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
       navigator.clipboard.writeText(text).catch(() => {});
     }
@@ -316,35 +336,78 @@ export function BankNotificationAssistantWidget({
               </strong>
             </div>
 
-            <ol style={{ fontSize: "0.75rem", color: "var(--muted)", margin: "0 0 12px 1rem", padding: 0, lineHeight: "1.5" }}>
-              <li>Abra o app <strong>Atalhos (Shortcuts)</strong> no iPhone.</li>
-              <li>Acesse a aba <strong>Automação</strong> e crie uma <strong>Automação Pessoal</strong>.</li>
-              <li>Escolha o gatilho <strong>Notificação do App</strong> (selecione Nubank, Itaú, Inter, etc).</li>
-              <li>Adicione a ação para repassar o texto da notificação para o BS Financeiro.</li>
+            <ol style={{ fontSize: "0.75rem", color: "var(--muted)", margin: "0 0 10px 1rem", padding: 0, lineHeight: "1.5" }}>
+              <li>Abra o app <strong>Atalhos (Shortcuts)</strong> &gt; aba <strong>Automação</strong>.</li>
+              <li>Crie uma <strong>Automação Pessoal</strong> com o gatilho <strong>Notificação do App</strong> (Nubank, Itaú, etc).</li>
+              <li>Marque <strong>Executar Imediatamente</strong>.</li>
+              <li>Adicione a ação <strong>Codificar URL</strong> com o <em>Texto da Notificação</em>.</li>
+              <li>Adicione a ação <strong>Abrir URLs</strong> com o link do BS Financeiro abaixo:</li>
             </ol>
+
+            <div
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: "6px",
+                padding: "6px 8px",
+                marginBottom: "12px",
+                fontSize: "0.7rem",
+                wordBreak: "break-all",
+                color: "var(--primary, #8b5cf6)",
+                fontFamily: "monospace",
+              }}
+            >
+              {shortcutUrl}[Texto Codificado]
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleCopyShortcutInstructions}
-            style={{
-              padding: "8px 12px",
-              borderRadius: "8px",
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              color: "var(--text)",
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "6px",
-            }}
-          >
-            {copiedShortcut ? <Check size={14} /> : <Copy size={14} />}
-            {copiedShortcut ? "Instruções Copiadas!" : "Copiar Passo a Passo do Atalho"}
-          </button>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={handleCopyShortcutUrl}
+              style={{
+                flex: "1 1 120px",
+                padding: "8px 10px",
+                borderRadius: "8px",
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+              }}
+            >
+              {copiedUrl ? <Check size={14} color="var(--positive, #22c55e)" /> : <Copy size={14} />}
+              {copiedUrl ? "URL Copiada!" : "Copiar URL Base"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCopyShortcutInstructions}
+              style={{
+                flex: "1 1 140px",
+                padding: "8px 10px",
+                borderRadius: "8px",
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+              }}
+            >
+              {copiedShortcut ? <Check size={14} color="var(--positive, #22c55e)" /> : <Copy size={14} />}
+              {copiedShortcut ? "Passo a Passo Copiado!" : "Copiar Guia Completo"}
+            </button>
+          </div>
         </div>
       </div>
     </section>
