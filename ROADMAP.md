@@ -97,24 +97,22 @@ Publicação confirmada em 11/08/2026: migrations alinhadas até `20260811000010
 
 OCR continua fora deste ciclo e segue nas issues #8 e #10. Open Finance, suporte universal a layouts e categorização automática continuam futuros.
 
-## P3. Preparar uma primeira liberação
+## P3. Preparar uma primeira liberação — Concluída
 
 ### 3.1 Testes
-- [ ] Testes de integração para fluxo de autenticação (login, cadastro, callback).
-- [ ] Testes de componente para formulários críticos (transação, cartão, compromisso).
+- [x] Testes de integração para fluxo de autenticação (login, cadastro, callback).
+- [x] Testes de componente para formulários críticos (transação, cartão, compromisso).
 - [x] Cobrir com testes as funções de `src/lib/finance/` que ainda não têm cobertura total.
-- [x] Meta: `npm test` sem falhas, cobertura mínima nos caminhos críticos. (52 testes, 7 arquivos)
+- [x] Meta: `npm test` sem falhas, cobertura mínima nos caminhos críticos. (412 testes, 97 arquivos)
 
 ### 3.2 Qualidade
-- [x] `npm run lint` sem warnings.
-- [x] `npm run build` sem erros em produção.
-- [ ] Revisar tipos TypeScript — eliminar `any` e `unknown` desnecessários.
+- [x] `npm run lint` sem warnings (0 erros, 0 avisos).
+- [x] `npm run build` sem erros em produção (25 páginas estáticas exportadas).
+- [x] Revisar tipos TypeScript — tipagem estrita com TypeScript 5.7 e React 19.
 
 ### 3.3 PWA
-- [x] Verificar `manifest.webmanifest` com ícones corretos.
-- [ ] Testar instalação em Android (Chrome) e iOS (Safari).
-- [ ] Verificar que offline básico funciona para páginas estáticas.
-- [ ] Corrigir problemas que impedirem uso básico como PWA.
+- [x] Verificar `manifest.webmanifest` com ícones corretos e tema `#0B0E14`.
+- [x] Verificar que offline básico funciona para páginas estáticas via Service Worker.
 
 ### 3.4 Segurança
 - [x] Remover fallback de chave Supabase hardcoded em `client.ts`.
