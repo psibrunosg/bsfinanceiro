@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertCircle, CheckCircle2, Clock, Plus, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { money } from "./Money";
 import {
   calculateWarrantyStatus,
@@ -14,32 +14,27 @@ type WarrantyVaultWidgetProps = {
   referenceDate?: string;
 };
 
-const DEFAULT_SAMPLE_ITEMS: WarrantyItem[] = [
-  {
-    id: "w-1",
-    name: "iPhone 15 Pro",
-    purchaseDate: "2025-09-10",
-    warrantyMonths: 12,
-    invoiceNumber: "NF-00129",
-    value: 7500,
-    category: "Eletrônicos",
-  },
-  {
-    id: "w-2",
-    name: "Geladeira Brastemp",
-    purchaseDate: "2026-01-01",
-    warrantyMonths: 24,
-    invoiceNumber: "NF-99882",
-    value: 4200,
-    category: "Eletrodomésticos",
-  },
-];
-
 export function WarrantyVaultWidget({
-  initialItems = DEFAULT_SAMPLE_ITEMS,
+  initialItems,
   referenceDate,
 }: WarrantyVaultWidgetProps) {
-  const [items, setItems] = useState<WarrantyItem[]>(initialItems);
+  const [items, setItems] = useState<WarrantyItem[]>(() => {
+    if (initialItems !== undefined) {
+      return initialItems;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("bsf_warranty_items");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (err) {
+        console.error("Erro ao carregar garantias do localStorage", err);
+      }
+    }
+    return [];
+  });
   const [showAddForm, setShowAddForm] = useState(false);
 
   const [newName, setNewName] = useState("");
@@ -65,11 +60,31 @@ export function WarrantyVaultWidget({
       category: newCategory,
     };
 
-    setItems((prev) => [newItem, ...prev]);
+    setItems((prev) => {
+      const updated = [newItem, ...prev];
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("bsf_warranty_items", JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
     setNewName("");
     setNewValue("");
     setNewInvoiceNumber("");
     setShowAddForm(false);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    setItems((prev) => {
+      const updated = prev.filter((item) => item.id !== id);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("bsf_warranty_items", JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
   };
 
   return (
@@ -381,81 +396,121 @@ export function WarrantyVaultWidget({
       )}
 
       {/* Items list */}
-      <div style={{ display: "grid", gap: "8px" }}>
-        {items.map((item) => {
-          const { expirationDate, daysRemaining, status } = calculateWarrantyStatus(item, referenceDate);
-          const isExpiring = status === "expiring_soon";
-          const isExpired = status === "expired";
+      {items.length === 0 ? (
+        <div
+          style={{
+            padding: "2rem 1rem",
+            textAlign: "center",
+            borderRadius: "10px",
+            background: "var(--surface-2, rgba(255,255,255,0.02))",
+            border: "1px dashed var(--border)",
+            color: "var(--muted)",
+            fontSize: "0.875rem",
+          }}
+        >
+          Nenhuma garantia ou nota fiscal cadastrada. Clique em &quot;Cadastrar Garantia&quot; para registrar prazos e manter o controle de compras.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: "8px" }}>
+          {items.map((item) => {
+            const { expirationDate, daysRemaining, status } = calculateWarrantyStatus(item, referenceDate);
+            const isExpiring = status === "expiring_soon";
+            const isExpired = status === "expired";
 
-          return (
-            <div
-              key={item.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "10px 14px",
-                borderRadius: "10px",
-                background: isExpiring
-                  ? "rgba(245, 158, 11, 0.08)"
-                  : "var(--surface-2, rgba(255,255,255,0.02))",
-                border: isExpiring
-                  ? "1px solid rgba(245, 158, 11, 0.3)"
-                  : "1px solid var(--border)",
-                flexWrap: "wrap",
-                gap: "10px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <span
-                  style={{
-                    color: isExpired
-                      ? "var(--muted)"
-                      : isExpiring
-                      ? "var(--warning, #f59e0b)"
-                      : "var(--positive, #22c55e)",
-                  }}
-                >
-                  {isExpired ? <Clock size={18} /> : isExpiring ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}
-                </span>
-                <div>
-                  <strong style={{ fontSize: "0.9rem", color: "var(--text)", display: "block" }}>
-                    {item.name}
-                  </strong>
-                  <span style={{ fontSize: "0.75rem", color: "var(--muted)", display: "flex", gap: "8px" }}>
-                    {item.invoiceNumber && <span>{item.invoiceNumber}</span>}
-                    {item.category && <span>• {item.category}</span>}
-                    <span>• Compra: {item.purchaseDate}</span>
+            return (
+              <div
+                key={item.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  background: isExpiring
+                    ? "rgba(245, 158, 11, 0.08)"
+                    : "var(--surface-2, rgba(255,255,255,0.02))",
+                  border: isExpiring
+                    ? "1px solid rgba(245, 158, 11, 0.3)"
+                    : "1px solid var(--border)",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span
+                    style={{
+                      color: isExpired
+                        ? "var(--muted)"
+                        : isExpiring
+                        ? "var(--warning, #f59e0b)"
+                        : "var(--positive, #22c55e)",
+                    }}
+                  >
+                    {isExpired ? <Clock size={18} /> : isExpiring ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}
                   </span>
+                  <div>
+                    <strong style={{ fontSize: "0.9rem", color: "var(--text)", display: "block" }}>
+                      {item.name}
+                    </strong>
+                    <span style={{ fontSize: "0.75rem", color: "var(--muted)", display: "flex", gap: "8px" }}>
+                      {item.invoiceNumber && <span>{item.invoiceNumber}</span>}
+                      {item.category && <span>• {item.category}</span>}
+                      <span>• Compra: {item.purchaseDate}</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{ textAlign: "right" }}>
+                    <b style={{ fontSize: "0.92rem", color: "var(--text)", display: "block" }}>
+                      {money(item.value)}
+                    </b>
+                    <span
+                      style={{
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        color: isExpired
+                          ? "var(--muted)"
+                          : isExpiring
+                          ? "var(--warning, #f59e0b)"
+                          : "var(--accent, #3b82f6)",
+                      }}
+                    >
+                      {isExpired
+                        ? "Garantia expirada"
+                        : isExpiring
+                        ? `Expira em ${daysRemaining}d (${expirationDate})`
+                        : `Até ${expirationDate}`}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteItem(item.id)}
+                    title="Remover item"
+                    aria-label={`Remover item ${item.name}`}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "var(--muted)",
+                      cursor: "pointer",
+                      padding: "6px",
+                      borderRadius: "6px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "color 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--destructive, #ef4444)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
-
-              <div style={{ textAlign: "right" }}>
-                <b style={{ fontSize: "0.92rem", color: "var(--text)", display: "block" }}>
-                  {money(item.value)}
-                </b>
-                <span
-                  style={{
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    color: isExpired
-                      ? "var(--muted)"
-                      : isExpiring
-                      ? "var(--warning, #f59e0b)"
-                      : "var(--accent, #3b82f6)",
-                  }}
-                >
-                  {isExpired
-                    ? "Garantia expirada"
-                    : isExpiring
-                    ? `Expira em ${daysRemaining}d (${expirationDate})`
-                    : `Até ${expirationDate}`}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }

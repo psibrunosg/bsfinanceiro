@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Award, Plane, Plus } from "lucide-react";
+import { AlertTriangle, Award, Plane, Plus, Trash2 } from "lucide-react";
 import { money } from "./Money";
 import {
   calculateMilesValue,
@@ -13,33 +13,26 @@ type MilesTrackerWidgetProps = {
   initialPrograms?: LoyaltyProgram[];
 };
 
-const DEFAULT_PROGRAMS: LoyaltyProgram[] = [
-  {
-    id: "prog-1",
-    name: "Livelo",
-    points: 45000,
-    pricePerThousand: 32,
-    expiringPoints: 8000,
-    expiringDate: "2026-09-30",
-  },
-  {
-    id: "prog-2",
-    name: "Smiles",
-    points: 72000,
-    pricePerThousand: 16.5,
-  },
-  {
-    id: "prog-3",
-    name: "Latam Pass",
-    points: 18500,
-    pricePerThousand: 23,
-  },
-];
-
 export function MilesTrackerWidget({
-  initialPrograms = DEFAULT_PROGRAMS,
+  initialPrograms,
 }: MilesTrackerWidgetProps) {
-  const [programs, setPrograms] = useState<LoyaltyProgram[]>(initialPrograms);
+  const [programs, setPrograms] = useState<LoyaltyProgram[]>(() => {
+    if (initialPrograms !== undefined) {
+      return initialPrograms;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("bsf_miles_programs");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (err) {
+        console.error("Erro ao carregar milhas do localStorage", err);
+      }
+    }
+    return [];
+  });
   const [showAddForm, setShowAddForm] = useState(false);
 
   const [newName, setNewName] = useState("");
@@ -63,12 +56,32 @@ export function MilesTrackerWidget({
       expiringDate: newExpiringDate || undefined,
     };
 
-    setPrograms((prev) => [...prev, newProg]);
+    setPrograms((prev) => {
+      const updated = [...prev, newProg];
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("bsf_miles_programs", JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
     setNewName("");
     setNewPoints("");
     setNewExpiringPoints("");
     setNewExpiringDate("");
     setShowAddForm(false);
+  };
+
+  const handleDeleteProgram = (id: string) => {
+    setPrograms((prev) => {
+      const updated = prev.filter((p) => p.id !== id);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("bsf_miles_programs", JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
   };
 
   return (
@@ -339,66 +352,106 @@ export function MilesTrackerWidget({
       )}
 
       {/* Programs List */}
-      <div style={{ display: "grid", gap: "8px" }}>
-        {programs.map((prog) => {
-          const estimatedVal = calculateMilesValue(prog);
-          const hasExpiring = Boolean(prog.expiringPoints && prog.expiringPoints > 0);
+      {programs.length === 0 ? (
+        <div
+          style={{
+            padding: "2rem 1rem",
+            textAlign: "center",
+            borderRadius: "10px",
+            background: "var(--surface-2, rgba(255,255,255,0.02))",
+            border: "1px dashed var(--border)",
+            color: "var(--muted)",
+            fontSize: "0.875rem",
+          }}
+        >
+          Nenhum programa de milhas cadastrado. Clique em &quot;Adicionar Programa&quot; para cadastrar seus pontos, cotações e vencimentos.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: "8px" }}>
+          {programs.map((prog) => {
+            const estimatedVal = calculateMilesValue(prog);
+            const hasExpiring = Boolean(prog.expiringPoints && prog.expiringPoints > 0);
 
-          return (
-            <div
-              key={prog.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "10px 14px",
-                borderRadius: "10px",
-                background: hasExpiring
-                  ? "rgba(239, 68, 68, 0.05)"
-                  : "var(--surface-2, rgba(255,255,255,0.02))",
-                border: hasExpiring
-                  ? "1px solid rgba(239, 68, 68, 0.25)"
-                  : "1px solid var(--border)",
-                flexWrap: "wrap",
-                gap: "10px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <span
-                  style={{
-                    color: hasExpiring ? "var(--destructive, #ef4444)" : "var(--warning, #eab308)",
-                  }}
-                >
-                  {hasExpiring ? <AlertTriangle size={18} /> : <Award size={18} />}
-                </span>
-                <div>
-                  <strong style={{ fontSize: "0.9rem", color: "var(--text)", display: "block" }}>
-                    {prog.name}
-                  </strong>
-                  <span style={{ fontSize: "0.75rem", color: "var(--muted)", display: "flex", gap: "8px" }}>
-                    <span>{Number(prog.points).toLocaleString("pt-BR")} pts</span>
-                    <span>• Cotação: R$ {Number(prog.pricePerThousand).toFixed(2)}/k</span>
-                    {hasExpiring && (
-                      <span style={{ color: "var(--destructive, #ef4444)", fontWeight: 600 }}>
-                        • {Number(prog.expiringPoints).toLocaleString("pt-BR")} vencendo!
-                      </span>
-                    )}
+            return (
+              <div
+                key={prog.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  background: hasExpiring
+                    ? "rgba(239, 68, 68, 0.05)"
+                    : "var(--surface-2, rgba(255,255,255,0.02))",
+                  border: hasExpiring
+                    ? "1px solid rgba(239, 68, 68, 0.25)"
+                    : "1px solid var(--border)",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span
+                    style={{
+                      color: hasExpiring ? "var(--destructive, #ef4444)" : "var(--warning, #eab308)",
+                    }}
+                  >
+                    {hasExpiring ? <AlertTriangle size={18} /> : <Award size={18} />}
                   </span>
+                  <div>
+                    <strong style={{ fontSize: "0.9rem", color: "var(--text)", display: "block" }}>
+                      {prog.name}
+                    </strong>
+                    <span style={{ fontSize: "0.75rem", color: "var(--muted)", display: "flex", gap: "8px" }}>
+                      <span>{Number(prog.points).toLocaleString("pt-BR")} pts</span>
+                      <span>• Cotação: R$ {Number(prog.pricePerThousand).toFixed(2)}/k</span>
+                      {hasExpiring && (
+                        <span style={{ color: "var(--destructive, #ef4444)", fontWeight: 600 }}>
+                          • {Number(prog.expiringPoints).toLocaleString("pt-BR")} vencendo!
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{ textAlign: "right" }}>
+                    <b style={{ fontSize: "0.92rem", color: "var(--positive, #22c55e)", display: "block" }}>
+                      ~ {money(estimatedVal)}
+                    </b>
+                    <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+                      Valor de mercado
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteProgram(prog.id)}
+                    title="Remover programa"
+                    aria-label={`Remover programa ${prog.name}`}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "var(--muted)",
+                      cursor: "pointer",
+                      padding: "6px",
+                      borderRadius: "6px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "color 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--destructive, #ef4444)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
-
-              <div style={{ textAlign: "right" }}>
-                <b style={{ fontSize: "0.92rem", color: "var(--positive, #22c55e)", display: "block" }}>
-                  ~ {money(estimatedVal)}
-                </b>
-                <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-                  Valor de mercado
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }

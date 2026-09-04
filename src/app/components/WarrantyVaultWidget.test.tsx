@@ -46,4 +46,19 @@ describe("WarrantyVaultWidget (Módulo 12)", () => {
 
     expect(screen.getByText("Smart TV Samsung")).toBeDefined();
   });
+
+  it("renders empty state when no items exist", () => {
+    render(<WarrantyVaultWidget initialItems={[]} referenceDate="2026-08-15" />);
+    expect(screen.getByText(/Nenhuma garantia ou nota fiscal cadastrada/i)).toBeDefined();
+    expect(screen.queryByText("Notebook Dell")).toBeNull();
+  });
+
+  it("allows deleting an existing warranty item", () => {
+    render(<WarrantyVaultWidget initialItems={sampleItems} referenceDate="2026-08-15" />);
+    expect(screen.getByText("Notebook Dell")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: /Remover item Notebook Dell/i }));
+    expect(screen.queryByText("Notebook Dell")).toBeNull();
+    expect(screen.getByText(/Nenhuma garantia ou nota fiscal cadastrada/i)).toBeDefined();
+  });
 });

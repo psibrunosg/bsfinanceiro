@@ -45,4 +45,19 @@ describe("MilesTrackerWidget (Módulo 19)", () => {
     expect(screen.getByText("Smiles Gol")).toBeDefined();
     expect(screen.getAllByText(/30\.000\s+pts/).length).toBeGreaterThanOrEqual(1);
   });
+
+  it("renders empty state when no programs exist", () => {
+    render(<MilesTrackerWidget initialPrograms={[]} />);
+    expect(screen.getByText(/Nenhum programa de milhas cadastrado/i)).toBeDefined();
+    expect(screen.queryByText("Livelo")).toBeNull();
+  });
+
+  it("allows deleting an existing loyalty program", () => {
+    render(<MilesTrackerWidget initialPrograms={samplePrograms} />);
+    expect(screen.getByText("Livelo")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: /Remover programa Livelo/i }));
+    expect(screen.queryByText("Livelo")).toBeNull();
+    expect(screen.getByText(/Nenhum programa de milhas cadastrado/i)).toBeDefined();
+  });
 });
