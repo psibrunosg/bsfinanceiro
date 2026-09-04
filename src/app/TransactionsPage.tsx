@@ -51,6 +51,7 @@ function TransactionsPageInner() {
     const type = String(form.get("type"));
     const amount = parseMoney(form.get("amount"));
     const account_id = form.get("account_id");
+    const destination_account_id = type === "transfer" ? form.get("destination_account_id") : null;
     const category_id = type === "transfer" ? null : form.get("category_id");
     const description = form.get("description") || (type === "transfer" ? "Transferência" : "Movimentação");
     const competence_date = form.get("competence_date");
@@ -64,6 +65,7 @@ function TransactionsPageInner() {
           type,
           amount,
           account_id,
+          destination_account_id,
           category_id,
           description,
           competence_date,
