@@ -70,3 +70,6 @@ O projeto Supabase é `wgntlhzjyriwhncumjsv`, o mesmo ref usado em `.env.example
 
 ## Plano de desenvolvimento
 O plano priorizado está em [ROADMAP.md](./ROADMAP.md). O próximo passo é validar o fluxo real de cadastro, onboarding e primeiro lançamento financeiro.
+
+
+<!-- Security scan triggered at 2026-09-05 07:48:45 -->
