@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import { UserMenu } from "./UserMenu";
+import { Button } from "@/components/ui/button";
 
 type PageHeaderProps = {
   title: string;
@@ -32,18 +33,20 @@ export function PageHeader({
         </div>
         
         {action && (
-          <button
-            type="button"
-            className="page-header__action"
+          <Button
+            variant="primary"
+            size="md"
+            glow
             onClick={action.onClick}
             aria-label={action.ariaLabel || action.label}
-            style={{ padding: '12px 24px', borderRadius: '12px', background: 'var(--primary)', color: 'var(--bg)', border: 'none', fontWeight: 600, display: 'flex', gap: '8px', alignItems: 'center', cursor: 'pointer' }}
+            icon={<Plus size={18} aria-hidden="true" />}
+            className="page-header__action"
           >
-            <Plus size={18} aria-hidden="true" />
-            <span>{action.label}</span>
-          </button>
+            {action.label}
+          </Button>
         )}
       </div>
     </>
   );
 }
+

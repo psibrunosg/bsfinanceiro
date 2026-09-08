@@ -26,17 +26,22 @@
   color: var(--text);
 }
 .dialog__header button {
-  border: 0;
-  background: transparent;
-  padding: 8px;
-  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, .04);
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
   color: var(--muted);
   cursor: pointer;
-  transition: all 200ms ease;
+  transition: all 180ms ease;
 }
 .dialog__header button:hover {
-  background: var(--surface-2);
-  color: var(--primary);
+  background: rgba(255, 255, 255, .1);
+  border-color: rgba(255, 255, 255, .18);
+  color: #fff;
 }
 .dialog__body {
   padding: 0 32px 32px 32px;

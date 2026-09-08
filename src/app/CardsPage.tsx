@@ -107,8 +107,7 @@ function CardsPageInner() {
             </small>
             <button
               type="button"
-              className="button-secondary"
-              style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+              className="button-secondary ui-button--sm"
               onClick={(e) => {
                 e.stopPropagation();
                 setMirrorInvoice(inv);
@@ -488,8 +487,7 @@ function CardsPageInner() {
                     {openInvoice && (
                       <button
                         type="button"
-                        className="button-secondary"
-                        style={{ fontSize: "0.8rem", padding: "6px 10px" }}
+                        className="button-secondary ui-button--sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           setMirrorInvoice(openInvoice);
@@ -501,20 +499,16 @@ function CardsPageInner() {
                     )}
                     <a
                       href={`/cartoes?cardId=${c.id}`}
-                      className="button-secondary"
-                      style={{
-                        fontSize: "0.8rem",
-                        padding: "6px 10px",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        textDecoration: "none",
-                        color: "inherit",
-                      }}
+                      className="button-secondary ui-button--sm"
                       onClick={(e) => e.stopPropagation()}
                     >
                       Ver faturas
                     </a>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); openEditCard(c.id); }}>
+                    <button
+                      type="button"
+                      className="ghost-button ui-button--sm"
+                      onClick={(e) => { e.stopPropagation(); openEditCard(c.id); }}
+                    >
                       Editar
                     </button>
                   </div>
