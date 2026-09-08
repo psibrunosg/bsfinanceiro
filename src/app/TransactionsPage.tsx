@@ -233,47 +233,24 @@ function TransactionsPageInner() {
       </div>
     </form>
 
-    <details
-      open={Boolean(rawNotif)}
-      style={{
-        marginTop: '16px',
-        marginBottom: '24px',
-        background: 'var(--surface-2, rgba(255,255,255,0.03))',
-        border: '1px solid var(--border)',
-        borderRadius: '12px',
-        padding: '12px 16px',
-      }}
-    >
-      <summary
-        style={{
-          cursor: 'pointer',
-          fontWeight: 600,
-          color: 'var(--text)',
-          fontSize: '0.9rem',
-          userSelect: 'none',
+    <div style={{ marginTop: '24px', marginBottom: '24px' }}>
+      <BankNotificationAssistantWidget
+        onAddTransaction={async (tx) => {
+          const { data: userData } = await supabase.auth.getUser();
+          await supabase.from("transactions").insert({
+            workspace_id: workspace.id,
+            owner_id: ownerId || userData.user?.id,
+            description: tx.description,
+            amount: tx.amount,
+            type: tx.type,
+            competence_date: todayInSaoPaulo(),
+            due_date: todayInSaoPaulo(),
+            status: "paid",
+          });
+          await reload();
         }}
-      >
-        Captura Automática via Notificações (iOS & Bancos)
-      </summary>
-      <div style={{ marginTop: '16px' }}>
-        <BankNotificationAssistantWidget
-          onAddTransaction={async (tx) => {
-            const { data: userData } = await supabase.auth.getUser();
-            await supabase.from("transactions").insert({
-              workspace_id: workspace.id,
-              owner_id: ownerId || userData.user?.id,
-              description: tx.description,
-              amount: tx.amount,
-              type: tx.type,
-              competence_date: todayInSaoPaulo(),
-              due_date: todayInSaoPaulo(),
-              status: "paid",
-            });
-            await reload();
-          }}
-        />
-      </div>
-    </details>
+      />
+    </div>
 
     <div className="dashboard-bento-grid" style={{ gridTemplateColumns: '1fr' }}>
       <List title="Histórico">

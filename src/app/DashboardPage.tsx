@@ -35,6 +35,7 @@ import { ExpenseReviewWidget } from "./components/ExpenseReviewWidget";
 import { FinancialCalendarWidget } from "./components/FinancialCalendarWidget";
 import { AnnualWrappedWidget } from "./components/AnnualWrappedWidget";
 import { FinancialAssistantWidget } from "./components/FinancialAssistantWidget";
+import { BankNotificationAssistantWidget } from "./components/BankNotificationAssistantWidget";
 import { ZeroBasedBudgetWidget } from "./components/ZeroBasedBudgetWidget";
 import { TravelSandboxWidget } from "./components/TravelSandboxWidget";
 import { WarrantyVaultWidget } from "./components/WarrantyVaultWidget";
@@ -381,6 +382,10 @@ export function DashboardPage() {
           })),
         }}
       />
+    </div>
+
+    <div style={{ marginTop: '24px' }}>
+      <BankNotificationAssistantWidget />
     </div>
 
     <div style={{ marginTop: '24px' }}>

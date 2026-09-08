@@ -36,10 +36,16 @@ export function FinancialAssistantWidget({ data }: FinancialAssistantWidgetProps
   ]);
   const [inputQuery, setInputQuery] = useState("");
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
-    if (typeof chatBottomRef.current?.scrollIntoView === "function") {
-      chatBottomRef.current.scrollIntoView({ behavior: "smooth" });
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
 
@@ -110,6 +116,7 @@ export function FinancialAssistantWidget({ data }: FinancialAssistantWidgetProps
 
       {/* Message history */}
       <div
+        ref={chatContainerRef}
         style={{
           display: "flex",
           flexDirection: "column",

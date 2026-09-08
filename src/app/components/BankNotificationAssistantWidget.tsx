@@ -43,7 +43,7 @@ export function BankNotificationAssistantWidget({
   const [copiedShortcut, setCopiedShortcut] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
 
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://app.bsfinanceiro.com";
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://financeiro.bssaude.com.br";
   const shortcutUrl = `${baseUrl}/movimentacoes?notif=`;
 
   function handleProcessText(text: string) {
