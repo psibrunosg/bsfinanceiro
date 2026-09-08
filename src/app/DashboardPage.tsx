@@ -34,7 +34,6 @@ import { EmergencyFundWidget } from "./components/EmergencyFundWidget";
 import { ExpenseReviewWidget } from "./components/ExpenseReviewWidget";
 import { FinancialCalendarWidget } from "./components/FinancialCalendarWidget";
 import { AnnualWrappedWidget } from "./components/AnnualWrappedWidget";
-import { BankNotificationAssistantWidget } from "./components/BankNotificationAssistantWidget";
 import { FinancialAssistantWidget } from "./components/FinancialAssistantWidget";
 import { ZeroBasedBudgetWidget } from "./components/ZeroBasedBudgetWidget";
 import { TravelSandboxWidget } from "./components/TravelSandboxWidget";
@@ -382,10 +381,6 @@ export function DashboardPage() {
           })),
         }}
       />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <BankNotificationAssistantWidget />
     </div>
 
     <div style={{ marginTop: '24px' }}>

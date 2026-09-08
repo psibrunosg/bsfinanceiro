@@ -39,9 +39,15 @@ export type Card = {
 };
 export type Invoice = {
   id: string;
+  account_id?: string;
   credit_card_id?: string;
+  month?: number;
+  year?: number;
   due_date: string;
+  closing_date?: string | null;
+  paid_at?: string | null;
   status: string;
+  total_amount?: number | null;
   credit_card_installments?:
     | {
         amount: number;

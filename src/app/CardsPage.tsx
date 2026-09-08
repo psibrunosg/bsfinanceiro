@@ -15,6 +15,8 @@ import { CalendarClock, CreditCard, TrendingDown, Wallet } from "lucide-react";
 import { InterestRadarWidget } from "./components/InterestRadarWidget";
 import { InstallmentTimelineWidget } from "./components/InstallmentTimelineWidget";
 import { DebtPayoffWidget } from "./components/DebtPayoffWidget";
+import { InvoiceMirrorModal } from "./components/InvoiceMirrorModal";
+import { Card, Invoice } from "./components/types";
 
 function statementImportErrorMessage(errorCode: string | null) {
   switch (errorCode) {
@@ -35,6 +37,8 @@ function CardsPageInner() {
   const [statementImportFailed, setStatementImportFailed] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
+  const [mirrorInvoice, setMirrorInvoice] = useState<Invoice | null>(null);
+  const [mirrorCard, setMirrorCard] = useState<Card | null>(null);
   const {
     workspace,
     accounts,
@@ -64,8 +68,11 @@ function CardsPageInner() {
     : "statement-import-help";
 
   // ponytail: agregação client-side sobre os dados que a página já carregou; sem query nova.
-  const invoiceTotal = (inv: (typeof invoices)[number]) =>
-    (inv.credit_card_installments || []).reduce((s, i) => s + Number(i.amount), 0);
+  const invoiceTotal = (inv: (typeof invoices)[number]) => {
+    const installmentsSum = (inv.credit_card_installments || []).reduce((s, i) => s + Number(i.amount), 0);
+    if (installmentsSum > 0) return installmentsSum;
+    return Number(inv.total_amount || 0);
+  };
   const scopedCards = selectedCard ? [selectedCard] : cards;
   const openInvoices = invoices.filter((inv) => inv.status !== "paid");
   const limitTotal = scopedCards.reduce((s, c) => s + Number(c.credit_limit), 0);
@@ -74,8 +81,18 @@ function CardsPageInner() {
 
   const renderInvoice = (inv: (typeof invoices)[number], cardName?: string) => {
     const items = inv.credit_card_installments || [];
+    const invCard = selectedCard || cards.find((c) => c.id === inv.credit_card_id);
     return (
-      <article className="account-row" key={inv.id}>
+      <article
+        className="account-row"
+        key={inv.id}
+        style={{ cursor: "pointer" }}
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest("button")) return;
+          setMirrorInvoice(inv);
+          setMirrorCard(invCard || null);
+        }}
+      >
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
             <strong>
@@ -84,25 +101,41 @@ function CardsPageInner() {
             </strong>
             <b>{money(invoiceTotal(inv))}</b>
           </div>
-          <small className="muted" data-status={inv.status}>
-            {inv.status === "paid" ? "Paga" : "Em aberto"}
-          </small>
-          <ul className="list" style={{ marginTop: 8 }}>
-            {items.map((i, n) => {
-              const p = Array.isArray(i.credit_card_purchases)
-                ? i.credit_card_purchases[0]
-                : i.credit_card_purchases;
-              return (
-                <li key={n}>
-                  <span>
-                    {p?.description || "Compra"} · {i.installment_number}/
-                    {p?.installment_count || 1}
-                  </span>
-                  <b>{money(i.amount)}</b>
-                </li>
-              );
-            })}
-          </ul>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+            <small className="muted" data-status={inv.status}>
+              {inv.status === "paid" ? "Paga" : "Em aberto"}
+            </small>
+            <button
+              type="button"
+              className="button-secondary"
+              style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setMirrorInvoice(inv);
+                setMirrorCard(invCard || null);
+              }}
+            >
+              Espelho da fatura
+            </button>
+          </div>
+          {items.length > 0 && (
+            <ul className="list" style={{ marginTop: 8 }}>
+              {items.map((i, n) => {
+                const p = Array.isArray(i.credit_card_purchases)
+                  ? i.credit_card_purchases[0]
+                  : i.credit_card_purchases;
+                return (
+                  <li key={n}>
+                    <span>
+                      {p?.description || "Compra"} · {i.installment_number}/
+                      {p?.installment_count || 1}
+                    </span>
+                    <b>{money(i.amount)}</b>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       </article>
     );
@@ -351,10 +384,20 @@ function CardsPageInner() {
         title={selectedCard ? selectedCard.name : "Cartões"}
         subtitle={selectedCard ? "Faturas e compras." : "Limites e vencimentos em um só lugar."}
         workspaceName={workspace.name}
-        action={!selectedCardId ? {
+        action={selectedCard ? {
+          label: "Espelho da fatura atual",
+          onClick: () => {
+            const cardInvs = invoices.filter(inv => inv.credit_card_id === selectedCard.id);
+            const curr = cardInvs.find(i => i.status !== "paid") || cardInvs[0];
+            if (curr) {
+              setMirrorInvoice(curr);
+              setMirrorCard(selectedCard);
+            }
+          },
+        } : {
           label: "Cadastrar cartão",
           onClick: openNewCard,
-        } : undefined}
+        }}
       />
       {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
 
@@ -398,14 +441,27 @@ function CardsPageInner() {
             {cards.map((c) => {
               const cardInvoices = invoices.filter(inv => inv.credit_card_id === c.id);
               const openInvoice = cardInvoices.find(inv => inv.status !== 'paid') || cardInvoices[0];
-              const openInvoiceTotal = openInvoice?.credit_card_installments?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
+              const openInvoiceTotal = openInvoice ? invoiceTotal(openInvoice) : 0;
               const usedLimit = cardInvoices.reduce((sum, inv) => 
-                inv.status !== 'paid' ? sum + (inv.credit_card_installments?.reduce((s, i) => s + Number(i.amount), 0) || 0) : sum, 0
+                inv.status !== 'paid' ? sum + invoiceTotal(inv) : sum, 0
               );
               const limitPercentage = c.credit_limit > 0 ? Math.min(100, (usedLimit / c.credit_limit) * 100) : 0;
 
               return (
-                <article className="account-row" key={c.id}>
+                <article
+                  className="account-row"
+                  key={c.id}
+                  style={{ cursor: "pointer" }}
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest("a")) return;
+                    if (openInvoice) {
+                      setMirrorInvoice(openInvoice);
+                      setMirrorCard(c);
+                    } else {
+                      window.location.href = `/cartoes?cardId=${c.id}`;
+                    }
+                  }}
+                >
                   <span className="brand-badge">
                     <BrandLogo brand={c.brand} />
                   </span>
@@ -428,9 +484,40 @@ function CardsPageInner() {
                       <span style={{ width: `${limitPercentage}%` }} />
                     </div>
                   </div>
-                  <button type="button" onClick={() => openEditCard(c.id)}>
-                    Editar
-                  </button>
+                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                    {openInvoice && (
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        style={{ fontSize: "0.8rem", padding: "6px 10px" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMirrorInvoice(openInvoice);
+                          setMirrorCard(c);
+                        }}
+                      >
+                        Espelho da fatura
+                      </button>
+                    )}
+                    <a
+                      href={`/cartoes?cardId=${c.id}`}
+                      className="button-secondary"
+                      style={{
+                        fontSize: "0.8rem",
+                        padding: "6px 10px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        textDecoration: "none",
+                        color: "inherit",
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Ver faturas
+                    </a>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); openEditCard(c.id); }}>
+                      Editar
+                    </button>
+                  </div>
                 </article>
               );
             })}
@@ -601,6 +688,22 @@ function CardsPageInner() {
             )}
           </div>
         </section>
+      )}
+
+      {mirrorInvoice && (
+        <InvoiceMirrorModal
+          card={mirrorCard || selectedCard || cards.find((c) => c.id === mirrorInvoice.credit_card_id)}
+          invoice={mirrorInvoice}
+          allInvoices={invoices.filter((inv) =>
+            mirrorCard
+              ? inv.credit_card_id === mirrorCard.id
+              : selectedCard
+              ? inv.credit_card_id === selectedCard.id
+              : true
+          )}
+          onClose={() => setMirrorInvoice(null)}
+          onSelectInvoice={(newInv) => setMirrorInvoice(newInv)}
+        />
       )}
     </main>
   );

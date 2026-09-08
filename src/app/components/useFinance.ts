@@ -597,11 +597,11 @@ export function useFinance(
         supabase
           .from("credit_card_invoices")
           .select(
-            "id,credit_card_id,due_date,status,credit_card_installments(amount,installment_number,credit_card_purchases(description,installment_count))",
+            "id,credit_card_id,due_date,closing_date,paid_at,status,total_amount,credit_card_installments(amount,installment_number,credit_card_purchases(description,installment_count))",
           )
           .eq("credit_card_id", cardId)
           .order("due_date", { ascending: false })
-          .limit(12),
+          .limit(48),
         supabase
           .from("credit_card_statement_imports")
           .select("id,file_name,status,error_code,created_at")
@@ -615,11 +615,11 @@ export function useFinance(
       const { data } = await supabase
         .from("credit_card_invoices")
         .select(
-          "id,credit_card_id,due_date,status,credit_card_installments(amount,installment_number,credit_card_purchases(description,installment_count))",
+          "id,credit_card_id,due_date,closing_date,paid_at,status,total_amount,credit_card_installments(amount,installment_number,credit_card_purchases(description,installment_count))",
         )
         .eq("workspace_id", ws.id)
         .order("due_date", { ascending: false })
-        .limit(24);
+        .limit(48);
       setInvoices(data || []);
     } else if (route === "planning") {
       const [{ data: budgetRows }, { data: goalRows }, { data: spentRows }] =
