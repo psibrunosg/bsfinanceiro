@@ -653,19 +653,45 @@ export function useFinance(
         }
       }
       setMonthSpent(spent);
-    } else if (route === "commitments") {
+    }
+    
+    let commitmentRows: Commitment[] = [];
+    if (route === "commitments") {
       const { data } = await supabase
         .from("fixed_commitments")
         .select("id,description,amount,due_day,account_id,category_id")
         .eq("workspace_id", ws.id)
         .eq("active", true)
         .order("due_day");
-      setCommitments(data || []);
+      commitmentRows = (data || []) as Commitment[];
+      setCommitments(commitmentRows);
       const { data: occurrenceData } = await supabase.rpc(
         "materialize_fixed_commitment_occurrences",
         { p_workspace_id: ws.id, p_month: monthStart() },
       );
       setOccurrences(occurrenceData || []);
+    }
+
+    if (!isTestEnv) {
+      memoryBootstrapCache = {
+        workspaceId: ws.id,
+        data: {
+          accounts: (accountRows as Account[]) || memoryBootstrapCache?.data?.accounts || [],
+          categories: (categoryRows as Category[]) || memoryBootstrapCache?.data?.categories || [],
+          cards: (cardRows as Card[]) || memoryBootstrapCache?.data?.cards || [],
+          workspace_preferences: (workspacePreferenceRows as WorkspacePreference) || memoryBootstrapCache?.data?.workspace_preferences,
+          alert_preferences: (preferenceRows as AlertPreference) || memoryBootstrapCache?.data?.alert_preferences,
+          goals: (dashboardGoalRows as Goal[]) || memoryBootstrapCache?.data?.goals || [],
+          budgets: (dashboardBudgetRows as Budget[]) || memoryBootstrapCache?.data?.budgets || [],
+          occurrences: occurrenceRows.length ? occurrenceRows : (memoryBootstrapCache?.data?.occurrences || []),
+          transactions: calculationTransactionRows.length ? calculationTransactionRows : (visibleTransactionRows.length ? visibleTransactionRows : (memoryBootstrapCache?.data?.transactions || [])),
+          debts: debtsRows || memoryBootstrapCache?.data?.debts || [],
+          investments: assetsRows || memoryBootstrapCache?.data?.investments || [],
+          workspace_users: wUsers || memoryBootstrapCache?.data?.workspace_users || [],
+          commitments: commitmentRows.length ? commitmentRows : (memoryBootstrapCache?.data?.commitments || []),
+        },
+        timestamp: Date.now(),
+      };
     }
 
     hasLoaded.current = true;

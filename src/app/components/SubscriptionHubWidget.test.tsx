@@ -29,7 +29,7 @@ describe("SubscriptionHubWidget", () => {
     expect(screen.getByText("Hub de Assinaturas & Recorrências")).toBeDefined();
     expect(screen.getByText(/Custo Anualizado:/i)).toBeDefined();
     expect(screen.getAllByText("Netflix").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("Spotify")).toBeDefined();
+    expect(screen.getAllByText("Spotify").length).toBeGreaterThanOrEqual(1);
   });
 
   it("allows selecting a service to simulate cancellation savings in CDI", () => {

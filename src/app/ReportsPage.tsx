@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Printer, FileText } from "lucide-react";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
@@ -20,6 +20,7 @@ import { ShareReportButton } from "./components/ShareReportButton";
 import { CsvExportButton } from "./components/CsvExportButton";
 import { AnnualWrappedWidget } from "./components/AnnualWrappedWidget";
 import { TravelSandboxWidget } from "./components/TravelSandboxWidget";
+import { ExecutiveReportView } from "./components/ExecutiveReportView";
 
 const COMPARISON_MONTHS = 12;
 
@@ -27,6 +28,7 @@ export function ReportsPage() {
   const { workspace, transactions, categories, accounts, loading } = useFinance("dashboard");
   const { month, label, setMonth } = useMonth();
   const [tab, setTab] = useState<"mes" | "comparativo" | "custom" | "ir">("mes");
+  const [showExecPreview, setShowExecPreview] = useState(false);
 
   const clean = useMemo(() => filterOutTransfers(transactions, categories), [transactions, categories]);
 
@@ -89,6 +91,13 @@ export function ReportsPage() {
     };
   }, [clean, accounts, month]);
 
+  const topExpenses = useMemo(() => {
+    return clean
+      .filter((t) => t.type === "expense" && t.competence_date >= month && t.competence_date < addMonths(month, 1))
+      .sort((a, b) => Number(b.amount) - Number(a.amount))
+      .slice(0, 10);
+  }, [clean, month]);
+
   if (loading || !workspace) return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
 
   return (
@@ -96,12 +105,70 @@ export function ReportsPage() {
       <Nav />
       <PageHeader title="Relatórios" subtitle="Seus gastos mês a mês, agrupados por categoria" workspaceName={workspace.name} />
 
-      <div className="dashboard-card no-print" style={{ display: "flex", gap: "1rem", marginBottom: "1rem", alignItems: "center" }}>
+      <div className="dashboard-card no-print" style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", alignItems: "center", flexWrap: "wrap" }}>
         <strong>Exportar dados:</strong>
         <CsvExportButton transactions={clean} categories={categories} />
-        <button type="button" onClick={() => window.print()} className="secondary-button">Salvar PDF</button>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="secondary-button"
+          style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+          title="Imprime ou salva em PDF com formatação executiva A4"
+        >
+          <Printer size={16} aria-hidden="true" />
+          Imprimir / Salvar PDF Executivo
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowExecPreview((prev) => !prev)}
+          className="ghost-button"
+          style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+        >
+          <FileText size={16} aria-hidden="true" />
+          {showExecPreview ? "Ocultar Prévia A4" : "Prévia do Relatório A4"}
+        </button>
         <ShareReportButton workspaceId={workspace.id} />
       </div>
+
+      {showExecPreview && (
+        <div
+          className="dashboard-card no-print"
+          style={{
+            marginBottom: "1.5rem",
+            background: "#ffffff",
+            color: "#111827",
+            borderRadius: "12px",
+            border: "2px dashed var(--primary)",
+            padding: "20px",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", borderBottom: "1px solid #e5e7eb", paddingBottom: "8px" }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary)" }}>
+              PRÉVIA DO RELATÓRIO EXECUTIVO A4
+            </span>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="primary-button"
+              style={{ fontSize: "0.8rem", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+            >
+              <Printer size={14} /> Imprimir Agora
+            </button>
+          </div>
+          <ExecutiveReportView
+            workspaceName={workspace.name}
+            label={label}
+            month={month}
+            income={monthReport.income}
+            expense={monthReport.expense}
+            rows={monthReport.rows}
+            topExpenses={topExpenses}
+            categories={categories}
+            accounts={accounts}
+            isScreenPreview={true}
+          />
+        </div>
+      )}
 
       <div className="hub-filters">
         <MonthPicker />
@@ -231,6 +298,20 @@ export function ReportsPage() {
           <TaxReport transactions={clean} categories={categories} />
         </section>
       )}
+
+      {/* Relatório Executivo Especial para Impressão A4 / PDF */}
+      <ExecutiveReportView
+        workspaceName={workspace.name}
+        label={label}
+        month={month}
+        income={monthReport.income}
+        expense={monthReport.expense}
+        rows={monthReport.rows}
+        topExpenses={topExpenses}
+        categories={categories}
+        accounts={accounts}
+        isScreenPreview={false}
+      />
     </main>
 
   );
