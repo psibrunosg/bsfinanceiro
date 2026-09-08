@@ -66,8 +66,8 @@ export function DashboardPage() {
   const { workspace, accounts, transactions, invoices, categories, goals, occurrences, budgets, alertPrefs, loading, investmentAssets, investmentOperations, commitments = [] } = useFinance("dashboard");
   const { month, nextMonth } = useMonth();
   const { displayName } = useCurrentUser();
-  const assets = investmentAssets;
-  const operations = investmentOperations;
+  const assets = useMemo(() => investmentAssets || [], [investmentAssets]);
+  const operations = useMemo(() => investmentOperations || [], [investmentOperations]);
 
   const investedAsOf = useCallback(
     (cutoff: string | null) => {
@@ -189,7 +189,7 @@ export function DashboardPage() {
       </Link>
     ) : null}
 
-    <div className="bento-row" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+    <div className="bento-row bento-row--4">
       <article className="metric-card metric-card--positive">
         <div className="metric-card__head">
           <span className="muted">Patrimônio líquido</span>
@@ -404,7 +404,7 @@ export function DashboardPage() {
       <MilesTrackerWidget />
     </div>
 
-    <div className="dashboard-bento-grid" style={{ marginTop: '24px', gridTemplateColumns: '1fr 1fr' }}>
+    <div className="bento-row bento-row--2" style={{ marginTop: '24px' }}>
       <article className="dashboard-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
           <h3 style={{ fontSize: '1.2rem', margin: 0 }}>Metas</h3>

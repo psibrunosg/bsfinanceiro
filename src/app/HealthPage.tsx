@@ -99,7 +99,7 @@ export function HealthPage() {
             fixedCommitments={currentMonthTotals.fixedTotal}
           />
 
-          <div className="bento-row" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+          <div className="bento-row bento-row--3">
             <article className="metric-card metric-card--positive">
               <div className="metric-card__head">
                 <span className="muted">Bons</span>

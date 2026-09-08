@@ -45,7 +45,7 @@ export function CustomPeriodReport({ transactions, categories }: { transactions:
     {!data && <p className="muted">Selecione uma data de in�cio e fim para gerar o relat�rio.</p>}
     
     {data && <>
-      <div className="bento-row" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginBottom: "2rem" }}>
+      <div className="bento-row bento-row--3" style={{ marginBottom: "2rem" }}>
         <article className="metric-card metric-card--positive">
           <div className="metric-card__head"><span className="muted">Entradas</span></div>
           <strong>{money(data.income)}</strong>

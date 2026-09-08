@@ -401,7 +401,7 @@ function CardsPageInner() {
       />
       {message && <p className={message.startsWith("Não") ? "form-error" : "form-success"} role={message.startsWith("Não") ? "alert" : "status"}>{message}</p>}
 
-      <div className="bento-row" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <div className="bento-row bento-row--4">
         <article className="metric-card">
           <div className="metric-card__head">
             <span className="muted">Limite total</span>

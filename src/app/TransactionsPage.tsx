@@ -13,7 +13,7 @@ import { StatementImportPanel } from "./components/StatementImportPanel";
 import { BankNotificationAssistantWidget } from "./components/BankNotificationAssistantWidget";
 import { money, parseMoney } from "./components/Money";
 import { createClient } from "@/lib/supabase/client";
-import { todayInSaoPaulo } from "@/lib/finance/local-date";
+import { todayInSaoPaulo, addMonthsToDate } from "@/lib/finance/local-date";
 import { predictCategory } from "@/lib/finance/category-predictor";
 import { parseBankNotification } from "@/lib/finance/bank-notification-parser";
 
@@ -42,6 +42,8 @@ function TransactionsPageInner() {
   const presetDescription = parsedNotif
     ? parsedNotif.description
     : searchParams.get("description") || searchParams.get("desc") || "";
+
+  const presetInstallments = searchParams.get("installments") || searchParams.get("parcelas") || "1";
 
   const shouldAutoOpen = Boolean(
     rawNotif ||
@@ -110,6 +112,36 @@ function TransactionsPageInner() {
     const category_id = type === "transfer" ? null : form.get("category_id");
     const description = form.get("description") || (type === "transfer" ? "Transferência" : "Movimentação");
     const competence_date = form.get("competence_date");
+    const installments = Math.max(1, parseInt(String(form.get("installments") || "1"), 10) || 1);
+
+    if (installments > 1 && type !== "transfer") {
+      const { data: userData } = await supabase.auth.getUser();
+      const instAmount = Math.round((amount / installments) * 100) / 100;
+      const centsDiff = Math.round((amount - instAmount * installments) * 100) / 100;
+      const rows = [];
+      for (let i = 1; i <= installments; i++) {
+        const curAmount = i === 1 ? instAmount + centsDiff : instAmount;
+        const curDate = i === 1 ? String(competence_date) : addMonthsToDate(String(competence_date), i - 1);
+        rows.push({
+          workspace_id: workspace.id,
+          owner_id: userData?.user?.id,
+          type,
+          amount: curAmount,
+          account_id,
+          category_id,
+          destination_account_id: null,
+          description: `${description} (${i}/${installments})`,
+          competence_date: curDate,
+          paid_at: curDate,
+          status: "paid",
+          idempotency_key: crypto.randomUUID(),
+        });
+      }
+      const { error } = await supabase.from("transactions").insert(rows);
+      setMessage(error ? "Não foi possível salvar." : `${installments} parcelas adicionadas com sucesso.`);
+      await reload();
+      return;
+    }
 
     try {
       const res = await fetch("/api/transactions", {
@@ -177,7 +209,7 @@ function TransactionsPageInner() {
       onReload={reload}
       onMessage={setMessage}
     />
-    <form className="bento-row" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr', marginTop: '24px' }} onSubmit={(event) => event.preventDefault()}>
+    <form className="bento-row bento-row--filters" style={{ marginTop: '24px' }} onSubmit={(event) => event.preventDefault()}>
       <div className="filter-card">
         <span><label htmlFor="transaction-query">Buscar movimentações</label></span>
         <input
@@ -350,6 +382,18 @@ function TransactionsPageInner() {
             />
             <label htmlFor="transaction-date">Data</label>
             <input id="transaction-date" name="competence_date" type="date" defaultValue={todayInSaoPaulo()} autoComplete="off" data-lpignore="true" required />
+            <label htmlFor="transaction-installments">Parcelas</label>
+            <input
+              id="transaction-installments"
+              name="installments"
+              type="number"
+              min="1"
+              max="60"
+              defaultValue={presetInstallments}
+              placeholder="1 (À vista)"
+              autoComplete="off"
+              data-lpignore="true"
+            />
             <button>Salvar</button>
           </SimpleForm>
       </Dialog>

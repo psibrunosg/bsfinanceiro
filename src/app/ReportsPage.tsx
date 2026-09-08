@@ -184,7 +184,7 @@ export function ReportsPage() {
 
       {tab === "mes" && (
         <section>
-          <div className="bento-row" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+          <div className="bento-row bento-row--3">
             <article className="metric-card metric-card--positive">
               <div className="metric-card__head">
                 <span className="muted">Entradas</span>
@@ -254,7 +254,7 @@ export function ReportsPage() {
 
       {tab === "comparativo" && (
         <section>
-          <div className="dashboard-bento-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+          <div className="bento-row bento-row--3">
             <article className="dashboard-card">
               <h3>Entradas por mês</h3>
               <div className="chart-wrap"><DashboardChart type="bar" label="Entradas" labels={comparison.labels} values={comparison.flowIn} color="var(--positive-color)" /></div>
