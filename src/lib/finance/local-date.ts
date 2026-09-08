@@ -29,6 +29,17 @@ export function addMonths(monthStart: string, delta: number): string {
   return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}-01`;
 }
 
+/** Shifts an arbitrary `YYYY-MM-DD` date by `deltaMonths`, preserving the calendar day. */
+export function addMonthsToDate(dateStr: string, deltaMonths: number): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const totalMonths = year * 12 + (month - 1) + deltaMonths;
+  const newYear = Math.floor(totalMonths / 12);
+  const newMonth = (totalMonths % 12) + 1;
+  const daysInTargetMonth = new Date(newYear, newMonth, 0).getDate();
+  const targetDay = Math.min(day, daysInTargetMonth);
+  return `${newYear}-${String(newMonth).padStart(2, "0")}-${String(targetDay).padStart(2, "0")}`;
+}
+
 /** Half-open range for a month start: `from <= date < toExclusive`. */
 export function monthRangeOf(monthStart: string): { from: string; toExclusive: string } {
   return { from: monthStart, toExclusive: addMonths(monthStart, 1) };
