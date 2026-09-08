@@ -27,7 +27,7 @@ export async function updateSession(request: NextRequest) {
     path.startsWith(p),
   );
 
-  if (!logged && !authPath && !path.startsWith("/auth")) {
+  if (!logged && !authPath && !path.startsWith("/auth") && !path.startsWith("/api")) {
     return NextResponse.redirect(new URL("/entrar", request.url));
   }
   if (logged && authPath) {

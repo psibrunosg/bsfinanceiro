@@ -479,6 +479,115 @@ try {
         exit;
     }
 
+    // 5.1 Shortcuts & Siri Integration
+    if ($uri === '/shortcuts' && $method === 'POST') {
+        $defaultToken = getenv('SHORTCUTS_API_KEY') ?: 'bsf_shortcut_token_2026';
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+        $bearerToken = '';
+        if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+            $bearerToken = trim($matches[1]);
+        }
+        $headerToken = $_SERVER['HTTP_X_SHORTCUT_TOKEN'] ?? '';
+        $queryToken = $_GET['token'] ?? '';
+        $bodyToken = $body['token'] ?? '';
+        $providedToken = $bearerToken ?: ($headerToken ?: ($queryToken ?: $bodyToken));
+
+        if ($providedToken !== $defaultToken) {
+            http_response_code(401);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Token de autorização inválido ou ausente. Verifique a chave configurada no seu Atalho.'
+            ]);
+            exit;
+        }
+
+        $amount = (float)($body['amount'] ?? 0);
+        $description = trim($body['description'] ?? '');
+        $type = ($body['type'] ?? 'expense') === 'income' ? 'income' : 'expense';
+        $installments = max(1, min(60, (int)($body['installments'] ?? 1)));
+        $startDate = $body['date'] ?? date('Y-m-d');
+        $workspaceId = $body['workspace_id'] ?? null;
+        $ownerId = $body['owner_id'] ?? null;
+        $accountId = $body['account_id'] ?? null;
+        $categoryId = $body['category_id'] ?? null;
+
+        if (isset($body['amount']) && is_string($body['amount'])) {
+            $cleaned = preg_replace('/[^\d,.]/', '', $body['amount']);
+            $cleaned = str_replace('.', '', $cleaned);
+            $cleaned = str_replace(',', '.', $cleaned);
+            $amount = (float)$cleaned;
+        }
+
+        if ($amount <= 0 || empty($description)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Valor e descrição válidos são obrigatórios.']);
+            exit;
+        }
+
+        if (!$workspaceId) {
+            $stmt = $db->query("SELECT id, owner_id FROM workspaces ORDER BY created_at ASC LIMIT 1");
+            $ws = $stmt->fetch();
+            if ($ws) {
+                $workspaceId = $ws['id'];
+                $ownerId = $ownerId ?: $ws['owner_id'];
+            }
+        }
+
+        if (!$accountId && $workspaceId) {
+            $stmt = $db->prepare("SELECT id FROM accounts WHERE workspace_id = ? ORDER BY created_at ASC LIMIT 1");
+            $stmt->execute([$workspaceId]);
+            $accountId = $stmt->fetchColumn() ?: null;
+        }
+
+        if (!$categoryId && $workspaceId) {
+            $descLower = mb_strtolower($description, 'UTF-8');
+            $stmt = $db->prepare("SELECT id, name FROM categories WHERE workspace_id = ? AND kind = ?");
+            $stmt->execute([$workspaceId, $type]);
+            $cats = $stmt->fetchAll();
+            foreach ($cats as $c) {
+                $catLower = mb_strtolower($c['name'], 'UTF-8');
+                if (strpos($descLower, $catLower) !== false || strpos($catLower, $descLower) !== false) {
+                    $categoryId = $c['id'];
+                    break;
+                }
+            }
+        }
+
+        $stmt = $db->prepare("INSERT INTO transactions 
+            (workspace_id, owner_id, account_id, destination_account_id, category_id, type, description, amount, interest_amount, competence_date, paid_at, status)
+            VALUES (?, ?, ?, NULL, ?, ?, ?, ?, 0, ?, ?, 'paid') RETURNING *");
+
+        $inserted = [];
+        $installmentAmount = round($amount / $installments, 2);
+        $centsDiff = round($amount - ($installmentAmount * $installments), 2);
+
+        for ($i = 1; $i <= $installments; $i++) {
+            $curAmount = ($i === 1) ? ($installmentAmount + $centsDiff) : $installmentAmount;
+            $curDesc = ($installments > 1) ? "{$description} ({$i}/{$installments})" : $description;
+            
+            if ($i === 1) {
+                $curDate = $startDate;
+            } else {
+                $time = strtotime($startDate . " +" . ($i - 1) . " month");
+                $curDate = date('Y-m-d', $time);
+            }
+
+            $stmt->execute([$workspaceId, $ownerId, $accountId, $categoryId, $type, $curDesc, $curAmount, $curDate, $curDate]);
+            $inserted[] = $stmt->fetch();
+        }
+
+        echo json_encode([
+            'success' => true,
+            'count' => count($inserted),
+            'amount' => $amount,
+            'installments' => $installments,
+            'message' => $installments > 1 
+                ? "{$installments} parcelas de {$description} registradas com sucesso!"
+                : "{$description} de R$ " . number_format($amount, 2, ',', '.') . " registrado com sucesso!"
+        ]);
+        exit;
+    }
+
     if ($uri === '/transactions' && $method === 'DELETE') {
         $id = $_GET['id'] ?? $body['id'] ?? null;
         if (!$id) {

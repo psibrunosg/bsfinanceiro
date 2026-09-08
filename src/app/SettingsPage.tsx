@@ -6,6 +6,7 @@ import { PageHeader } from "./components/PageHeader";
 import { createClient } from "@/lib/supabase/client";
 import { appPath } from "@/lib/app-path";
 import { useMemo, useState } from "react";
+import { Smartphone, Check, Copy, Zap, AlertTriangle } from "lucide-react";
 import type { WorkspacePreference } from "./components/types";
 
 export function SettingsPage() {
@@ -13,10 +14,38 @@ export function SettingsPage() {
   const supabase = useMemo(() => createClient(), []);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("Aparência");
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  function handleCopyText(text: string, key: string) {
+    if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2500);
+  }
+
+  function handleCopyCompleteGuide() {
+    const guide = `--- ROTEIRO PARA O ATALHO DO IPHONE (BS FINANCEIRO) ---\n\n` +
+      `1. Solicitar Entrada (Número) -> "Qual o valor da compra?" (Defina o Padrão com o valor detectado)\n` +
+      `2. Solicitar Entrada (Texto) -> "Qual o estabelecimento?" (Defina o Padrão com o nome detectado)\n` +
+      `3. Escolher do Menu -> "Forma de Pagamento?"\n` +
+      `   - À vista: Definir variável parcelas = 1\n` +
+      `   - Parcelado: Solicitar Entrada (Número) -> "Quantas parcelas? (2 a 12)"\n` +
+      `4. Obter Conteúdo de URL (POST em segundo plano):\n` +
+      `   - URL: https://financeiro.bssaude.com.br/api/shortcuts\n` +
+      `   - Método: POST\n` +
+      `   - Cabeçalho: Authorization: Bearer bsf_shortcut_token_2026\n` +
+      `   - Corpo JSON: {"amount": [Valor], "description": [Estabelecimento], "installments": [Parcelas], "type": "expense"}\n` +
+      `5. Condicional Se Código de Status HTTP != 200 (Fallback para Ajuste):\n` +
+      `   - Abrir URLs: https://financeiro.bssaude.com.br/movimentacoes?amount=[Valor]&desc=[Estabelecimento]&installments=[Parcelas]&open=true\n` +
+      `6. Senão (Se status == 200):\n` +
+      `   - Mostrar Notificação: "Gasto registrado com sucesso no BS Financeiro!"`;
+    handleCopyText(guide, "guide");
+  }
 
   if (loading || !workspace) return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
 
-  const TABS = ["Aparência", "Painel", "Família", "Contextos", "Ganhos", "Gastos", "Alertas", "Privacidade", "Dados"];
+  const TABS = ["Aparência", "Painel", "Família", "Contextos", "Ganhos", "Gastos", "Alertas", "Privacidade", "Atalhos iOS", "Dados"];
 
   async function savePreferences(form: FormData) {
     setSaving(true);
@@ -367,6 +396,221 @@ export function SettingsPage() {
                 </label>
               </div>
               <button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar preferências"}</button>
+            </div>
+          )}
+
+          {activeTab === "Atalhos iOS" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              {/* Header do Atalho */}
+              <div
+                style={{
+                  padding: "16px 20px",
+                  borderRadius: "12px",
+                  background: "rgba(139, 92, 246, 0.08)",
+                  border: "1px solid rgba(139, 92, 246, 0.25)",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "14px",
+                }}
+              >
+                <span
+                  style={{
+                    padding: "10px",
+                    borderRadius: "10px",
+                    background: "rgba(139, 92, 246, 0.2)",
+                    color: "var(--primary, #8b5cf6)",
+                    display: "inline-flex",
+                  }}
+                >
+                  <Smartphone size={24} />
+                </span>
+                <div>
+                  <h3 style={{ margin: "0 0 4px", fontSize: "1.1rem" }}>
+                    Automação e Atalhos do iPhone (iOS Shortcuts)
+                  </h3>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--muted)", lineHeight: 1.5 }}>
+                    Registre gastos em segundos através de micromodais rápidos no topo da tela do seu iPhone.
+                    O atalho suporta <strong>valor editável</strong>, <strong>estabelecimento editável</strong>, <strong>parcelamento automático</strong> e tenta registrar <strong>em segundo plano</strong>. Caso ocorra qualquer falha ou falta de conexão, ele abre o modal no app automaticamente para ajuste manual!
+                  </p>
+                </div>
+              </div>
+
+              {/* Grid: Endpoints e Chaves */}
+              <div style={{ display: "grid", gap: "16px", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+                <div
+                  style={{
+                    padding: "16px",
+                    borderRadius: "12px",
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--muted)" }}>
+                      URL do Endpoint da API (POST)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText("https://financeiro.bssaude.com.br/api/shortcuts", "url")}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: copiedKey === "url" ? "var(--positive, #22c55e)" : "var(--primary, #8b5cf6)",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      {copiedKey === "url" ? <Check size={14} /> : <Copy size={14} />}
+                      {copiedKey === "url" ? "Copiado!" : "Copiar"}
+                    </button>
+                  </div>
+                  <code style={{ fontSize: "0.8rem", color: "var(--text)", wordBreak: "break-all" }}>
+                    https://financeiro.bssaude.com.br/api/shortcuts
+                  </code>
+                </div>
+
+                <div
+                  style={{
+                    padding: "16px",
+                    borderRadius: "12px",
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--muted)" }}>
+                      Chave de Autorização (Token)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText("bsf_shortcut_token_2026", "token")}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: copiedKey === "token" ? "var(--positive, #22c55e)" : "var(--primary, #8b5cf6)",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      {copiedKey === "token" ? <Check size={14} /> : <Copy size={14} />}
+                      {copiedKey === "token" ? "Copiado!" : "Copiar"}
+                    </button>
+                  </div>
+                  <code style={{ fontSize: "0.8rem", color: "var(--text)", wordBreak: "break-all" }}>
+                    bsf_shortcut_token_2026
+                  </code>
+                </div>
+              </div>
+
+              {/* Passo a Passo Ilustrado */}
+              <div
+                style={{
+                  padding: "20px",
+                  borderRadius: "12px",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <h4 style={{ margin: "0 0 16px", fontSize: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Zap size={18} color="var(--primary, #8b5cf6)" />
+                  Estrutura do Atalho no iPhone (Passo a Passo)
+                </h4>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px", fontSize: "0.85rem", lineHeight: 1.6 }}>
+                  <div style={{ padding: "12px", borderRadius: "8px", background: "var(--surface-2, rgba(255,255,255,0.03))", border: "1px solid var(--border)" }}>
+                    <strong>1. Micromodal de Valor (com valor padrão editável):</strong>
+                    <p style={{ margin: "4px 0 0", color: "var(--muted)" }}>
+                      Adicione a ação <strong>&quot;Solicitar Entrada&quot;</strong> (Tipo: <em>Número</em>, Pergunta: <em>&quot;Qual o valor da compra?&quot;</em>). Toque em opções e defina o campo <strong>Padrão</strong> com a variável do valor capturado da notificação/cartão.
+                    </p>
+                  </div>
+
+                  <div style={{ padding: "12px", borderRadius: "8px", background: "var(--surface-2, rgba(255,255,255,0.03))", border: "1px solid var(--border)" }}>
+                    <strong>2. Micromodal de Estabelecimento / Descrição (editável):</strong>
+                    <p style={{ margin: "4px 0 0", color: "var(--muted)" }}>
+                      Adicione outra ação <strong>&quot;Solicitar Entrada&quot;</strong> (Tipo: <em>Texto</em>, Pergunta: <em>&quot;Onde foi a compra?&quot;</em>). Defina o campo <strong>Padrão</strong> com o nome do estabelecimento capturado.
+                    </p>
+                  </div>
+
+                  <div style={{ padding: "12px", borderRadius: "8px", background: "var(--surface-2, rgba(255,255,255,0.03))", border: "1px solid var(--border)" }}>
+                    <strong>3. Micromodal de Parcelamento (Menu com Botões):</strong>
+                    <p style={{ margin: "4px 0 0", color: "var(--muted)" }}>
+                      Adicione a ação <strong>&quot;Escolher do Menu&quot;</strong> (Pergunta: <em>&quot;Forma de Pagamento?&quot;</em>):
+                    </p>
+                    <ul style={{ margin: "6px 0 0 20px", padding: 0, color: "var(--muted)" }}>
+                      <li><strong>À vista:</strong> Define a variável <code>parcelas = 1</code>.</li>
+                      <li><strong>Parcelado:</strong> Adiciona a ação <strong>&quot;Solicitar Entrada&quot;</strong> (Tipo: <em>Número</em>, Pergunta: <em>&quot;Quantas parcelas? (2 a 12)&quot;</em>).</li>
+                    </ul>
+                  </div>
+
+                  <div style={{ padding: "12px", borderRadius: "8px", background: "var(--surface-2, rgba(255,255,255,0.03))", border: "1px solid var(--border)" }}>
+                    <strong>4. Envio em Segundo Plano (Silencioso):</strong>
+                    <p style={{ margin: "4px 0 0", color: "var(--muted)" }}>
+                      Adicione a ação <strong>&quot;Obter Conteúdo do URL&quot;</strong>:
+                    </p>
+                    <ul style={{ margin: "6px 0 0 20px", padding: 0, color: "var(--muted)" }}>
+                      <li><strong>URL:</strong> <code>https://financeiro.bssaude.com.br/api/shortcuts</code></li>
+                      <li><strong>Método:</strong> <code>POST</code></li>
+                      <li><strong>Cabeçalhos:</strong> <code>Authorization</code>: <code>Bearer bsf_shortcut_token_2026</code></li>
+                      <li><strong>Corpo da Requisição (JSON):</strong>
+                        <br /><code>amount</code>: [Entrada do Valor]
+                        <br /><code>description</code>: [Entrada do Estabelecimento]
+                        <br /><code>installments</code>: [Parcelas]
+                        <br /><code>type</code>: <code>expense</code>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div style={{ padding: "12px", borderRadius: "8px", background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.25)" }}>
+                    <strong style={{ color: "var(--danger, #ef4444)", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <AlertTriangle size={16} /> 5. Fallback Inteligente (Abertura do Modal se der erro):
+                    </strong>
+                    <p style={{ margin: "4px 0 0", color: "var(--text)" }}>
+                      Adicione a ação condicional <strong>&quot;Se&quot;</strong>:
+                      <br />
+                      Se o <em>Código de Status HTTP</em> for <strong>diferente de 200</strong> (ou em caso de falha de conexão):
+                    </p>
+                    <div style={{ marginTop: "6px", padding: "8px", background: "var(--surface)", borderRadius: "6px", border: "1px solid var(--border)", fontFamily: "monospace", fontSize: "0.75rem", wordBreak: "break-all" }}>
+                      Adicione a ação <strong>&quot;Abrir URLs&quot;</strong> com o link:
+                      <br />
+                      <code>https://financeiro.bssaude.com.br/movimentacoes?amount=[Valor]&amp;desc=[Estabelecimento]&amp;installments=[Parcelas]&amp;open=true</code>
+                    </div>
+                    <p style={{ margin: "6px 0 0", fontSize: "0.8rem", color: "var(--muted)" }}>
+                      Dessa forma, caso ocorra qualquer imprevisto ou falta de conexão, o app abre na hora com o modal pré-preenchido para você ajustar e salvar manualmente!
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: "18px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={handleCopyCompleteGuide}
+                    style={{
+                      padding: "10px 16px",
+                      borderRadius: "8px",
+                      background: copiedKey === "guide" ? "var(--positive, #22c55e)" : "var(--primary, #8b5cf6)",
+                      color: "#fff",
+                      border: "none",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    {copiedKey === "guide" ? <Check size={16} /> : <Copy size={16} />}
+                    {copiedKey === "guide" ? "Guia Completo Copiado!" : "Copiar Roteiro Completo do Atalho"}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
