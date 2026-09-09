@@ -1364,9 +1364,12 @@ try {
             $ownerId = $stmt->fetchColumn();
         }
 
-        $stmtCard = $db->prepare("SELECT id, account_id, closing_day, due_day, name FROM credit_cards WHERE id = ?");
-        $stmtCard->execute([$cardId]);
+        $stmtCard = $db->prepare("SELECT id, account_id, closing_day, due_day, name FROM credit_cards WHERE id = ? OR account_id = ?");
+        $stmtCard->execute([$cardId, $cardId]);
         $card = $stmtCard->fetch();
+        if ($card) {
+            $cardId = $card['id'];
+        }
 
         $accountId = $card['account_id'] ?? null;
         if (!$accountId) {
