@@ -69,6 +69,10 @@ export type Transaction = {
   amount: number;
   interest_amount?: number | null;
   competence_date: string;
+  due_date?: string | null;
+  paid_at?: string | null;
+  installment_current?: number | null;
+  installment_total?: number | null;
   category_id?: string | null;
   invoice_id?: string | null;
 };

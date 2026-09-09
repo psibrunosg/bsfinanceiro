@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TrendingUp, TrendingDown, Wallet, Printer, FileText } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Printer, FileText, CreditCard } from "lucide-react";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
@@ -25,12 +25,54 @@ import { ExecutiveReportView } from "./components/ExecutiveReportView";
 const COMPARISON_MONTHS = 12;
 
 export function ReportsPage() {
-  const { workspace, transactions, categories, accounts, loading } = useFinance("dashboard");
+  const { workspace, transactions, categories, accounts, cards, invoices, loading } = useFinance("dashboard");
   const { month, label, setMonth } = useMonth();
   const [tab, setTab] = useState<"mes" | "comparativo" | "custom" | "ir">("mes");
   const [showExecPreview, setShowExecPreview] = useState(false);
 
   const clean = useMemo(() => filterOutTransfers(transactions, categories), [transactions, categories]);
+
+  const monthCardSummary = useMemo(() => {
+    const monthPrefix = month.slice(0, 7);
+    const inRange = (date: string, from: string) => date >= from && date < addMonths(from, 1);
+    const currentMonthExpenses = clean.filter((t) => t.type === "expense" && inRange(t.competence_date, month));
+
+    const summaries = (cards || []).map((card) => {
+      const cardInvoices = (invoices || []).filter(
+        (inv) =>
+          inv.credit_card_id === card.id || inv.account_id === card.account_id
+      );
+      const inv = cardInvoices.find((i) => {
+        const invYM = i.year && i.month
+          ? `${i.year}-${String(i.month).padStart(2, "0")}`
+          : (i.due_date || "").slice(0, 7);
+        return invYM === monthPrefix;
+      });
+
+      const cardTx = currentMonthExpenses.filter(
+        (t) => t.account_id === card.account_id || (inv && t.invoice_id === inv.id)
+      );
+      const txSum = cardTx.reduce((s, t) => s + Number(t.amount || 0), 0);
+      const invoiceTotal = inv ? Number(inv.total_amount || 0) : 0;
+      const finalAmount = txSum > 0 ? txSum : invoiceTotal;
+      const installmentsCount = cardTx.filter(
+        (t) => (t.installment_total && t.installment_total > 1) || (t.description || "").match(/\d+\s*\/\s*\d+/)
+      ).length;
+
+      return {
+        card,
+        invoice: inv,
+        amount: finalAmount,
+        itemCount: cardTx.length,
+        installmentsCount,
+        status: inv?.status === "paid" ? "Fatura paga" : inv ? "Fatura aberta" : "Faturado",
+      };
+    }).filter((s) => s.amount > 0);
+
+    const totalCardsPaid = summaries.reduce((s, item) => s + item.amount, 0);
+
+    return { summaries, totalCardsPaid };
+  }, [cards, invoices, clean, month]);
 
   const monthReport = useMemo(() => {
     const previousMonth = addMonths(month, -1);
@@ -208,6 +250,62 @@ export function ReportsPage() {
             </article>
           </div>
 
+          {monthCardSummary.summaries.length > 0 && (
+            <article className="dashboard-card" style={{ marginTop: 18 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span className="metric-icon-badge" style={{ background: "rgba(59,130,246,.15)", color: "#3B82F6", margin: 0 }}>
+                    <CreditCard size={18} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "1.05rem" }}>Faturas de Cartão e Parcelamentos</h3>
+                    <small className="muted">Total pago em faturas e parcelas em {label}</small>
+                  </div>
+                </div>
+                <strong style={{ fontSize: "1.2rem", color: "var(--danger, #ef4444)" }}>
+                  {money(monthCardSummary.totalCardsPaid)}
+                </strong>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                {monthCardSummary.summaries.map(({ card, invoice, amount, itemCount, installmentsCount, status }) => (
+                  <div
+                    key={card.id}
+                    style={{
+                      border: "1px solid var(--border, rgba(255,255,255,0.08))",
+                      borderRadius: 10,
+                      padding: "12px 14px",
+                      background: "rgba(255,255,255,0.02)",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <strong>{card.name}</strong>
+                      <span
+                        style={{
+                          fontSize: "0.72rem",
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          background: invoice?.status === "paid" ? "rgba(34,197,94,.15)" : "rgba(245,166,35,.15)",
+                          color: invoice?.status === "paid" ? "#22C55E" : "#F5A623",
+                        }}
+                      >
+                        {status}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 8 }}>
+                      <span style={{ fontSize: "1.1rem", fontWeight: 700 }}>{money(amount)}</span>
+                      <small className="muted">
+                        {itemCount} {itemCount === 1 ? "item" : "itens"}
+                        {installmentsCount > 0 ? ` · ${installmentsCount} parcelas` : ""}
+                      </small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
+          )}
+
           <article className="dashboard-card" style={{ marginTop: 18 }}>
             <h3>Gastos por categoria em {label}</h3>
             {monthReport.rows.length ? monthReport.rows.map((row) => (
@@ -223,12 +321,36 @@ export function ReportsPage() {
                   </span>
                 </summary>
                 <ul className="report-row__items">
-                  {row.items.map((item) => (
-                    <li key={item.id}>
-                      <span>{dateFmt.format(new Date(`${item.competence_date}T12:00:00`))} · {item.description || "Sem descrição"}</span>
-                      <strong>{money(item.amount)}</strong>
-                    </li>
-                  ))}
+                  {row.items.map((item) => {
+                    const instMatch = (item.description || "").match(/\d+\s*\/\s*\d+/);
+                    const instText =
+                      item.installment_total && item.installment_total > 1 && !instMatch
+                        ? `(Parcela ${item.installment_current}/${item.installment_total})`
+                        : "";
+                    return (
+                      <li key={item.id}>
+                        <span>
+                          {dateFmt.format(new Date(`${item.competence_date}T12:00:00`))} · {item.description || "Sem descrição"}
+                          {instText && (
+                            <span
+                              style={{
+                                marginLeft: 6,
+                                fontSize: "0.78rem",
+                                fontWeight: 500,
+                                padding: "1px 6px",
+                                borderRadius: 4,
+                                background: "rgba(139,92,246,0.15)",
+                                color: "#A78BFA",
+                              }}
+                            >
+                              {instText}
+                            </span>
+                          )}
+                        </span>
+                        <strong>{money(item.amount)}</strong>
+                      </li>
+                    );
+                  })}
                 </ul>
               </details>
             )) : <p className="dashboard-empty">Nenhuma despesa registrada em {label}.</p>}
