@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useFinance } from "@/app/components/useFinance";
+import { Nav } from "@/app/components/Nav";
 import { DebtListWidget } from "@/app/components/DebtListWidget";
 import { DebtSimulatorWidget } from "@/app/components/DebtSimulatorWidget";
 import { DebtForm } from "@/app/components/DebtForm";
@@ -41,13 +42,28 @@ export default function DividasPage() {
     }
   }
 
-  if (loading) return <main style={{ padding: "2rem" }}>Carregando...</main>;
+  if (loading || !workspace) {
+    return (
+      <main className="dashboard-shell">
+        <p className="muted">Carregando...</p>
+      </main>
+    );
+  }
 
   return (
-    <main style={{ padding: "2rem" }}>
-      <PageHeader title="Dívidas e Parcelamentos" subtitle="Acompanhe parcelas e faça simulações de quitação antecipada" workspaceName={workspace?.name || ""} />
+    <main className="dashboard-shell">
+      <Nav />
+      <PageHeader
+        title="Dívidas e Parcelamentos"
+        subtitle="Acompanhe parcelas e faça simulações de quitação antecipada"
+        workspaceName={workspace.name}
+        action={{
+          label: "Nova dívida",
+          onClick: () => setFormOpen(true),
+        }}
+      />
       
-      <div style={{ display: "grid", gap: "2rem", gridTemplateColumns: "1fr", maxWidth: "800px", margin: "0 auto" }}>
+      <div style={{ display: "grid", gap: "2rem", gridTemplateColumns: "1fr" }}>
         <DebtListWidget debts={debts || []} onAdd={() => setFormOpen(true)} />
         <DebtSimulatorWidget debts={debts || []} />
       </div>
