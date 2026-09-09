@@ -1234,12 +1234,237 @@ try {
         exit;
     }
 
+    // Helper: Market Quotes (Yahoo Finance + BACEN)
+    function fetchMarketQuote($ticker) {
+        $symbol = strtoupper(trim($ticker));
+        if (empty($symbol)) return null;
+
+        // Auto-append .SA for Brazilian stock/FII tickers (e.g. MXRF11, HGLG11, PETR4, VALE3)
+        if (!str_contains($symbol, '.') && !str_contains($symbol, '-') && !str_contains($symbol, '^')) {
+            if (preg_match('/^[A-Z]{4}[0-9]{1,2}$/', $symbol)) {
+                $symbol .= '.SA';
+            }
+        }
+
+        $url = 'https://query1.finance.yahoo.com/v8/finance/chart/' . urlencode($symbol) . '?interval=1d&range=1d';
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_TIMEOUT => 5,
+            CURLOPT_HTTPHEADER => [
+                'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept: application/json'
+            ]
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode !== 200 || !$response) return null;
+        $data = json_decode($response, true);
+        $result = $data['chart']['result'][0] ?? null;
+        if (!$result) return null;
+
+        $meta = $result['meta'] ?? [];
+        $price = $meta['regularMarketPrice'] ?? null;
+        if ($price === null) {
+            $quotes = $result['indicators']['quote'][0]['close'] ?? [];
+            $price = end($quotes);
+        }
+        if (!$price || !is_numeric($price)) return null;
+
+        $prevClose = $meta['chartPreviousClose'] ?? $price;
+        $changePct = $meta['regularMarketChangePercent'] ?? ($prevClose > 0 ? (($price - $prevClose) / $prevClose) * 100 : 0);
+
+        return [
+            'symbol' => $symbol,
+            'clean_ticker' => str_replace('.SA', '', $symbol),
+            'price' => round((float)$price, 2),
+            'previous_close' => round((float)$prevClose, 2),
+            'change_pct' => round((float)$changePct, 2),
+            'day_high' => isset($meta['regularMarketDayHigh']) ? round((float)$meta['regularMarketDayHigh'], 2) : null,
+            'day_low' => isset($meta['regularMarketDayLow']) ? round((float)$meta['regularMarketDayLow'], 2) : null,
+            'long_name' => $meta['longName'] ?? $meta['shortName'] ?? null,
+            'currency' => $meta['currency'] ?? 'BRL',
+        ];
+    }
+
+    function fetchMarketBenchmarks() {
+        $selic = 14.0;
+        try {
+            $ch = curl_init('https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json');
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 3,
+                CURLOPT_HTTPHEADER => ['Accept: application/json']
+            ]);
+            $res = curl_exec($ch);
+            curl_close($ch);
+            $data = json_decode($res, true);
+            if (!empty($data[0]['valor'])) {
+                $selic = (float)$data[0]['valor'];
+            }
+        } catch (Exception $e) {}
+
+        $cdi = max(0, $selic - 0.10);
+        $ibov = fetchMarketQuote('^BVSP');
+        $ifix = fetchMarketQuote('IFIX.SA');
+
+        return [
+            'selic' => $selic,
+            'cdi' => round($cdi, 2),
+            'ibovespa' => $ibov ? $ibov['price'] : null,
+            'ibovespa_change' => $ibov ? $ibov['change_pct'] : null,
+            'ifix' => $ifix ? $ifix['price'] : null,
+            'ifix_change' => $ifix ? $ifix['change_pct'] : null,
+            'updated_at' => date('c')
+        ];
+    }
+
+    // Sync Quotes from external API for all assets in a workspace
+    if (($uri === '/investments/sync-quotes' || $uri === '/investments/quotes/sync') && ($method === 'POST' || $method === 'GET')) {
+        $workspaceId = $_GET['workspace_id'] ?? $body['workspace_id'] ?? null;
+        if (!$workspaceId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'workspace_id obrigatório']);
+            exit;
+        }
+
+        $stmt = $db->prepare("SELECT id, ticker, name, type, broker FROM investment_assets WHERE workspace_id = ? AND active = true");
+        $stmt->execute([$workspaceId]);
+        $assets = $stmt->fetchAll();
+
+        $today = date('Y-m-d');
+        $synced = [];
+
+        foreach ($assets as $a) {
+            $tickerToFetch = trim($a['ticker']);
+            if (empty($tickerToFetch) || in_array(strtoupper($tickerToFetch), ['RICO', 'XP', 'INTER', 'ITAU', 'SANTANDER'])) {
+                $tickerToFetch = trim($a['name']);
+            }
+
+            if ($a['type'] === 'real_estate') continue;
+
+            $q = fetchMarketQuote($tickerToFetch);
+            if ($q) {
+                $del = $db->prepare("DELETE FROM investment_quotes WHERE asset_id = ? AND quote_date = ?");
+                $del->execute([$a['id'], $today]);
+
+                $stmtOwner = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
+                $stmtOwner->execute([$workspaceId]);
+                $ownerId = $stmtOwner->fetchColumn();
+
+                $ins = $db->prepare("INSERT INTO investment_quotes (workspace_id, owner_id, asset_id, unit_price, quote_date) VALUES (?, ?, ?, ?, ?)");
+                $ins->execute([$workspaceId, $ownerId, $a['id'], $q['price'], $today]);
+
+                if (empty($a['ticker']) || $a['ticker'] !== $q['clean_ticker']) {
+                    $upd = $db->prepare("UPDATE investment_assets SET ticker = ? WHERE id = ?");
+                    $upd->execute([$q['clean_ticker'], $a['id']]);
+                }
+
+                $synced[] = [
+                    'asset_id' => $a['id'],
+                    'ticker' => $q['clean_ticker'],
+                    'name' => $a['name'],
+                    'price' => $q['price'],
+                    'previous_close' => $q['previous_close'],
+                    'change_pct' => $q['change_pct'],
+                    'day_high' => $q['day_high'],
+                    'day_low' => $q['day_low'],
+                    'quote_date' => $today
+                ];
+            }
+        }
+
+        $benchmarks = fetchMarketBenchmarks();
+
+        echo json_encode([
+            'success' => true,
+            'synced_count' => count($synced),
+            'quotes' => $synced,
+            'benchmarks' => $benchmarks
+        ]);
+        exit;
+    }
+
+    // Market Benchmarks (Selic, CDI, Ibovespa, IFIX)
+    if ($uri === '/investments/benchmarks' && $method === 'GET') {
+        $benchmarks = fetchMarketBenchmarks();
+        echo json_encode(['success' => true, 'benchmarks' => $benchmarks]);
+        exit;
+    }
+
+    // Market Search for Assets (Auto-complete)
+    if ($uri === '/investments/search' && $method === 'GET') {
+        $q = trim($_GET['q'] ?? '');
+        if (empty($q)) {
+            echo json_encode(['success' => true, 'results' => []]);
+            exit;
+        }
+
+        $url = 'https://query1.finance.yahoo.com/v1/finance/search?q=' . urlencode($q) . '&quotesCount=8&newsCount=0';
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 4,
+            CURLOPT_HTTPHEADER => [
+                'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept: application/json'
+            ]
+        ]);
+        $res = curl_exec($ch);
+        curl_close($ch);
+
+        $results = [];
+        if ($res) {
+            $data = json_decode($res, true);
+            foreach ($data['quotes'] ?? [] as $item) {
+                $sym = $item['symbol'] ?? '';
+                if (!$sym) continue;
+                $isReit = (isset($item['industry']) && str_contains($item['industry'], 'REIT')) || preg_match('/11(\.SA)?$/', $sym);
+                $type = $isReit ? 'reit' : (($item['quoteType'] ?? '') === 'EQUITY' ? 'stock' : (($item['quoteType'] ?? '') === 'ETF' ? 'fund' : 'stock'));
+                $results[] = [
+                    'ticker' => str_replace('.SA', '', $sym),
+                    'symbol' => $sym,
+                    'name' => $item['longname'] ?? $item['shortname'] ?? $sym,
+                    'type' => $type,
+                    'exchange' => $item['exchDisp'] ?? $item['exchange'] ?? 'B3'
+                ];
+            }
+        }
+
+        echo json_encode(['success' => true, 'results' => $results]);
+        exit;
+    }
+
+    // Single Asset Quote
+    if ($uri === '/investments/quote' && $method === 'GET') {
+        $ticker = trim($_GET['ticker'] ?? '');
+        if (empty($ticker)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'ticker obrigatório']);
+            exit;
+        }
+        $quote = fetchMarketQuote($ticker);
+        if ($quote) {
+            echo json_encode(['success' => true, 'quote' => $quote]);
+        } else {
+            http_response_code(404);
+            echo json_encode(['error' => 'Cotação não encontrada']);
+        }
+        exit;
+    }
+
     // 17. Data: Investments (Assets, Operations, Quotes)
     if ($uri === '/investments/assets' && $method === 'POST') {
         $workspaceId = $body['workspace_id'] ?? null;
         $ownerId = $body['owner_id'] ?? null;
         $name = trim($body['name'] ?? '');
-        $ticker = trim($body['ticker'] ?? $body['exchange'] ?? $name);
+        $ticker = strtoupper(trim($body['ticker'] ?? $name));
+        $broker = trim($body['broker'] ?? $body['exchange'] ?? 'Rico');
         $type = $body['type'] ?? 'stock';
         $isShared = !empty($body['is_shared']) ? true : false;
 
@@ -1255,10 +1480,20 @@ try {
             $ownerId = $stmt->fetchColumn();
         }
 
-        $stmt = $db->prepare("INSERT INTO investment_assets (workspace_id, owner_id, ticker, name, type, is_shared, active) 
-            VALUES (?, ?, ?, ?, ?, ?, true) RETURNING *");
-        $stmt->execute([$workspaceId, $ownerId, $ticker, $name, $type, $isShared ? 'true' : 'false']);
+        $stmt = $db->prepare("INSERT INTO investment_assets (workspace_id, owner_id, ticker, name, broker, type, is_shared, active) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, true) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $ticker, $name, $broker, $type, $isShared ? 'true' : 'false']);
         $asset = $stmt->fetch();
+
+        // Fetch initial market quote if valid ticker
+        $quoteData = fetchMarketQuote($ticker);
+        if ($quoteData) {
+            $today = date('Y-m-d');
+            $del = $db->prepare("DELETE FROM investment_quotes WHERE asset_id = ? AND quote_date = ?");
+            $del->execute([$asset['id'], $today]);
+            $ins = $db->prepare("INSERT INTO investment_quotes (workspace_id, owner_id, asset_id, unit_price, quote_date) VALUES (?, ?, ?, ?, ?)");
+            $ins->execute([$workspaceId, $ownerId, $asset['id'], $quoteData['price'], $today]);
+        }
 
         echo json_encode(['success' => true, 'asset' => $asset]);
         exit;
