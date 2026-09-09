@@ -13,6 +13,7 @@ import { Landmark, Wallet, Percent, CreditCard, ChevronRight } from "lucide-reac
 import { Dialog } from "./components/Dialog";
 import { EmergencyFundWidget } from "./components/EmergencyFundWidget";
 import Link from "next/link";
+import { calculateCardLimitUsage } from "@/lib/finance/card";
 
 export function AccountsPage() {
   const {
@@ -80,7 +81,9 @@ export function AccountsPage() {
 
   // Saldos e débitos atuais dos cartões de crédito.
   // Faturas anteriores já pagas (status 'paid') NÃO constituem dívida aberta.
+  // Compras parceladas ativas comprometem o limite de crédito até serem pagas.
   const cardBalances = useMemo(() => {
+    const currentMonthRef = new Date().toISOString().slice(0, 7);
     return cardAccounts.map((a) => {
       const card = cards.find(
         (c) => c.account_id === a.id || c.name.toLowerCase() === a.name.toLowerCase()
@@ -88,23 +91,18 @@ export function AccountsPage() {
       const cardInvoices = invoices.filter(
         (inv) => inv.account_id === a.id || (card && inv.credit_card_id === card.id)
       );
-      const openInvoices = cardInvoices.filter((inv) => inv.status !== "paid");
-      const openInvoicesDebt = openInvoices.reduce((sum, inv) => {
-        const installmentsSum = (inv.credit_card_installments || []).reduce(
-          (s, i) => s + Number(i.amount),
-          0
-        );
-        return sum + (installmentsSum > 0 ? installmentsSum : Number(inv.total_amount || 0));
-      }, 0);
-
-      // Despesas neste cartão não vinculadas a fatura
-      const unbilledDebt = settledTransactions
-        .filter((t) => t.account_id === a.id && t.type === "expense" && !t.invoice_id)
-        .reduce((sum, t) => sum + Number(t.amount), 0);
-
-      const currentDebt = openInvoicesDebt + unbilledDebt;
+      const cardTransactions = settledTransactions.filter((t) => t.account_id === a.id);
       const creditLimit = card ? Number(card.credit_limit || 0) : 0;
-      const availableLimit = Math.max(0, creditLimit - currentDebt);
+
+      const usage = calculateCardLimitUsage(
+        creditLimit,
+        cardInvoices,
+        cardTransactions,
+        currentMonthRef
+      );
+
+      // Débito atual a pagar (faturas abertas + avulsos não faturados)
+      const currentDebt = usage.openInvoicesDebt + usage.unbilledTransactionsDebt;
 
       return {
         account: a,
@@ -112,8 +110,9 @@ export function AccountsPage() {
         debt: currentDebt,
         balance: currentDebt > 0 ? -currentDebt : 0,
         creditLimit,
-        availableLimit,
-        openInvoicesCount: openInvoices.length,
+        availableLimit: usage.availableLimit,
+        futureInstallments: usage.futureInstallmentsCommitted,
+        openInvoicesCount: cardInvoices.filter((inv) => inv.status !== "paid").length,
       };
     });
   }, [cardAccounts, cards, invoices, settledTransactions]);
@@ -305,7 +304,7 @@ export function AccountsPage() {
 
         {cardBalances.length > 0 && (
           <List title="Cartões de crédito">
-            {cardBalances.map(({ account: a, card, debt, creditLimit, availableLimit }) => {
+            {cardBalances.map(({ account: a, card, debt, creditLimit, availableLimit, futureInstallments }) => {
               const cardSubtitle = card
                 ? `${card.brand ? card.brand.toUpperCase() : "Cartão"}${card.last_four ? ` •••• ${card.last_four}` : ""} · Limite: ${money(creditLimit)}`
                 : (ACCOUNT_TYPE_LABEL[a.type] ?? a.type);
@@ -342,6 +341,8 @@ export function AccountsPage() {
                     >
                       {debt > 0 ? (
                         <>Fatura aberta · Disp: {money(availableLimit)}</>
+                      ) : futureInstallments > 0 ? (
+                        <>Fatura paga · A vencer: {money(futureInstallments)} · Disp: {money(availableLimit)}</>
                       ) : (
                         <>Fatura paga · Limite livre</>
                       )}

@@ -17,6 +17,7 @@ import { InstallmentTimelineWidget } from "./components/InstallmentTimelineWidge
 import { DebtPayoffWidget } from "./components/DebtPayoffWidget";
 import { InvoiceMirrorModal } from "./components/InvoiceMirrorModal";
 import { Card, Invoice } from "./components/types";
+import { calculateCardLimitUsage } from "@/lib/finance/card";
 
 function statementImportErrorMessage(errorCode: string | null) {
   switch (errorCode) {
@@ -53,6 +54,27 @@ function CardsPageInner() {
     transactions,
   } = useFinance(selectedCardId ? "card" : "cards", selectedCardId || undefined);
   const supabase = useMemo(() => createClient(), []);
+  const currentMonthRef = useMemo(() => new Date().toISOString().slice(0, 7), []);
+
+  // Calcula para cada cartão o uso real do limite (faturas abertas + parcelas futuras a vencer)
+  const cardsLimitUsage = useMemo(() => {
+    return cards.map((c) => {
+      const cardInvoices = invoices.filter(
+        (inv) => inv.credit_card_id === c.id || inv.account_id === c.account_id
+      );
+      const cardTransactions = transactions.filter((t) => t.account_id === c.account_id);
+      const usage = calculateCardLimitUsage(
+        Number(c.credit_limit || 0),
+        cardInvoices,
+        cardTransactions,
+        currentMonthRef
+      );
+      return {
+        card: c,
+        usage,
+      };
+    });
+  }, [cards, invoices, transactions, currentMonthRef]);
 
   if (loading || !workspace)
     return (
@@ -74,9 +96,14 @@ function CardsPageInner() {
     return Number(inv.total_amount || 0);
   };
   const scopedCards = selectedCard ? [selectedCard] : cards;
-  const openInvoices = invoices.filter((inv) => inv.status !== "paid");
+
+  const scopedLimitUsages = selectedCard
+    ? cardsLimitUsage.filter((item) => item.card.id === selectedCard.id)
+    : cardsLimitUsage;
+
   const limitTotal = scopedCards.reduce((s, c) => s + Number(c.credit_limit), 0);
-  const usedTotal = openInvoices.reduce((s, inv) => s + invoiceTotal(inv), 0);
+  const usedTotal = scopedLimitUsages.reduce((s, item) => s + item.usage.totalUsedLimit, 0);
+  const openInvoices = invoices.filter((inv) => inv.status !== "paid");
   const nextInvoice = [...openInvoices].sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
 
   const renderInvoice = (inv: (typeof invoices)[number], cardName?: string) => {
@@ -458,13 +485,14 @@ function CardsPageInner() {
         <section className="bento-row" style={{ gridTemplateColumns: '1fr' }}>
           <List title="Cartões ativos">
             {cards.map((c) => {
-              const cardInvoices = invoices.filter(inv => inv.credit_card_id === c.id);
-              const openInvoice = cardInvoices.find(inv => inv.status !== 'paid') || cardInvoices[0];
+              const cardLimitInfo = cardsLimitUsage.find((item) => item.card.id === c.id)?.usage;
+              const cardInvoices = invoices.filter((inv) => inv.credit_card_id === c.id || inv.account_id === c.account_id);
+              const openInvoice = cardInvoices.find((inv) => inv.status !== "paid") || cardInvoices[0];
               const openInvoiceTotal = openInvoice ? invoiceTotal(openInvoice) : 0;
-              const usedLimit = cardInvoices.reduce((sum, inv) => 
-                inv.status !== 'paid' ? sum + invoiceTotal(inv) : sum, 0
-              );
-              const limitPercentage = c.credit_limit > 0 ? Math.min(100, (usedLimit / c.credit_limit) * 100) : 0;
+              const usedLimit = cardLimitInfo ? cardLimitInfo.totalUsedLimit : 0;
+              const availableLimit = cardLimitInfo ? cardLimitInfo.availableLimit : Math.max(0, c.credit_limit - usedLimit);
+              const futureInstallments = cardLimitInfo ? cardLimitInfo.futureInstallmentsCommitted : 0;
+              const limitPercentage = cardLimitInfo ? cardLimitInfo.utilizationPercent : (c.credit_limit > 0 ? Math.min(100, (usedLimit / c.credit_limit) * 100) : 0);
 
               return (
                 <article
@@ -485,16 +513,32 @@ function CardsPageInner() {
                     <BrandLogo brand={c.brand} />
                   </span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
                       <strong>
                         {c.name}
                         {c.last_four ? ` • ${c.last_four}` : ""}
                       </strong>
                       <b>{money(c.credit_limit)}</b>
                     </div>
-                    <small style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Fatura atual: <strong>{money(openInvoiceTotal)}</strong></span>
-                      <span>Disponível: {money(c.credit_limit - usedLimit)}</span>
+                    <small style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "4px" }}>
+                      <span>
+                        {openInvoice && openInvoice.status !== "paid" ? (
+                          <>Fatura aberta: <strong>{money(openInvoiceTotal)}</strong></>
+                        ) : (
+                          <span style={{ color: "var(--success, #22c55e)" }}>Fatura atual paga</span>
+                        )}
+                        {futureInstallments > 0 && (
+                          <span className="muted" style={{ marginLeft: 8 }}>
+                            · Parcelas a vencer: <strong>{money(futureInstallments)}</strong>
+                          </span>
+                        )}
+                      </span>
+                      <span>
+                        Disponível:{" "}
+                        <strong style={{ color: availableLimit > 0 ? "inherit" : "var(--danger, #ef4444)" }}>
+                          {money(availableLimit)}
+                        </strong>
+                      </span>
                     </small>
                     <div
                       className={`progress-bar${limitPercentage >= 90 ? " progress-bar--danger" : limitPercentage >= 70 ? " progress-bar--warning" : ""}`}
