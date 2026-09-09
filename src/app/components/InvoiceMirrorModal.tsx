@@ -59,11 +59,13 @@ export function InvoiceMirrorModal({
 
   const isPaid = activeInvoice.status === "paid" || !!paySuccessMsg;
 
-  // Análise de itens "Pula Compra" e encargos
+  // Análise de itens "Pula Compra", estornos, créditos e encargos
   const pulaCompraStats = useMemo(() => {
     let financedCount = 0;
     let financedTotal = 0;
     let creditTotal = 0;
+    let refundTotal = 0;
+    let discountTotal = 0;
     let iofTotal = 0;
 
     items.forEach((item) => {
@@ -74,7 +76,11 @@ export function InvoiceMirrorModal({
       const amt = Number(item.amount || 0);
 
       if (desc.includes("CREDITO PULA COMPRA") || desc.includes("CRÉDITO PULA COMPRA")) {
-        creditTotal += amt;
+        creditTotal += Math.abs(amt);
+      } else if (desc.includes("ESTORNO") || desc.includes("CREDITO:") || desc.includes("CRÉDITO:")) {
+        refundTotal += Math.abs(amt);
+      } else if (desc.includes("DESCONTO ANTECIPA") || desc.includes("DESCONTO ANTECIPAÇÃO")) {
+        discountTotal += Math.abs(amt);
       } else if (desc.startsWith("FIN ") || desc.includes("FIN ") || desc.includes("PULA COMPRA")) {
         financedCount++;
         financedTotal += amt;
@@ -83,12 +89,14 @@ export function InvoiceMirrorModal({
       }
     });
 
-    const hasPulaCompra = financedCount > 0 || creditTotal > 0 || iofTotal > 0;
+    const hasPulaCompra = financedCount > 0 || creditTotal > 0 || refundTotal > 0 || discountTotal > 0 || iofTotal > 0;
     return {
       hasPulaCompra,
       financedCount,
       financedTotal,
       creditTotal,
+      refundTotal,
+      discountTotal,
       iofTotal,
     };
   }, [items]);
@@ -635,10 +643,10 @@ export function InvoiceMirrorModal({
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#F59E0B", fontWeight: 700, marginBottom: "4px" }}>
               <Zap size={18} />
-              <span>Radar Pula Compra: Financiamentos e Custos Embutidos</span>
+              <span>Radar da Fatura: Financiamentos, Créditos e Encargos</span>
             </div>
             <p style={{ margin: "0 0 10px 0", fontSize: "0.85rem", color: "var(--muted, #94A3B8)" }}>
-              Esta fatura possui lançamentos de parcelamento postergado (Pula Compra) e tributos incidentes:
+              Detalhamento de operações especiais, refinanciamentos e deduções desta fatura:
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", fontSize: "0.85rem" }}>
               {pulaCompraStats.financedCount > 0 && (
@@ -650,7 +658,19 @@ export function InvoiceMirrorModal({
               {pulaCompraStats.creditTotal > 0 && (
                 <div style={{ background: "rgba(0,0,0,0.2)", padding: "6px 12px", borderRadius: "8px" }}>
                   <span className="muted" style={{ display: "block", fontSize: "0.75rem" }}>Créditos de Adiamento</span>
-                  <strong style={{ color: "#10B981" }}>{money(pulaCompraStats.creditTotal)}</strong>
+                  <strong style={{ color: "#10B981" }}>- {money(pulaCompraStats.creditTotal)}</strong>
+                </div>
+              )}
+              {pulaCompraStats.refundTotal > 0 && (
+                <div style={{ background: "rgba(0,0,0,0.2)", padding: "6px 12px", borderRadius: "8px" }}>
+                  <span className="muted" style={{ display: "block", fontSize: "0.75rem" }}>Estornos / Devoluções</span>
+                  <strong style={{ color: "#10B981" }}>- {money(pulaCompraStats.refundTotal)}</strong>
+                </div>
+              )}
+              {pulaCompraStats.discountTotal > 0 && (
+                <div style={{ background: "rgba(0,0,0,0.2)", padding: "6px 12px", borderRadius: "8px" }}>
+                  <span className="muted" style={{ display: "block", fontSize: "0.75rem" }}>Descontos Antecipação</span>
+                  <strong style={{ color: "#10B981" }}>- {money(pulaCompraStats.discountTotal)}</strong>
                 </div>
               )}
               {pulaCompraStats.iofTotal > 0 && (
@@ -705,7 +725,16 @@ export function InvoiceMirrorModal({
                   const isPulaCredit =
                     upperDesc.includes("CREDITO PULA COMPRA") ||
                     upperDesc.includes("CRÉDITO PULA COMPRA");
+                  const isRefund =
+                    upperDesc.includes("ESTORNO") ||
+                    upperDesc.startsWith("ESTORNO") ||
+                    upperDesc.includes("CREDITO:") ||
+                    upperDesc.includes("CRÉDITO:");
+                  const isDiscount =
+                    upperDesc.includes("DESCONTO ANTECIPA") ||
+                    upperDesc.includes("DESCONTO ANTECIPAÇÃO");
                   const isIof = upperDesc.includes("IOF");
+                  const isDeduction = Number(item.amount || 0) < 0 || isPulaCredit || isRefund || isDiscount;
 
                   return (
                     <li
@@ -758,6 +787,40 @@ export function InvoiceMirrorModal({
                               🔄 Compra Adiada
                             </span>
                           )}
+                          {isRefund && (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "3px",
+                                background: "rgba(16, 185, 129, 0.18)",
+                                color: "#10B981",
+                                padding: "2px 6px",
+                                borderRadius: "6px",
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                              }}
+                            >
+                              💳 Estorno / Devolução
+                            </span>
+                          )}
+                          {isDiscount && (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "3px",
+                                background: "rgba(16, 185, 129, 0.18)",
+                                color: "#10B981",
+                                padding: "2px 6px",
+                                borderRadius: "6px",
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                              }}
+                            >
+                              💰 Desconto Antecipação
+                            </span>
+                          )}
                           {isIof && (
                             <span
                               style={{
@@ -780,8 +843,8 @@ export function InvoiceMirrorModal({
                           Parcela {item.installment_number} de {p?.installment_count || 1}
                         </span>
                       </div>
-                      <b style={{ fontSize: "0.95rem", color: isPulaCredit ? "#10B981" : undefined }}>
-                        {isPulaCredit ? `- ${money(Math.abs(item.amount))}` : money(item.amount)}
+                      <b style={{ fontSize: "0.95rem", color: isDeduction ? "#10B981" : undefined }}>
+                        {isDeduction ? `- ${money(Math.abs(item.amount))}` : money(item.amount)}
                       </b>
                     </li>
                   );
