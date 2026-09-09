@@ -9,39 +9,125 @@ import { money, parseMoney } from "./components/Money";
 import { ACCOUNT_TYPE_LABEL } from "./components/types";
 import { createClient } from "@/lib/supabase/client";
 import { useMemo, useState } from "react";
-import { Landmark, Wallet, Percent } from "lucide-react";
+import { Landmark, Wallet, Percent, CreditCard, ChevronRight } from "lucide-react";
 import { Dialog } from "./components/Dialog";
 import { EmergencyFundWidget } from "./components/EmergencyFundWidget";
+import Link from "next/link";
 
 export function AccountsPage() {
-  const { ownerId, workspace, accounts, transactions, loading, message, setMessage, reload } =
-    useFinance("accounts");
+  const {
+    ownerId,
+    workspace,
+    accounts,
+    cards = [],
+    invoices = [],
+    transactions,
+    loading,
+    message,
+    setMessage,
+    reload,
+  } = useFinance("accounts");
   const supabase = useMemo(() => createClient(), []);
   const [openDialog, setOpenDialog] = useState(false);
 
-  if (loading || !workspace)
-    return (
-      <main className="dashboard-shell">
-        <p className="muted">Carregando...</p>
-      </main>
-    );
+  // Saldo atual conta só o que já foi liquidado — igual ao "disponível" do painel.
+  const settledTransactions = useMemo(
+    () => transactions.filter((t) => t.status === "paid"),
+    [transactions]
+  );
 
-  // Saldo atual conta só o que já foi liquidado — igual ao "disponível" do
-  // painel. Transações "planned" (futuras) não afetam o saldo de hoje.
-  const settledTransactions = transactions.filter((t) => t.status === "paid");
+  // 1. Contas bancárias e dinheiro líquido (checking, cash, savings, investment)
+  const bankAccounts = useMemo(
+    () => accounts.filter((a) => a.type !== "credit_card"),
+    [accounts]
+  );
 
-  const totalBalance = accounts.reduce((sum, a) => sum + Number(a.initial_balance), 0) +
-    settledTransactions.reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
+  // 2. Contas de cartões de crédito
+  const cardAccounts = useMemo(
+    () => accounts.filter((a) => a.type === "credit_card"),
+    [accounts]
+  );
 
-  const balances = accounts.map((a) => ({
-    account: a,
-    balance: Number(a.initial_balance) + settledTransactions
-      .filter((t) => t.account_id === a.id)
-      .reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0),
-  }));
-  // Participação é sobre o patrimônio positivo: usar o consolidado zerava tudo
-  // quando o saldo total ficava negativo.
-  const positiveTotal = balances.reduce((sum, b) => sum + Math.max(0, b.balance), 0);
+  // Saldos reais das contas bancárias
+  const bankBalances = useMemo(() => {
+    return bankAccounts.map((a) => {
+      const initial = Number(a.initial_balance || 0);
+      const income = settledTransactions
+        .filter((t) => t.account_id === a.id && t.type === "income")
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const expense = settledTransactions
+        .filter((t) => t.account_id === a.id && t.type === "expense")
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const transferOut = settledTransactions
+        .filter((t) => t.account_id === a.id && t.type === "transfer")
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const transferIn = settledTransactions
+        .filter((t) => t.destination_account_id === a.id && t.type === "transfer")
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      const balance = initial + income - expense - transferOut + transferIn;
+      return {
+        account: a,
+        balance,
+      };
+    });
+  }, [bankAccounts, settledTransactions]);
+
+  const totalBankBalance = useMemo(
+    () => bankBalances.reduce((sum, b) => sum + b.balance, 0),
+    [bankBalances]
+  );
+
+  // Saldos e débitos atuais dos cartões de crédito.
+  // Faturas anteriores já pagas (status 'paid') NÃO constituem dívida aberta.
+  const cardBalances = useMemo(() => {
+    return cardAccounts.map((a) => {
+      const card = cards.find(
+        (c) => c.account_id === a.id || c.name.toLowerCase() === a.name.toLowerCase()
+      );
+      const cardInvoices = invoices.filter(
+        (inv) => inv.account_id === a.id || (card && inv.credit_card_id === card.id)
+      );
+      const openInvoices = cardInvoices.filter((inv) => inv.status !== "paid");
+      const openInvoicesDebt = openInvoices.reduce((sum, inv) => {
+        const installmentsSum = (inv.credit_card_installments || []).reduce(
+          (s, i) => s + Number(i.amount),
+          0
+        );
+        return sum + (installmentsSum > 0 ? installmentsSum : Number(inv.total_amount || 0));
+      }, 0);
+
+      // Despesas neste cartão não vinculadas a fatura
+      const unbilledDebt = settledTransactions
+        .filter((t) => t.account_id === a.id && t.type === "expense" && !t.invoice_id)
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      const currentDebt = openInvoicesDebt + unbilledDebt;
+      const creditLimit = card ? Number(card.credit_limit || 0) : 0;
+      const availableLimit = Math.max(0, creditLimit - currentDebt);
+
+      return {
+        account: a,
+        card,
+        debt: currentDebt,
+        balance: currentDebt > 0 ? -currentDebt : 0,
+        creditLimit,
+        availableLimit,
+        openInvoicesCount: openInvoices.length,
+      };
+    });
+  }, [cardAccounts, cards, invoices, settledTransactions]);
+
+  const totalCardDebt = useMemo(
+    () => cardBalances.reduce((sum, c) => sum + c.debt, 0),
+    [cardBalances]
+  );
+
+  // Saldo total consolidado = Saldo bancário líquido - Faturas abertas de cartões
+  const totalBalance = totalBankBalance - totalCardDebt;
+
+  // Participação sobre patrimônio bancário positivo
+  const positiveBankTotal = bankBalances.reduce((sum, b) => sum + Math.max(0, b.balance), 0);
 
   async function submitAccount(form: FormData) {
     const name = form.get("name") as string;
@@ -109,6 +195,13 @@ export function AccountsPage() {
     }
   }
 
+  if (loading || !workspace)
+    return (
+      <main className="dashboard-shell">
+        <p className="muted">Carregando...</p>
+      </main>
+    );
+
   return (
     <main className="dashboard-shell">
       <Nav />
@@ -123,47 +216,161 @@ export function AccountsPage() {
       />
       {message && <p className="form-success">{message}</p>}
       
-      <div className="bento-row" style={{ gridTemplateColumns: '1fr' }}>
+      <div className="bento-row bento-row--3">
         <article className="metric-card metric-card--positive">
           <div className="metric-card__head">
             <span className="muted">Saldo total consolidado</span>
-            <span className="metric-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6" }}><Wallet size={18} aria-hidden="true" /></span>
+            <span className="metric-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6" }}>
+              <Wallet size={18} aria-hidden="true" />
+            </span>
           </div>
           <strong>{money(totalBalance)}</strong>
+          <small className="muted" style={{ display: "block", marginTop: 4 }}>
+            Patrimônio líquido disponível
+          </small>
+        </article>
+
+        <article className="metric-card">
+          <div className="metric-card__head">
+            <span className="muted">Saldo em bancos</span>
+            <span className="metric-icon-badge" style={{ background: "rgba(34,197,94,.15)", color: "#22C55E" }}>
+              <Landmark size={18} aria-hidden="true" />
+            </span>
+          </div>
+          <strong>{money(totalBankBalance)}</strong>
+          <small className="muted" style={{ display: "block", marginTop: 4 }}>
+            Total disponível em contas bancárias
+          </small>
+        </article>
+
+        <article className="metric-card">
+          <div className="metric-card__head">
+            <span className="muted">Faturas de cartões</span>
+            <span
+              className="metric-icon-badge"
+              style={{
+                background: totalCardDebt > 0 ? "rgba(239,68,68,.15)" : "rgba(34,197,94,.15)",
+                color: totalCardDebt > 0 ? "#EF4444" : "#22C55E",
+              }}
+            >
+              <CreditCard size={18} aria-hidden="true" />
+            </span>
+          </div>
+          <strong style={{ color: totalCardDebt > 0 ? "var(--danger, #ef4444)" : "inherit" }}>
+            {totalCardDebt > 0 ? money(-totalCardDebt) : "R$ 0,00"}
+          </strong>
+          <small className="muted" style={{ display: "block", marginTop: 4 }}>
+            {totalCardDebt > 0
+              ? `${cardBalances.filter((c) => c.debt > 0).length} fatura(s) em aberto`
+              : "Todas as faturas pagas"}
+          </small>
         </article>
       </div>
 
-      <List title="Contas ativas">
-        {balances.map(({ account: a, balance: accountBalance }) => (
-          <article className="account-row" key={a.id}>
-            <span className="metric-icon-badge" style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6", marginLeft: 0 }}>
-              <Landmark size={18} aria-hidden="true" />
-            </span>
-            <div className="tx-row__body">
-              <strong>{a.name}</strong>
-              <small>{ACCOUNT_TYPE_LABEL[a.type] ?? a.type}</small>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <b>{money(accountBalance)}</b>
-              <small className="muted" style={{ display: 'block' }}>
-                {accountBalance < 0 ? (
-                  <>saldo negativo de {money(Math.abs(accountBalance))}</>
-                ) : (
-                  <>
-                    <Percent aria-hidden="true" size={14} style={{ verticalAlign: '-2px' }} />{" "}
-                    {(positiveTotal > 0 ? (accountBalance / positiveTotal) * 100 : 0).toFixed(1)}% do total
-                  </>
-                )}
-              </small>
-            </div>
-          </article>
-        ))}
-        {accounts.length === 0 && (
-          <p className="dashboard-empty">Nenhuma conta encontrada.</p>
-        )}
-      </List>
+      <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+        <List title="Contas bancárias e carteiras">
+          {bankBalances.map(({ account: a, balance: accountBalance }) => (
+            <article className="account-row" key={a.id}>
+              <span
+                className="metric-icon-badge"
+                style={{ background: "rgba(139,92,246,.15)", color: "#8B5CF6", marginLeft: 0 }}
+              >
+                <Landmark size={18} aria-hidden="true" />
+              </span>
+              <div className="tx-row__body">
+                <strong>{a.name}</strong>
+                <small>{ACCOUNT_TYPE_LABEL[a.type] ?? a.type}</small>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <b>{money(accountBalance)}</b>
+                <small className="muted" style={{ display: "block" }}>
+                  {accountBalance < 0 ? (
+                    <span style={{ color: "var(--danger, #ef4444)" }}>
+                      saldo negativo de {money(Math.abs(accountBalance))}
+                    </span>
+                  ) : (
+                    <>
+                      <Percent aria-hidden="true" size={14} style={{ verticalAlign: "-2px" }} />{" "}
+                      {(positiveBankTotal > 0 ? (accountBalance / positiveBankTotal) * 100 : 0).toFixed(1)}% do total
+                    </>
+                  )}
+                </small>
+              </div>
+            </article>
+          ))}
+          {bankBalances.length === 0 && (
+            <p className="dashboard-empty">Nenhuma conta bancária encontrada.</p>
+          )}
+        </List>
 
-      <div style={{ marginTop: '24px' }}>
+        {cardBalances.length > 0 && (
+          <List title="Cartões de crédito">
+            {cardBalances.map(({ account: a, card, debt, creditLimit, availableLimit }) => {
+              const cardSubtitle = card
+                ? `${card.brand ? card.brand.toUpperCase() : "Cartão"}${card.last_four ? ` •••• ${card.last_four}` : ""} · Limite: ${money(creditLimit)}`
+                : (ACCOUNT_TYPE_LABEL[a.type] ?? a.type);
+
+              const cardContent = (
+                <article
+                  className="account-row"
+                  key={a.id}
+                  style={{ cursor: card ? "pointer" : "default" }}
+                >
+                  <span
+                    className="metric-icon-badge"
+                    style={{
+                      background: debt > 0 ? "rgba(239,68,68,.15)" : "rgba(34,197,94,.15)",
+                      color: debt > 0 ? "#EF4444" : "#22C55E",
+                      marginLeft: 0,
+                    }}
+                  >
+                    <CreditCard size={18} aria-hidden="true" />
+                  </span>
+                  <div className="tx-row__body">
+                    <strong>{a.name}</strong>
+                    <small>{cardSubtitle}</small>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <b style={{ color: debt > 0 ? "var(--danger, #ef4444)" : "inherit" }}>
+                      {debt > 0 ? money(-debt) : "R$ 0,00"}
+                    </b>
+                    <small
+                      style={{
+                        display: "block",
+                        color: debt > 0 ? "var(--danger, #ef4444)" : "var(--success, #22c55e)",
+                      }}
+                    >
+                      {debt > 0 ? (
+                        <>Fatura aberta · Disp: {money(availableLimit)}</>
+                      ) : (
+                        <>Fatura paga · Limite livre</>
+                      )}
+                    </small>
+                  </div>
+                  {card && (
+                    <ChevronRight size={16} className="muted" aria-hidden="true" style={{ marginLeft: 8 }} />
+                  )}
+                </article>
+              );
+
+              return card ? (
+                <Link
+                  key={a.id}
+                  href={`/cartoes?cardId=${card.id}`}
+                  style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                  title="Ver faturas do cartão"
+                >
+                  {cardContent}
+                </Link>
+              ) : (
+                cardContent
+              );
+            })}
+          </List>
+        )}
+      </div>
+
+      <div style={{ marginTop: "24px" }}>
         <EmergencyFundWidget monthlyFixedExpenses={5000} initialFundBalance={Math.max(0, totalBalance)} />
       </div>
 

@@ -63,7 +63,7 @@ function Trend({ pct }: { pct: number | null }) {
 }
 
 export function DashboardPage() {
-  const { workspace, accounts, transactions, invoices, categories, goals, occurrences, budgets, alertPrefs, loading, investmentAssets, investmentOperations, commitments = [] } = useFinance("dashboard");
+  const { workspace, accounts, transactions, invoices, categories, goals, occurrences, budgets, alertPrefs, loading, investmentAssets, investmentOperations, commitments = [], cashPosition } = useFinance("dashboard");
   const { month, nextMonth } = useMonth();
   const { displayName } = useCurrentUser();
   const assets = useMemo(() => investmentAssets || [], [investmentAssets]);
@@ -111,7 +111,12 @@ export function DashboardPage() {
     const initialBalance = accounts.reduce((sum, item) => sum + Number(item.initial_balance), 0);
     const paidIncome = income.filter((t) => t.status === "paid" || t.competence_date < realMonth).reduce((sum, t) => sum + Number(t.amount), 0);
     const paidExpenses = expenses.filter((t) => t.status === "paid" || t.competence_date < realMonth).reduce((sum, t) => sum + Number(t.amount), 0);
-    const balance = initialBalance + paidIncome - paidExpenses;
+    const openInvoicesDebt = (invoices || [])
+      .filter((inv) => inv.status !== "paid")
+      .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
+    const balance = (cashPosition?.balanceCents != null
+      ? cashPosition.balanceCents / 100
+      : initialBalance + paidIncome - paidExpenses) - openInvoicesDebt;
 
     const prevMonth = addMonths(month, -1);
     const prevMonthIncome = income.filter((t) => t.competence_date >= prevMonth && t.competence_date < month).reduce((sum, t) => sum + Number(t.amount), 0);
@@ -159,7 +164,7 @@ export function DashboardPage() {
       flowIn,
       flowOut,
     };
-  }, [accounts, categories, transactions, month, nextMonth]);
+  }, [accounts, categories, transactions, month, nextMonth, cashPosition?.balanceCents, invoices]);
 
   if (loading || !workspace) return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
 

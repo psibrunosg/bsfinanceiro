@@ -38,7 +38,7 @@ import type {
 } from "./types";
 
 const TRANSACTION_SELECT =
-  "id,account_id,destination_account_id,type,status,description,amount,competence_date,category_id";
+  "id,account_id,destination_account_id,type,status,description,amount,competence_date,category_id,invoice_id";
 const DASHBOARD_QUERY_BATCH_SIZE = 500;
 export const TRANSACTION_HISTORY_PAGE_SIZE = 25;
 
@@ -612,7 +612,7 @@ export function useFinance(
       ]);
       setInvoices(data || []);
       setStatementImports(importRows || []);
-    } else if (route === "cards") {
+    } else if (route === "cards" || route === "accounts") {
       const { data } = await supabase
         .from("credit_card_invoices")
         .select(

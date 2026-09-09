@@ -288,7 +288,7 @@ try {
         $categories = $db->prepare("SELECT id, name, kind, color, budget_limit FROM categories WHERE workspace_id = ? ORDER BY name ASC");
         $categories->execute([$workspaceId]);
 
-        $transactions = $db->prepare("SELECT id, account_id, destination_account_id, type, status, description, amount, interest_amount, competence_date, category_id, paid_at FROM transactions WHERE workspace_id = ? ORDER BY competence_date DESC, created_at DESC LIMIT 500");
+        $transactions = $db->prepare("SELECT id, account_id, destination_account_id, invoice_id, type, status, description, amount, interest_amount, competence_date, category_id, paid_at FROM transactions WHERE workspace_id = ? ORDER BY competence_date DESC, created_at DESC LIMIT 500");
         $transactions->execute([$workspaceId]);
 
         $budgets = $db->prepare("SELECT id, category_id, amount, month FROM monthly_budgets WHERE workspace_id = ?");

@@ -70,6 +70,7 @@ export type Transaction = {
   interest_amount?: number | null;
   competence_date: string;
   category_id?: string | null;
+  invoice_id?: string | null;
 };
 export type StatementImport = {
   id: string;
