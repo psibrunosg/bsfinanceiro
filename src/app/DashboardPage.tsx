@@ -166,7 +166,7 @@ export function DashboardPage() {
   return <main className="dashboard-shell">
     <Nav />
 
-    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
+    <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '20px' }}>
       <UserMenu />
     </div>
 

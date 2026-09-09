@@ -196,70 +196,181 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden text-slate-100 flex flex-col">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="profile-modal-title"
+      style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.75)",
+        backdropFilter: "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
+        zIndex: 99999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1rem",
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="dashboard-card"
+        style={{
+          width: "100%",
+          maxWidth: "480px",
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+          background: "var(--surface, #11151F)",
+          border: "1px solid var(--border, rgba(255, 255, 255, 0.12))",
+          borderRadius: "20px",
+          padding: 0,
+          overflow: "hidden",
+          boxShadow: "0 24px 48px rgba(0, 0, 0, 0.6)",
+          color: "var(--text, #F8FAFC)",
+        }}
+      >
         {/* Header */}
-        <div className="p-6 border-b border-slate-800/80 flex items-center justify-between bg-slate-950/40">
-          <div className="flex items-center gap-3">
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "1.25rem 1.5rem",
+            borderBottom: "1px solid var(--border, rgba(255, 255, 255, 0.08))",
+            background: "rgba(255, 255, 255, 0.02)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <div
-              className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md border-2 border-white/20"
-              style={{ backgroundColor: avatarColor }}
+              style={{
+                width: "46px",
+                height: "46px",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: "1.2rem",
+                backgroundColor: avatarColor,
+                border: "2px solid rgba(255, 255, 255, 0.2)",
+                flexShrink: 0,
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+              }}
             >
               {(displayName || userEmail || "B").charAt(0).toUpperCase()}
             </div>
             <div>
-              <h2 className="text-xl font-bold tracking-tight text-white">{displayName || "Minha Conta"}</h2>
-              <p className="text-xs text-slate-400 font-medium">{userEmail || "brunosg2711@icloud.com"}</p>
+              <h2
+                id="profile-modal-title"
+                style={{ fontSize: "1.1rem", margin: 0, fontWeight: 700, color: "var(--text, #F8FAFC)" }}
+              >
+                {displayName || "Minha Conta"}
+              </h2>
+              <span className="muted" style={{ fontSize: "0.8rem", color: "var(--muted, #94A3B8)" }}>
+                {userEmail || "brunosg2711@icloud.com"}
+              </span>
             </div>
           </div>
+
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+            aria-label="Fechar"
+            style={{
+              background: "rgba(255, 255, 255, 0.05)",
+              border: "1px solid var(--border, rgba(255, 255, 255, 0.1))",
+              color: "var(--muted, #94A3B8)",
+              width: "36px",
+              height: "36px",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-slate-800 bg-slate-950/20 px-6 pt-2 gap-6">
+        <div
+          style={{
+            display: "flex",
+            gap: "1.5rem",
+            padding: "0 1.5rem",
+            borderBottom: "1px solid var(--border, rgba(255, 255, 255, 0.08))",
+            background: "rgba(0, 0, 0, 0.2)",
+          }}
+        >
           <button
             type="button"
             onClick={() => setActiveTab("profile")}
-            className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
-              activeTab === "profile"
-                ? "border-purple-500 text-purple-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
+            style={{
+              padding: "12px 0",
+              border: "none",
+              borderBottom: activeTab === "profile" ? "2px solid #8B5CF6" : "2px solid transparent",
+              background: "transparent",
+              color: activeTab === "profile" ? "#A78BFA" : "var(--muted, #94A3B8)",
+              fontWeight: 600,
+              fontSize: "0.85rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
           >
-            <User size={16} />
+            <User size={15} />
             Personalizar Perfil
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("password")}
-            className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
-              activeTab === "password"
-                ? "border-purple-500 text-purple-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
+            style={{
+              padding: "12px 0",
+              border: "none",
+              borderBottom: activeTab === "password" ? "2px solid #8B5CF6" : "2px solid transparent",
+              background: "transparent",
+              color: activeTab === "password" ? "#A78BFA" : "var(--muted, #94A3B8)",
+              fontWeight: 600,
+              fontSize: "0.85rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
           >
-            <Lock size={16} />
+            <Lock size={15} />
             Alterar Senha
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[70vh]">
+        <div style={{ padding: "1.5rem", overflowY: "auto", maxHeight: "65vh" }}>
           {activeTab === "profile" ? (
-            <form onSubmit={handleSaveProfile} className="space-y-4" autoComplete="off">
+            <form onSubmit={handleSaveProfile} style={{ display: "flex", flexDirection: "column", gap: "1rem" }} autoComplete="off">
               {profileMsg && (
                 <div
-                  className={`p-3 rounded-xl text-sm flex items-center gap-2 ${
-                    profileMsg.type === "success"
-                      ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
-                      : "bg-rose-500/10 border border-rose-500/30 text-rose-300"
-                  }`}
+                  role={profileMsg.type === "error" ? "alert" : "status"}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    fontSize: "0.85rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    background: profileMsg.type === "success" ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)",
+                    border: profileMsg.type === "success" ? "1px solid rgba(34, 197, 94, 0.3)" : "1px solid rgba(239, 68, 68, 0.3)",
+                    color: profileMsg.type === "success" ? "#22C55E" : "#EF4444",
+                    fontWeight: 600,
+                  }}
                 >
                   <Check size={16} />
                   {profileMsg.text}
@@ -267,11 +378,13 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
               )}
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted, #94A3B8)", marginBottom: "6px" }}>
                   Nome Completo / Exibição
                 </label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-3 text-slate-500" size={16} />
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <span style={{ position: "absolute", left: "12px", color: "var(--muted, #94A3B8)", display: "flex", alignItems: "center" }}>
+                    <User size={16} />
+                  </span>
                   <input
                     type="text"
                     value={displayName}
@@ -279,18 +392,29 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
                     placeholder="Seu nome"
                     autoComplete="off"
                     data-lpignore="true"
-                    className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px 10px 38px",
+                      borderRadius: "12px",
+                      background: "var(--surface-2, rgba(255, 255, 255, 0.05))",
+                      border: "1px solid var(--border, rgba(255, 255, 255, 0.12))",
+                      color: "var(--text, #F8FAFC)",
+                      fontSize: "0.9rem",
+                      outline: "none",
+                    }}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted, #94A3B8)", marginBottom: "6px" }}>
                     Idade / Anos
                   </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3.5 top-3 text-slate-500" size={16} />
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <span style={{ position: "absolute", left: "12px", color: "var(--muted, #94A3B8)", display: "flex", alignItems: "center" }}>
+                      <Calendar size={16} />
+                    </span>
                     <input
                       type="number"
                       value={age}
@@ -300,17 +424,28 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
                       max={120}
                       autoComplete="off"
                       data-lpignore="true"
-                      className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                      style={{
+                        width: "100%",
+                        padding: "10px 14px 10px 38px",
+                        borderRadius: "12px",
+                        background: "var(--surface-2, rgba(255, 255, 255, 0.05))",
+                        border: "1px solid var(--border, rgba(255, 255, 255, 0.12))",
+                        color: "var(--text, #F8FAFC)",
+                        fontSize: "0.9rem",
+                        outline: "none",
+                      }}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted, #94A3B8)", marginBottom: "6px" }}>
                     Profissão / Ocupação
                   </label>
-                  <div className="relative">
-                    <Briefcase className="absolute left-3.5 top-3 text-slate-500" size={16} />
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <span style={{ position: "absolute", left: "12px", color: "var(--muted, #94A3B8)", display: "flex", alignItems: "center" }}>
+                      <Briefcase size={16} />
+                    </span>
                     <input
                       type="text"
                       value={profession}
@@ -318,18 +453,29 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
                       placeholder="Ex: Psicólogo"
                       autoComplete="off"
                       data-lpignore="true"
-                      className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                      style={{
+                        width: "100%",
+                        padding: "10px 14px 10px 38px",
+                        borderRadius: "12px",
+                        background: "var(--surface-2, rgba(255, 255, 255, 0.05))",
+                        border: "1px solid var(--border, rgba(255, 255, 255, 0.12))",
+                        color: "var(--text, #F8FAFC)",
+                        fontSize: "0.9rem",
+                        outline: "none",
+                      }}
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted, #94A3B8)", marginBottom: "6px" }}>
                   Telefone / WhatsApp
                 </label>
-                <div className="relative">
-                  <Phone className="absolute left-3.5 top-3 text-slate-500" size={16} />
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <span style={{ position: "absolute", left: "12px", color: "var(--muted, #94A3B8)", display: "flex", alignItems: "center" }}>
+                    <Phone size={16} />
+                  </span>
                   <input
                     type="tel"
                     value={phone}
@@ -337,35 +483,67 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
                     placeholder="(11) 99999-9999"
                     autoComplete="off"
                     data-lpignore="true"
-                    className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px 10px 38px",
+                      borderRadius: "12px",
+                      background: "var(--surface-2, rgba(255, 255, 255, 0.05))",
+                      border: "1px solid var(--border, rgba(255, 255, 255, 0.12))",
+                      color: "var(--text, #F8FAFC)",
+                      fontSize: "0.9rem",
+                      outline: "none",
+                    }}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted, #94A3B8)", marginBottom: "8px" }}>
                   Cor do Avatar
                 </label>
-                <div className="flex items-center gap-3">
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   {["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#06b6d4"].map((color) => (
                     <button
                       key={color}
                       type="button"
                       onClick={() => setAvatarColor(color)}
-                      className={`w-8 h-8 rounded-full transition-transform ${
-                        avatarColor === color ? "ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-110" : "hover:scale-105"
-                      }`}
-                      style={{ backgroundColor: color }}
+                      style={{
+                        width: "32px",
+                        height: "32px",
+                        borderRadius: "50%",
+                        backgroundColor: color,
+                        border: avatarColor === color ? "3px solid #fff" : "2px solid transparent",
+                        boxShadow: avatarColor === color ? `0 0 0 2px ${color}` : "none",
+                        cursor: "pointer",
+                        transform: avatarColor === color ? "scale(1.15)" : "scale(1)",
+                        transition: "transform 0.15s ease",
+                      }}
                     />
                   ))}
                 </div>
               </div>
 
-              <div className="pt-3">
+              <div style={{ paddingTop: "0.5rem" }}>
                 <button
                   type="submit"
                   disabled={profileSaving}
-                  className="w-full bg-purple-600 hover:bg-purple-500 text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-600/25"
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "12px",
+                    background: "var(--primary, #8B5CF6)",
+                    color: "#fff",
+                    border: "none",
+                    fontWeight: 600,
+                    fontSize: "0.9rem",
+                    cursor: profileSaving ? "not-allowed" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    boxShadow: "0 4px 14px rgba(139, 92, 246, 0.35)",
+                    transition: "all 0.2s ease",
+                  }}
                 >
                   {profileSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                   Salvar Personalização
@@ -373,14 +551,22 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
               </div>
             </form>
           ) : (
-            <form onSubmit={handleChangePassword} className="space-y-4" autoComplete="off">
+            <form onSubmit={handleChangePassword} style={{ display: "flex", flexDirection: "column", gap: "1rem" }} autoComplete="off">
               {passwordMsg && (
                 <div
-                  className={`p-3 rounded-xl text-sm flex items-center gap-2 ${
-                    passwordMsg.type === "success"
-                      ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
-                      : "bg-rose-500/10 border border-rose-500/30 text-rose-300"
-                  }`}
+                  role={passwordMsg.type === "error" ? "alert" : "status"}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    fontSize: "0.85rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    background: passwordMsg.type === "success" ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)",
+                    border: passwordMsg.type === "success" ? "1px solid rgba(34, 197, 94, 0.3)" : "1px solid rgba(239, 68, 68, 0.3)",
+                    color: passwordMsg.type === "success" ? "#22C55E" : "#EF4444",
+                    fontWeight: 600,
+                  }}
                 >
                   <ShieldCheck size={16} />
                   {passwordMsg.text}
@@ -388,11 +574,13 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
               )}
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted, #94A3B8)", marginBottom: "6px" }}>
                   Senha Atual
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-3 text-slate-500" size={16} />
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <span style={{ position: "absolute", left: "12px", color: "var(--muted, #94A3B8)", display: "flex", alignItems: "center" }}>
+                    <Lock size={16} />
+                  </span>
                   <input
                     type="password"
                     value={currentPassword}
@@ -401,17 +589,28 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
                     required
                     autoComplete="new-password"
                     data-lpignore="true"
-                    className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px 10px 38px",
+                      borderRadius: "12px",
+                      background: "var(--surface-2, rgba(255, 255, 255, 0.05))",
+                      border: "1px solid var(--border, rgba(255, 255, 255, 0.12))",
+                      color: "var(--text, #F8FAFC)",
+                      fontSize: "0.9rem",
+                      outline: "none",
+                    }}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted, #94A3B8)", marginBottom: "6px" }}>
                   Nova Senha (Mínimo 6 caracteres)
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-3 text-slate-500" size={16} />
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <span style={{ position: "absolute", left: "12px", color: "var(--muted, #94A3B8)", display: "flex", alignItems: "center" }}>
+                    <Lock size={16} />
+                  </span>
                   <input
                     type="password"
                     value={newPassword}
@@ -421,17 +620,28 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
                     minLength={6}
                     autoComplete="new-password"
                     data-lpignore="true"
-                    className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px 10px 38px",
+                      borderRadius: "12px",
+                      background: "var(--surface-2, rgba(255, 255, 255, 0.05))",
+                      border: "1px solid var(--border, rgba(255, 255, 255, 0.12))",
+                      color: "var(--text, #F8FAFC)",
+                      fontSize: "0.9rem",
+                      outline: "none",
+                    }}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted, #94A3B8)", marginBottom: "6px" }}>
                   Confirmar Nova Senha
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-3 text-slate-500" size={16} />
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <span style={{ position: "absolute", left: "12px", color: "var(--muted, #94A3B8)", display: "flex", alignItems: "center" }}>
+                    <Lock size={16} />
+                  </span>
                   <input
                     type="password"
                     value={confirmPassword}
@@ -441,19 +651,44 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
                     minLength={6}
                     autoComplete="new-password"
                     data-lpignore="true"
-                    className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px 10px 38px",
+                      borderRadius: "12px",
+                      background: "var(--surface-2, rgba(255, 255, 255, 0.05))",
+                      border: "1px solid var(--border, rgba(255, 255, 255, 0.12))",
+                      color: "var(--text, #F8FAFC)",
+                      fontSize: "0.9rem",
+                      outline: "none",
+                    }}
                   />
                 </div>
               </div>
 
-              <div className="pt-3">
+              <div style={{ paddingTop: "0.5rem" }}>
                 <button
                   type="submit"
                   disabled={passwordSaving}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25"
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "12px",
+                    background: "linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)",
+                    color: "#fff",
+                    border: "none",
+                    fontWeight: 600,
+                    fontSize: "0.9rem",
+                    cursor: passwordSaving ? "not-allowed" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    boxShadow: "0 4px 14px rgba(99, 102, 241, 0.35)",
+                    transition: "all 0.2s ease",
+                  }}
                 >
                   {passwordSaving ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
-                  Atualizar Senha no Banco
+                  Atualizar Senha
                 </button>
               </div>
             </form>
@@ -461,11 +696,32 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
         </div>
 
         {/* Footer with Logout */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "1rem 1.5rem",
+            borderTop: "1px solid var(--border, rgba(255, 255, 255, 0.08))",
+            background: "rgba(0, 0, 0, 0.25)",
+          }}
+        >
           <button
             type="button"
             onClick={handleSignOut}
-            className="text-rose-400 hover:text-rose-300 text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-rose-500/10 transition-colors"
+            style={{
+              background: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.25)",
+              color: "#EF4444",
+              padding: "8px 12px",
+              borderRadius: "8px",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              cursor: "pointer",
+            }}
           >
             <LogOut size={14} />
             Sair da Conta (Logout)
@@ -473,7 +729,16 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition-colors"
+            style={{
+              background: "var(--surface-2, rgba(255, 255, 255, 0.05))",
+              border: "1px solid var(--border, rgba(255, 255, 255, 0.12))",
+              color: "var(--text, #F8FAFC)",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
           >
             Fechar
           </button>
