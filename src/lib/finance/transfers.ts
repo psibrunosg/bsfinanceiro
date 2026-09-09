@@ -17,6 +17,7 @@ export interface TransferTransaction {
   description?: string | null;
   is_transfer?: boolean;
   status?: string;
+  interest_amount?: number | string | null;
 }
 
 export interface AccountInfo {
@@ -284,11 +285,11 @@ export function pairTransfers(
 /**
  * Filter out inter-account transfers from a transaction list for consolidated revenue/expense reporting.
  */
-export function filterOutTransfers(
-  transactions: TransferTransaction[],
+export function filterOutTransfers<T extends TransferTransaction = TransferTransaction>(
+  transactions: T[],
   categories: CategoryInfo[] = [],
   accounts: AccountInfo[] = []
-): TransferTransaction[] {
+): T[] {
   const { pairs } = pairTransfers(transactions, accounts, { categories });
   const pairedTxIds = new Set<string>();
 

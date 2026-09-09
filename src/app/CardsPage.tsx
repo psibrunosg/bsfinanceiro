@@ -105,17 +105,37 @@ function CardsPageInner() {
             <small className="muted" data-status={inv.status}>
               {inv.status === "paid" ? "Paga" : "Em aberto"}
             </small>
-            <button
-              type="button"
-              className="button-secondary ui-button--sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                setMirrorInvoice(inv);
-                setMirrorCard(invCard || null);
-              }}
-            >
-              Espelho da fatura
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <button
+                type="button"
+                className="button-secondary ui-button--sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMirrorInvoice(inv);
+                  setMirrorCard(invCard || null);
+                }}
+              >
+                Espelho da fatura
+              </button>
+              {inv.status !== "paid" && (
+                <button
+                  type="button"
+                  className="button-primary ui-button--sm"
+                  style={{
+                    background: "var(--accent, #10B981)",
+                    borderColor: "transparent",
+                    color: "#fff",
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMirrorInvoice(inv);
+                    setMirrorCard(invCard || null);
+                  }}
+                >
+                  Pagar fatura
+                </button>
+              )}
+            </div>
           </div>
           {items.length > 0 && (
             <ul className="list" style={{ marginTop: 8 }}>
@@ -695,6 +715,11 @@ function CardsPageInner() {
               ? inv.credit_card_id === selectedCard.id
               : true
           )}
+          accounts={accounts}
+          workspaceId={workspace.id}
+          onPaid={async () => {
+            await reload();
+          }}
           onClose={() => setMirrorInvoice(null)}
           onSelectInvoice={(newInv) => setMirrorInvoice(newInv)}
         />

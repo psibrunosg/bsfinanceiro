@@ -284,6 +284,7 @@ export function useFinance(
           setAccounts(boot.accounts || []);
           setCategories(boot.categories || []);
           setCards(boot.cards || []);
+          setInvoices(boot.invoices || []);
           setBudgets(boot.budgets || []);
           setGoals(boot.goals || []);
           setDebts(boot.debts || []);

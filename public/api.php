@@ -288,7 +288,7 @@ try {
         $categories = $db->prepare("SELECT id, name, kind, color, budget_limit FROM categories WHERE workspace_id = ? ORDER BY name ASC");
         $categories->execute([$workspaceId]);
 
-        $transactions = $db->prepare("SELECT id, account_id, destination_account_id, type, status, description, amount, competence_date, category_id, paid_at FROM transactions WHERE workspace_id = ? ORDER BY competence_date DESC, created_at DESC LIMIT 500");
+        $transactions = $db->prepare("SELECT id, account_id, destination_account_id, type, status, description, amount, interest_amount, competence_date, category_id, paid_at FROM transactions WHERE workspace_id = ? ORDER BY competence_date DESC, created_at DESC LIMIT 500");
         $transactions->execute([$workspaceId]);
 
         $budgets = $db->prepare("SELECT id, category_id, amount, month FROM monthly_budgets WHERE workspace_id = ?");
@@ -409,6 +409,40 @@ try {
             $stmt = $db->prepare("SELECT id, account_id, credit_card_id, workspace_id, month, year, due_date, closing_date, paid_at, status, total_amount FROM credit_card_invoices WHERE workspace_id = ? ORDER BY due_date DESC, year DESC, month DESC");
             $stmt->execute([$workspaceId]);
             $invoices = $stmt->fetchAll();
+
+            if (!empty($invoices)) {
+                $instStmt = $db->prepare("
+                    SELECT i.id, i.invoice_id, i.installment_number, i.amount, i.competence_date,
+                           p.description, p.installment_count
+                    FROM credit_card_installments i
+                    JOIN credit_card_purchases p ON p.id = i.purchase_id
+                    WHERE i.workspace_id = ?
+                    ORDER BY i.competence_date ASC, i.installment_number ASC
+                ");
+                $instStmt->execute([$workspaceId]);
+                $allInstallments = $instStmt->fetchAll();
+
+                $installmentsByInvoice = [];
+                foreach ($allInstallments as $inst) {
+                    $invId = $inst['invoice_id'];
+                    if (!isset($installmentsByInvoice[$invId])) {
+                        $installmentsByInvoice[$invId] = [];
+                    }
+                    $installmentsByInvoice[$invId][] = [
+                        'amount' => (float)$inst['amount'],
+                        'installment_number' => (int)$inst['installment_number'],
+                        'credit_card_purchases' => [
+                            'description' => $inst['description'],
+                            'installment_count' => (int)$inst['installment_count']
+                        ]
+                    ];
+                }
+
+                foreach ($invoices as &$inv) {
+                    $inv['credit_card_installments'] = $installmentsByInvoice[$inv['id']] ?? [];
+                }
+                unset($inv);
+            }
         } catch (Exception $e) {}
 
         echo json_encode([
@@ -467,6 +501,34 @@ try {
             $stmt = $db->prepare("SELECT id FROM accounts WHERE workspace_id = ? LIMIT 1");
             $stmt->execute([$workspaceId]);
             $accountId = $stmt->fetchColumn();
+        }
+
+        $installments = max(1, (int)($body['installments'] ?? 1));
+
+        if ($installments > 1 && $type !== 'transfer') {
+            $instAmount = round($amount / $installments, 2);
+            $diff = round($amount - ($instAmount * $installments), 2);
+            $baseDate = new DateTime($competenceDate);
+            $inserted = [];
+
+            for ($i = 1; $i <= $installments; $i++) {
+                $curDate = clone $baseDate;
+                if ($i > 1) {
+                    $curDate->modify('+' . ($i - 1) . ' month');
+                }
+                $compDateStr = $curDate->format('Y-m-d');
+                $curAmount = ($i === 1) ? ($instAmount + $diff) : $instAmount;
+                $curDesc = $description . " ($i/$installments)";
+
+                $stmt = $db->prepare("INSERT INTO transactions 
+                    (workspace_id, owner_id, account_id, destination_account_id, category_id, type, description, amount, interest_amount, competence_date, paid_at, status, installment_current, installment_total)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *");
+                $stmt->execute([$workspaceId, $ownerId, $accountId, $destinationAccountId, $categoryId, $type, $curDesc, $curAmount, $interestAmount, $compDateStr, $compDateStr, $status, $i, $installments]);
+                $inserted[] = $stmt->fetch();
+            }
+
+            echo json_encode(['success' => true, 'transactions' => $inserted, 'installments' => $installments]);
+            exit;
         }
 
         $stmt = $db->prepare("INSERT INTO transactions 
@@ -797,6 +859,63 @@ try {
             $stmt->execute([$cardId]);
         }
         echo json_encode(['success' => true]);
+        exit;
+    }
+
+    // 10.3 Data: Pay Credit Card Invoice
+    if ($uri === '/cards/pay-invoice' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $invoiceId = $body['invoice_id'] ?? null;
+        $accountId = $body['account_id'] ?? null; // Bank checking account paying the invoice
+        $amount = (float)($body['amount'] ?? 0);
+        $paidAt = $body['paid_at'] ?? date('Y-m-d');
+
+        if (!$workspaceId || !$invoiceId || !$accountId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'ID da fatura, workspace e conta pagadora são obrigatórios']);
+            exit;
+        }
+
+        $stmt = $db->prepare("SELECT i.*, c.name as card_name, c.account_id as card_account_id 
+                              FROM credit_card_invoices i 
+                              LEFT JOIN credit_cards c ON c.id = i.credit_card_id 
+                              WHERE i.id = ? AND i.workspace_id = ?");
+        $stmt->execute([$invoiceId, $workspaceId]);
+        $inv = $stmt->fetch();
+
+        if (!$inv) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Fatura não encontrada']);
+            exit;
+        }
+
+        $ownerId = $inv['owner_id'];
+        $payAmount = ($amount > 0) ? $amount : (float)$inv['total_amount'];
+        $cardName = $inv['card_name'] ?: 'Cartão';
+        $monthStr = str_pad($inv['month'], 2, '0', STR_PAD_LEFT) . '/' . $inv['year'];
+
+        $db->beginTransaction();
+
+        // 1. Mark invoice as paid
+        $stmtUpdate = $db->prepare("UPDATE credit_card_invoices SET status = 'paid', paid_at = ? WHERE id = ?");
+        $stmtUpdate->execute([$paidAt, $invoiceId]);
+
+        // 2. Create payment transaction on the paying bank account
+        $desc = "Pagamento fatura " . $cardName . " (" . $monthStr . ")";
+        $stmtTx = $db->prepare("INSERT INTO transactions 
+            (workspace_id, owner_id, account_id, destination_account_id, category_id, type, description, amount, interest_amount, competence_date, paid_at, status, invoice_id)
+            VALUES (?, ?, ?, NULL, NULL, 'expense', ?, ?, 0, ?, ?, 'paid', ?) RETURNING *");
+        $stmtTx->execute([$workspaceId, $ownerId, $accountId, $desc, $payAmount, $paidAt, $paidAt, $invoiceId]);
+        $tx = $stmtTx->fetch();
+
+        $db->commit();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Fatura liquidada com sucesso',
+            'invoice_id' => $invoiceId,
+            'transaction' => $tx
+        ]);
         exit;
     }
 
@@ -1245,36 +1364,97 @@ try {
             $ownerId = $stmt->fetchColumn();
         }
 
-        $stmtCard = $db->prepare("SELECT account_id FROM credit_cards WHERE id = ?");
+        $stmtCard = $db->prepare("SELECT id, account_id, closing_day, due_day, name FROM credit_cards WHERE id = ?");
         $stmtCard->execute([$cardId]);
-        $accountId = $stmtCard->fetchColumn();
+        $card = $stmtCard->fetch();
 
+        $accountId = $card['account_id'] ?? null;
         if (!$accountId) {
             $stmtAcc = $db->prepare("SELECT id FROM accounts WHERE workspace_id = ? LIMIT 1");
             $stmtAcc->execute([$workspaceId]);
             $accountId = $stmtAcc->fetchColumn();
         }
 
+        $closingDay = (int)($card['closing_day'] ?? 10);
+        $dueDay = (int)($card['due_day'] ?? 17);
+
+        $db->beginTransaction();
+
+        // 1. Insert into credit_card_purchases
+        $stmtPurch = $db->prepare("INSERT INTO credit_card_purchases 
+            (workspace_id, owner_id, credit_card_id, category_id, description, total_amount, purchased_on, installment_count, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id");
+        $stmtPurch->execute([$workspaceId, $ownerId, $cardId, $categoryId, $description, $totalAmount, $purchasedOn, $installments, $notes]);
+        $purchaseId = $stmtPurch->fetchColumn();
+
         $instAmount = round($totalAmount / $installments, 2);
+        $diff = round($totalAmount - ($instAmount * $installments), 2);
         $startDate = new DateTime($purchasedOn);
+        $pDay = (int)$startDate->format('d');
+
+        // Determine base invoice month
+        $baseDate = clone $startDate;
+        if ($pDay > $closingDay) {
+            $baseDate->modify('+1 month');
+        }
+
+        $affectedInvoices = [];
 
         for ($i = 1; $i <= $installments; $i++) {
-            $compDate = clone $startDate;
+            $targetDate = clone $baseDate;
             if ($i > 1) {
-                $compDate->modify('+' . ($i - 1) . ' month');
+                $targetDate->modify('+' . ($i - 1) . ' month');
             }
-            $compDateStr = $compDate->format('Y-m-d');
+
+            $tMonth = (int)$targetDate->format('m');
+            $tYear = (int)$targetDate->format('Y');
+            $compDateStr = $targetDate->format('Y-m-01');
+
+            // Find or create invoice
+            $stmtInv = $db->prepare("SELECT id FROM credit_card_invoices WHERE credit_card_id = ? AND month = ? AND year = ?");
+            $stmtInv->execute([$cardId, $tMonth, $tYear]);
+            $invoiceId = $stmtInv->fetchColumn();
+
+            if (!$invoiceId) {
+                $closeDateStr = sprintf('%04d-%02d-%02d', $tYear, $tMonth, min(28, $closingDay));
+                $dueDateStr = sprintf('%04d-%02d-%02d', $tYear, $tMonth, min(28, $dueDay));
+
+                $stmtNewInv = $db->prepare("INSERT INTO credit_card_invoices 
+                    (account_id, workspace_id, owner_id, credit_card_id, month, year, status, total_amount, closing_date, due_date)
+                    VALUES (?, ?, ?, ?, ?, ?, 'open', 0, ?, ?) RETURNING id");
+                $stmtNewInv->execute([$accountId, $workspaceId, $ownerId, $cardId, $tMonth, $tYear, $closeDateStr, $dueDateStr]);
+                $invoiceId = $stmtNewInv->fetchColumn();
+            }
+
+            $affectedInvoices[$invoiceId] = true;
+            $curAmount = ($i === 1) ? ($instAmount + $diff) : $instAmount;
             $desc = $description . ($installments > 1 ? " ($i/$installments)" : '');
 
+            // 2. Insert into credit_card_installments
+            $stmtInst = $db->prepare("INSERT INTO credit_card_installments 
+                (workspace_id, owner_id, credit_card_id, purchase_id, invoice_id, installment_number, amount, competence_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtInst->execute([$workspaceId, $ownerId, $cardId, $purchaseId, $invoiceId, $i, $curAmount, $compDateStr]);
+
+            // 3. Insert into transactions
             $stmtTx = $db->prepare("INSERT INTO transactions 
-                (workspace_id, owner_id, account_id, category_id, type, description, amount, interest_amount, competence_date, due_date, status, installment_current, installment_total, notes) 
-                VALUES (?, ?, ?, ?, 'expense', ?, ?, 0, ?, ?, 'pending', ?, ?, ?)");
+                (workspace_id, owner_id, account_id, category_id, type, description, amount, interest_amount, competence_date, due_date, status, installment_current, installment_total, notes, invoice_id) 
+                VALUES (?, ?, ?, ?, 'expense', ?, ?, 0, ?, ?, 'pending', ?, ?, ?, ?)");
             $stmtTx->execute([
-                $workspaceId, $ownerId, $accountId, $categoryId, $desc, $instAmount, $compDateStr, $compDateStr, $i, $installments, $notes
+                $workspaceId, $ownerId, $accountId, $categoryId, $desc, $curAmount, $compDateStr, $compDateStr, $i, $installments, $notes, $invoiceId
             ]);
         }
 
-        echo json_encode(['success' => true, 'installments' => $installments]);
+        // 4. Update total_amount for all affected invoices
+        foreach (array_keys($affectedInvoices) as $invId) {
+            $db->prepare("UPDATE credit_card_invoices 
+                          SET total_amount = (SELECT COALESCE(SUM(amount), 0) FROM credit_card_installments WHERE invoice_id = ?) 
+                          WHERE id = ?")->execute([$invId, $invId]);
+        }
+
+        $db->commit();
+
+        echo json_encode(['success' => true, 'purchase_id' => $purchaseId, 'installments' => $installments]);
         exit;
     }
 

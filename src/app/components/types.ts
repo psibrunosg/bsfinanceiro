@@ -67,6 +67,7 @@ export type Transaction = {
   status: string;
   description: string;
   amount: number;
+  interest_amount?: number | null;
   competence_date: string;
   category_id?: string | null;
 };

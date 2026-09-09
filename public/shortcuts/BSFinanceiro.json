@@ -1,0 +1,74 @@
+{
+  "name": "BS Financeiro - Registro Rápido",
+  "version": "1.0.0",
+  "author": "BS Financeiro",
+  "description": "Automação para captura de gastos e notificações bancárias no iOS",
+  "api": {
+    "url": "https://financeiro.bssaude.com.br/api/shortcuts",
+    "method": "POST",
+    "headers": {
+      "Authorization": "Bearer bsf_shortcut_token_2026",
+      "Content-Type": "application/json"
+    },
+    "body_template": {
+      "amount": "${amount}",
+      "description": "${description}",
+      "installments": "${installments}",
+      "type": "expense"
+    }
+  },
+  "fallback": {
+    "url_template": "https://financeiro.bssaude.com.br/movimentacoes?amount=${amount}&desc=${description}&installments=${installments}&open=true"
+  },
+  "steps": [
+    {
+      "step": 1,
+      "action": "Ask for Input",
+      "input_type": "Number",
+      "prompt": "Qual o valor da compra?",
+      "variable": "amount"
+    },
+    {
+      "step": 2,
+      "action": "Ask for Input",
+      "input_type": "Text",
+      "prompt": "Onde foi a compra?",
+      "variable": "description"
+    },
+    {
+      "step": 3,
+      "action": "Choose from Menu",
+      "prompt": "Forma de Pagamento?",
+      "options": [
+        {
+          "label": "À vista",
+          "set_variable": {
+            "installments": 1
+          }
+        },
+        {
+          "label": "Parcelado",
+          "action": "Ask for Input",
+          "input_type": "Number",
+          "prompt": "Quantas parcelas? (2 a 12)",
+          "variable": "installments"
+        }
+      ]
+    },
+    {
+      "step": 4,
+      "action": "Get Contents of URL",
+      "method": "POST",
+      "url": "https://financeiro.bssaude.com.br/api/shortcuts",
+      "headers": {
+        "Authorization": "Bearer bsf_shortcut_token_2026"
+      }
+    },
+    {
+      "step": 5,
+      "action": "If Status Code == 200",
+      "then": "Show Notification: ✅ Gasto registrado no BS Financeiro!",
+      "else": "Open URL: https://financeiro.bssaude.com.br/movimentacoes?amount=${amount}&desc=${description}&installments=${installments}&open=true"
+    }
+  ]
+}

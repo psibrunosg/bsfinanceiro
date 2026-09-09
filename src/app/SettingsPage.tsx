@@ -6,7 +6,7 @@ import { PageHeader } from "./components/PageHeader";
 import { createClient } from "@/lib/supabase/client";
 import { appPath } from "@/lib/app-path";
 import { useMemo, useState } from "react";
-import { Smartphone, Check, Copy, Zap, AlertTriangle } from "lucide-react";
+import { Smartphone, Check, Copy, Zap, AlertTriangle, Download, ExternalLink } from "lucide-react";
 import type { WorkspacePreference } from "./components/types";
 
 export function SettingsPage() {
@@ -432,6 +432,93 @@ export function SettingsPage() {
                     Registre gastos em segundos através de micromodais rápidos no topo da tela do seu iPhone.
                     O atalho suporta <strong>valor editável</strong>, <strong>estabelecimento editável</strong>, <strong>parcelamento automático</strong> e tenta registrar <strong>em segundo plano</strong>. Caso ocorra qualquer falha ou falta de conexão, ele abre o modal no app automaticamente para ajuste manual!
                   </p>
+                </div>
+              </div>
+
+              {/* Painel de Download e Instalação Rápida */}
+              <div
+                style={{
+                  padding: "16px 20px",
+                  borderRadius: "14px",
+                  background: "linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(59, 130, 246, 0.08) 100%)",
+                  border: "1px solid rgba(139, 92, 246, 0.25)",
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                }}
+              >
+                <div>
+                  <strong style={{ fontSize: "0.95rem", display: "block", color: "var(--text)" }}>
+                    Instalar Atalho Pronto no iPhone
+                  </strong>
+                  <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+                    Baixe o arquivo de automação configurado ou importe diretamente no app Atalhos
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  <a
+                    href="/shortcuts/BSFinanceiro.shortcut"
+                    download="BSFinanceiro-Registro-Rapido.shortcut"
+                    className="button-primary"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "8px 14px",
+                      borderRadius: "8px",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      background: "var(--primary, #8b5cf6)",
+                      color: "#fff",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <Download size={15} />
+                    Baixar .shortcut
+                  </a>
+                  <a
+                    href="/shortcuts/BSFinanceiro.json"
+                    download="BSFinanceiro-Automação.json"
+                    className="button-secondary"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "8px 14px",
+                      borderRadius: "8px",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      background: "var(--surface-2, rgba(255,255,255,0.06))",
+                      border: "1px solid var(--border)",
+                      color: "var(--text)",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <Download size={15} />
+                    Baixar .json
+                  </a>
+                  <a
+                    href="shortcuts://"
+                    className="button-secondary"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "8px 14px",
+                      borderRadius: "8px",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      background: "var(--surface-2, rgba(255,255,255,0.06))",
+                      border: "1px solid var(--border)",
+                      color: "var(--text)",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <ExternalLink size={15} />
+                    Abrir Atalhos
+                  </a>
                 </div>
               </div>
 

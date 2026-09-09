@@ -241,21 +241,41 @@ export function InterestRadarWidget({
             <div
               style={{
                 marginTop: "1rem",
-                padding: "0.75rem",
-                borderRadius: "8px",
-                background: "rgba(245, 158, 11, 0.1)",
-                border: "1px solid rgba(245, 158, 11, 0.3)",
-                fontSize: "0.8rem",
-                color: "var(--text)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 600, color: "var(--warning, #f59e0b)" }}>
-                <Zap size={14} /> Custo Oculto Detectado:
-              </div>
-              {hiddenCostAlerts[0].description} ({money(hiddenCostAlerts[0].amount)})
-              <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "2px" }}>
-                {hiddenCostAlerts[0].reason}
-              </div>
+              {hiddenCostAlerts.slice(0, 3).map((alert) => (
+                <div
+                  key={alert.transactionId}
+                  style={{
+                    padding: "0.75rem",
+                    borderRadius: "8px",
+                    background: "rgba(245, 158, 11, 0.1)",
+                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                    fontSize: "0.8rem",
+                    color: "var(--text)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px", fontWeight: 600, color: "var(--warning, #f59e0b)" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <Zap size={14} /> {alert.type === "pula_compra" ? "Pula Compra Detectado:" : "Custo Oculto Detectado:"}
+                    </span>
+                    {alert.monthlyRatePercent ? (
+                      <span style={{ fontSize: "0.7rem", padding: "1px 6px", borderRadius: "10px", background: "rgba(239, 68, 68, 0.2)", color: "var(--destructive, #ef4444)" }}>
+                        +{alert.monthlyRatePercent}% a.m.
+                      </span>
+                    ) : null}
+                  </div>
+                  <div style={{ marginTop: "4px", fontWeight: 600 }}>
+                    {alert.description} ({money(alert.amount)})
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "2px" }}>
+                    {alert.reason}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

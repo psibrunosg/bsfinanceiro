@@ -106,5 +106,25 @@ describe("interest-radar", () => {
       expect(detected).toHaveLength(1);
       expect(detected[0].type).toBe("pix_credit");
     });
+
+    it("flags Pula Compra (FIN items) and calculates extra cost and interest rate", () => {
+      const txs: Partial<Transaction>[] = [
+        {
+          id: "tx-pula",
+          type: "expense",
+          amount: 277.60,
+          interest_amount: 27.80,
+          description: "FIN NEPTUNIA",
+          competence_date: "2026-05-22",
+        },
+      ];
+
+      const detected = detectHiddenCosts(txs as Transaction[]);
+      expect(detected).toHaveLength(1);
+      expect(detected[0].type).toBe("pula_compra");
+      expect(detected[0].extraCost).toBe(27.80);
+      expect(detected[0].monthlyRatePercent).toBe(11.1);
+      expect(detected[0].reason).toContain("+11.1% no mês");
+    });
   });
 });

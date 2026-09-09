@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useRef, useState, type FormEvent } from "react";
-import { todayInSaoPaulo } from "@/lib/finance/local-date";
+import { addMonthsToDate, todayInSaoPaulo } from "@/lib/finance/local-date";
 import { createClient } from "@/lib/supabase/client";
-import { parseMoney } from "./Money";
+import { money, parseMoney } from "./Money";
 import { predictCategory } from "@/lib/finance/category-predictor";
 import { parseBankNotification } from "@/lib/finance/bank-notification-parser";
 import type { Account, Category } from "./types";
@@ -41,6 +41,7 @@ export function QuickTransactionForm({
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [isAutoPredicted, setIsAutoPredicted] = useState(false);
   const [selectedDate, setSelectedDate] = useState(today);
+  const [installments, setInstallments] = useState(1);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
@@ -95,12 +96,90 @@ export function QuickTransactionForm({
 
     try {
       let saved = false;
+      const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+      const isCreditCard = selectedAccount?.type === "credit_card";
+
       if (typeof window !== "undefined" && !process.env.VITEST) {
         try {
-          const res = await fetch("/api/transactions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+          if (isCreditCard) {
+            const res = await fetch("/api/cards/purchase", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                workspace_id: workspaceId,
+                owner_id: ownerId,
+                credit_card_id: selectedAccountId,
+                category_id: categoryId,
+                description: trimmedDescription,
+                total_amount: parsedAmount,
+                purchased_on: selectedDate,
+                installment_count: installments,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+              saved = true;
+            }
+          } else {
+            const res = await fetch("/api/transactions", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                workspace_id: workspaceId,
+                owner_id: ownerId,
+                account_id: selectedAccountId,
+                category_id: categoryId,
+                destination_account_id: null,
+                type,
+                amount: parsedAmount,
+                description: trimmedDescription,
+                competence_date: selectedDate,
+                status: "paid",
+                installments: installments > 1 ? installments : undefined,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+              saved = true;
+            }
+          }
+        } catch {}
+      }
+
+      if (!saved) {
+        if (installments > 1) {
+          const rows = [];
+          const installmentAmount = Math.round((parsedAmount / installments) * 100) / 100;
+          const centsDiff = Math.round((parsedAmount - installmentAmount * installments) * 100) / 100;
+
+          for (let i = 1; i <= installments; i++) {
+            const currentAmount = i === 1 ? installmentAmount + centsDiff : installmentAmount;
+            const currentDesc = `${trimmedDescription} (${i}/${installments})`;
+            const currentDate = i === 1 ? selectedDate : addMonthsToDate(selectedDate, i - 1);
+            rows.push({
+              workspace_id: workspaceId,
+              owner_id: ownerId,
+              account_id: selectedAccountId,
+              category_id: categoryId,
+              destination_account_id: null,
+              type,
+              amount: currentAmount,
+              description: currentDesc,
+              competence_date: currentDate,
+              paid_at: currentDate,
+              status: "paid",
+              idempotency_key: crypto.randomUUID(),
+            });
+          }
+          const { error: insertError } = await supabase.from("transactions").insert(rows);
+          if (insertError) {
+            setError("Não foi possível registrar. Tente novamente.");
+            return;
+          }
+        } else {
+          const { error: insertError } = await supabase
+            .from("transactions")
+            .insert({
               workspace_id: workspaceId,
               owner_id: ownerId,
               account_id: selectedAccountId,
@@ -110,42 +189,21 @@ export function QuickTransactionForm({
               amount: parsedAmount,
               description: trimmedDescription,
               competence_date: selectedDate,
+              paid_at: selectedDate,
               status: "paid",
-            }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data.success) {
-            saved = true;
+              idempotency_key: crypto.randomUUID(),
+            });
+
+          if (insertError) {
+            setError("Não foi possível registrar. Tente novamente.");
+            return;
           }
-        } catch {}
-      }
-
-      if (!saved) {
-        const { error: insertError } = await supabase
-          .from("transactions")
-          .insert({
-            workspace_id: workspaceId,
-            owner_id: ownerId,
-            account_id: selectedAccountId,
-            category_id: categoryId,
-            destination_account_id: null,
-            type,
-            amount: parsedAmount,
-            description: trimmedDescription,
-            competence_date: selectedDate,
-            paid_at: selectedDate,
-            status: "paid",
-            idempotency_key: crypto.randomUUID(),
-          });
-
-        if (insertError) {
-          setError("Não foi possível registrar. Tente novamente.");
-          return;
         }
       }
 
       setAmount("");
       setDescription("");
+      setInstallments(1);
 
       try {
         await onSaved();
@@ -382,6 +440,26 @@ export function QuickTransactionForm({
                 onChange={(event) => setSelectedDate(event.currentTarget.value)}
                 aria-required="true"
               />
+            </label>
+
+            <label className="quick-transaction-field">
+              <span>Parcelamento</span>
+              <select
+                name="installments"
+                value={installments}
+                onChange={(event) => setInstallments(Number(event.currentTarget.value))}
+              >
+                <option value={1}>À vista (1x)</option>
+                {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => {
+                  const numAmt = parseMoney(amount);
+                  const parcelText = numAmt > 0 ? ` (${money(numAmt / n)}/mês)` : "";
+                  return (
+                    <option key={n} value={n}>
+                      {n}x{parcelText}
+                    </option>
+                  );
+                })}
+              </select>
             </label>
           </div>
         </details>

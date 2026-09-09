@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Activity, BarChart3, ChartColumn, ChevronLeft, ChevronRight, CirclePlus, CreditCard, Landmark, Menu, ReceiptText, Target, TrendingUp, WalletCards } from "lucide-react";
+import { Activity, ArrowLeftRight, BarChart3, ChartColumn, ChevronLeft, ChevronRight, CirclePlus, CreditCard, Landmark, Menu, ReceiptText, Target, TrendingUp, WalletCards } from "lucide-react";
 import { CommandMenu } from "./CommandMenu";
 
 const desktopLinks = [
   { href: "/", label: "Painel", icon: BarChart3 },
+  { href: "/movimentacoes", label: "Movimentações", icon: ArrowLeftRight },
   { href: "/ganhos", label: "Ganhos", icon: TrendingUp },
   { href: "/gastos", label: "Gastos", icon: ReceiptText },
   { href: "/contas", label: "Contas", icon: Landmark },
