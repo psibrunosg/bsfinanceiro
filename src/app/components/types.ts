@@ -223,3 +223,19 @@ export type InvestmentOperation = {
   transaction_id?: string;
   created_at: string;
 };
+
+export type Payslip = {
+  id: string;
+  workspace_id?: string;
+  owner_id?: string;
+  employer: string;
+  competence: string;
+  gross_amount: number;
+  discounts_amount: number;
+  net_amount: number;
+  received_date: string | null;
+  transaction_id: string | null;
+  pdf_path?: string | null;
+  notes?: string | null;
+  created_at?: string;
+};

@@ -14,12 +14,12 @@ export default function MaisPage() {
   }
 
   const moreLinks = [
-    { href: "/contas", label: "Contas", icon: Landmark, description: "Saldos e patrimônio" },
-    { href: "/cartoes", label: "Cartões", icon: CreditCard, description: "Faturas e limites" },
-    { href: "/investimentos", label: "Investimentos", icon: WalletCards, description: "Carteira e rentabilidade" },
-    { href: "/planejamento", label: "Planejamento", icon: Target, description: "Orçamento e metas" },
-    { href: "/categorias", label: "Categorias", icon: ReceiptText, description: "Gestão de categorias" },
-    { href: "/configuracoes", label: "Configurações", icon: Settings, description: "Preferências e privacidade" },
+    { href: "/contas/", label: "Contas", icon: Landmark, description: "Saldos e patrimônio" },
+    { href: "/cartoes/", label: "Cartões", icon: CreditCard, description: "Faturas e limites" },
+    { href: "/investimentos/", label: "Investimentos", icon: WalletCards, description: "Carteira e rentabilidade" },
+    { href: "/planejamento/", label: "Planejamento", icon: Target, description: "Orçamento e metas" },
+    { href: "/categorias/", label: "Categorias", icon: ReceiptText, description: "Gestão de categorias" },
+    { href: "/configuracoes/", label: "Configurações", icon: Settings, description: "Preferências e privacidade" },
   ];
 
   return (

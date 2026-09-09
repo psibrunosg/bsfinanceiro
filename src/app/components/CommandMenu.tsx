@@ -63,21 +63,21 @@ export function CommandMenu() {
       const items: { id: string; label: string; href: string }[] = [];
       
       if (acc.data) {
-        acc.data.forEach(a => items.push({ id: a.id, label: `Conta: ${a.name}`, href: "/contas" }));
+        acc.data.forEach(a => items.push({ id: a.id, label: `Conta: ${a.name}`, href: "/contas/" }));
       }
       if (cat.data) {
-        cat.data.forEach(c => items.push({ id: c.id, label: `Categoria: ${c.name}`, href: "/categorias" }));
+        cat.data.forEach(c => items.push({ id: c.id, label: `Categoria: ${c.name}`, href: "/categorias/" }));
       }
       
       // Static routes
       const staticRoutes = [
         { id: "s1", label: "Ir para Dashboard", href: "/" },
-        { id: "s2", label: "Ir para MovimentaÃ§Ãµes", href: "/movimentacoes" },
-        { id: "s3", label: "Ir para Contas", href: "/contas" },
-        { id: "s4", label: "Ir para Categorias", href: "/categorias" },
-        { id: "s5", label: "Ir para RelatÃ³rios", href: "/relatorios" },
-        { id: "s6", label: "Ir para Planejamento", href: "/planejamento" },
-        { id: "s7", label: "Ir para Investimentos", href: "/investimentos" }
+        { id: "s2", label: "Ir para Movimentações", href: "/movimentacoes/" },
+        { id: "s3", label: "Ir para Contas", href: "/contas/" },
+        { id: "s4", label: "Ir para Categorias", href: "/categorias/" },
+        { id: "s5", label: "Ir para Relatórios", href: "/relatorios/" },
+        { id: "s6", label: "Ir para Planejamento", href: "/planejamento/" },
+        { id: "s7", label: "Ir para Investimentos", href: "/investimentos/" }
       ];
 
       const filteredRoutes = staticRoutes.filter(r => r.label.toLowerCase().includes(query.toLowerCase()));

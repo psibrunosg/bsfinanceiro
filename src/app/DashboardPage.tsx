@@ -63,7 +63,7 @@ function Trend({ pct }: { pct: number | null }) {
 }
 
 export function DashboardPage() {
-  const { workspace, accounts, transactions, invoices, categories, goals, occurrences, budgets, alertPrefs, loading, investmentAssets, investmentOperations, commitments = [], cashPosition } = useFinance("dashboard");
+  const { workspace, accounts, transactions, invoices, categories, goals, occurrences, budgets, alertPrefs, loading, investmentAssets, investmentOperations, commitments = [], cashPosition, payslips = [] } = useFinance("dashboard");
   const { month, nextMonth } = useMonth();
   const { displayName } = useCurrentUser();
   const assets = useMemo(() => investmentAssets || [], [investmentAssets]);
@@ -184,7 +184,7 @@ export function DashboardPage() {
     </div>
 
     {metrics.uncategorizedCount > 0 ? (
-      <Link href="/categorias" className="insight-link" style={{ marginBottom: "16px" }}>
+      <Link href="/categorias/" className="insight-link" style={{ marginBottom: "16px" }}>
         <span>
           <CircleAlert aria-hidden="true" size={16} style={{ marginRight: 6, verticalAlign: "-2px" }} />
           {metrics.uncategorizedCount} lançamento{metrics.uncategorizedCount > 1 ? "s" : ""} sem categoria este mês
@@ -274,7 +274,7 @@ export function DashboardPage() {
               </div>
             </div>
           ) : (
-            <p className="dashboard-empty">Nenhum investimento cadastrado. <Link href="/investimentos">Cadastrar ativo</Link></p>
+            <p className="dashboard-empty">Nenhum investimento cadastrado. <Link href="/investimentos/">Cadastrar ativo</Link></p>
           )}
         </article>
       </div>
@@ -342,7 +342,7 @@ export function DashboardPage() {
     </div>
 
     <div style={{ marginTop: '24px' }}>
-      <ImpulseCalculatorWidget estimatedMonthlyIncome={metrics.monthIncome} />
+      <ImpulseCalculatorWidget payslips={payslips} transactions={transactions} selectedMonth={month} />
     </div>
 
     <div style={{ marginTop: '24px' }}>

@@ -111,3 +111,77 @@ export function computeWishlistMetrics(items: WishlistItem[]): WishlistMetricsRe
     dismissedCount,
   };
 }
+
+export type NetMonthlyIncomeOptions = {
+  payslips?: Array<{ competence?: string; received_date?: string | null; net_amount?: number | string }>;
+  transactions?: Array<{ type?: string; competence_date?: string; amount?: number | string; category_id?: string | null; description?: string }>;
+  salaryCategoryId?: string | null;
+  selectedMonth?: string; // YYYY-MM
+};
+
+/**
+ * Puxa e resolve a renda líquida mensal a partir dos dados do banco:
+ * 1. Prioriza holerites (payslips): soma do net_amount no mês selecionado ou no mês mais recente cadastrado.
+ * 2. Fallback: transações de receita (excluindo estornos/créditos de faturas).
+ */
+export function resolveNetMonthlyIncome(options: NetMonthlyIncomeOptions): number {
+  const { payslips = [], transactions = [], selectedMonth } = options;
+
+  // 1. Se houver payslips, agrupa por mês (competence ou received_date)
+  if (payslips.length > 0) {
+    const byMonth: Record<string, number> = {};
+    for (const p of payslips) {
+      const net = Number(p.net_amount || 0);
+      if (net <= 0) continue;
+      const monthKey = (p.competence || p.received_date || "").slice(0, 7);
+      if (monthKey) {
+        byMonth[monthKey] = (byMonth[monthKey] || 0) + net;
+      }
+    }
+
+    // Se o mês selecionado tem holerite registrado com valor líquido
+    if (selectedMonth && byMonth[selectedMonth] && byMonth[selectedMonth] > 0) {
+      return Math.round(byMonth[selectedMonth] * 100) / 100;
+    }
+
+    // Caso o mês selecionado não tenha (ex: mês futuro ou sem registro), pega o mês mais recente cadastrado
+    const sortedMonths = Object.keys(byMonth).sort().reverse();
+    if (sortedMonths.length > 0 && byMonth[sortedMonths[0]] > 0) {
+      return Math.round(byMonth[sortedMonths[0]] * 100) / 100;
+    }
+  }
+
+  // 2. Fallback para transações de receita (income)
+  if (transactions.length > 0) {
+    const isRefund = (desc: string) =>
+      /estorno|crédito|credito pula compra|reembolso|devolu[cç][aã]o/i.test(desc);
+
+    const incomeTx = transactions.filter(
+      (t) => t.type === "income" && !isRefund(t.description || "")
+    );
+
+    if (incomeTx.length > 0) {
+      const byMonth: Record<string, number> = {};
+      for (const t of incomeTx) {
+        const amt = Number(t.amount || 0);
+        if (amt <= 0) continue;
+        const monthKey = (t.competence_date || "").slice(0, 7);
+        if (monthKey) {
+          byMonth[monthKey] = (byMonth[monthKey] || 0) + amt;
+        }
+      }
+
+      if (selectedMonth && byMonth[selectedMonth] && byMonth[selectedMonth] > 0) {
+        return Math.round(byMonth[selectedMonth] * 100) / 100;
+      }
+
+      const sortedMonths = Object.keys(byMonth).sort().reverse();
+      if (sortedMonths.length > 0 && byMonth[sortedMonths[0]] > 0) {
+        return Math.round(byMonth[sortedMonths[0]] * 100) / 100;
+      }
+    }
+  }
+
+  return 0;
+}
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Brain,
   Hourglass,
@@ -11,25 +11,46 @@ import { money } from "./Money";
 import {
   calculateHoursOfLife,
   computeWishlistMetrics,
+  resolveNetMonthlyIncome,
   WishlistItem,
 } from "@/lib/finance/impulse-calculator";
 
 type ImpulseCalculatorWidgetProps = {
   estimatedMonthlyIncome?: number;
+  payslips?: Array<{ competence?: string; received_date?: string | null; net_amount?: number | string }>;
+  transactions?: Array<{ type?: string; competence_date?: string; amount?: number | string; category_id?: string | null; description?: string }>;
+  selectedMonth?: string;
 };
 
 export function ImpulseCalculatorWidget({
   estimatedMonthlyIncome = 0,
+  payslips = [],
+  transactions = [],
+  selectedMonth,
 }: ImpulseCalculatorWidgetProps) {
   const [productName, setProductName] = useState("");
   const [priceInput, setPriceInput] = useState("");
-  const [incomeInput, setIncomeInput] = useState(estimatedMonthlyIncome > 0 ? String(estimatedMonthlyIncome) : "");
+
+  const resolvedDbIncome = useMemo(() => {
+    if (estimatedMonthlyIncome > 0) return estimatedMonthlyIncome;
+    return resolveNetMonthlyIncome({ payslips, transactions, selectedMonth });
+  }, [estimatedMonthlyIncome, payslips, transactions, selectedMonth]);
+
+  const [incomeInput, setIncomeInput] = useState(resolvedDbIncome > 0 ? String(resolvedDbIncome) : "");
+  const [hasUserEditedIncome, setHasUserEditedIncome] = useState(false);
+
+  useEffect(() => {
+    if (!hasUserEditedIncome && resolvedDbIncome > 0) {
+      setIncomeInput(String(resolvedDbIncome));
+    }
+  }, [resolvedDbIncome, hasUserEditedIncome]);
+
   const [coolingOffHours] = useState<number>(48);
 
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
 
   const numPrice = Number(priceInput.replace(",", ".")) || 0;
-  const numIncome = Number(incomeInput.replace(",", ".")) || estimatedMonthlyIncome;
+  const numIncome = Number(incomeInput.replace(",", ".")) || resolvedDbIncome;
 
   const hoursResult = useMemo(
     () =>
@@ -181,14 +202,24 @@ export function ImpulseCalculatorWidget({
                 />
               </div>
               <div>
-                <label htmlFor="userIncome" style={{ fontSize: "0.7rem", color: "var(--muted)", display: "block" }}>
-                  Sua Renda Líquida/mês
-                </label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label htmlFor="userIncome" style={{ fontSize: "0.7rem", color: "var(--muted)", display: "block" }}>
+                    Sua Renda Líquida/mês
+                  </label>
+                  {resolvedDbIncome > 0 && !hasUserEditedIncome && (
+                    <span style={{ fontSize: "0.62rem", color: "var(--positive, #22c55e)", fontWeight: 600 }}>
+                      ✓ Do banco
+                    </span>
+                  )}
+                </div>
                 <input
                   id="userIncome"
                   type="text"
                   value={incomeInput}
-                  onChange={(e) => setIncomeInput(e.target.value)}
+                  onChange={(e) => {
+                    setIncomeInput(e.target.value);
+                    setHasUserEditedIncome(true);
+                  }}
                   style={{ width: "100%", padding: "4px 8px", fontSize: "0.85rem", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
                 />
               </div>

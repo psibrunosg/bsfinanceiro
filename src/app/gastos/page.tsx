@@ -64,7 +64,7 @@ type Occurrence = {
 type DialogState = { kind: "expense" } | { kind: "recurrent" } | null;
 
 export default function GastosPage() {
-  const { workspace, accounts, categories, defaultCashAccountId, loading } =
+  const { workspace, accounts, categories, defaultCashAccountId, loading, payslips = [], transactions = [] } =
     useFinance("dashboard");
   const supabase = useMemo(() => createClient(), []);
   const { month, nextMonth, label: monthLabel } = useMonth();
@@ -488,7 +488,7 @@ export default function GastosPage() {
           </div>
 
           <div style={{ marginTop: '24px' }}>
-            <ImpulseCalculatorWidget />
+            <ImpulseCalculatorWidget payslips={payslips} transactions={transactions} selectedMonth={month} />
           </div>
 
           <div style={{ marginTop: '24px' }}>

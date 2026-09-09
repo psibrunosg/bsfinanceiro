@@ -98,6 +98,7 @@ export type FinanceData = {
     accountBalancesCents: Record<string, number>;
   };
   spendingPower: SpendingPower;
+  payslips: import("./types").Payslip[];
   loading: boolean;
   message: string;
   setMessage: (msg: string) => void;
@@ -124,6 +125,7 @@ interface BootstrapResponseData {
   commitments?: Commitment[];
   occurrences?: Occurrence[];
   transactions?: Transaction[];
+  payslips?: import("./types").Payslip[];
 }
 
 interface BootstrapCache {
@@ -172,6 +174,7 @@ export function useFinance(
   const [investmentOperations, setInvestmentOperations] = useState<import("./types").InvestmentOperation[]>([]);
   const [cards, setCards] = useState<Card[]>(initialCache?.cards || []);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [payslips, setPayslips] = useState<import("./types").Payslip[]>(initialCache?.payslips || []);
   const [workspaceUsers, setWorkspaceUsers] = useState<import("./types").WorkspaceUser[]>(initialCache?.workspace_users || []);
   const [workspaceInvites, setWorkspaceInvites] = useState<import("./types").WorkspaceInvite[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>(initialCache?.transactions || []);
@@ -299,6 +302,14 @@ export function useFinance(
           }
           if (boot.commitments) setCommitments(boot.commitments);
           if (boot.occurrences) setOccurrences(boot.occurrences);
+          if (boot.payslips && Array.isArray(boot.payslips)) {
+            setPayslips(boot.payslips.map((ps: import("./types").Payslip) => ({
+              ...ps,
+              gross_amount: Number(ps.gross_amount || 0),
+              discounts_amount: Number(ps.discounts_amount || 0),
+              net_amount: Number(ps.net_amount || 0),
+            })));
+          }
 
           const allTx: Transaction[] = boot.transactions || [];
           setTransactions(allTx);
@@ -745,6 +756,7 @@ export function useFinance(
     monthSpent,
     commitments,
     occurrences,
+    payslips,
     alertPrefs,
     statementImports,
     transactionImportBatches,
