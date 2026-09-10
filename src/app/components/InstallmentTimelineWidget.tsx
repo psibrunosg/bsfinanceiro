@@ -18,6 +18,7 @@ type InstallmentTimelineWidgetProps = {
   invoices?: {
     id: string;
     due_date: string;
+    status?: string;
     credit_card_installments?:
       | {
           amount: number | string;
@@ -43,9 +44,17 @@ export function InstallmentTimelineWidget({
   transactions = [],
   currentMonth,
 }: InstallmentTimelineWidgetProps) {
+  const relevantInvoices = useMemo(() => {
+    return invoices.filter((inv) => inv.status !== "paid" || (inv.due_date && inv.due_date >= "2025-01-01"));
+  }, [invoices]);
+
+  const relevantTransactions = useMemo(() => {
+    return transactions.filter((t) => !t.competence_date || t.competence_date >= "2025-01-01");
+  }, [transactions]);
+
   const purchases = useMemo(
-    () => extractInstallmentPurchases(invoices, transactions),
-    [invoices, transactions]
+    () => extractInstallmentPurchases(relevantInvoices, relevantTransactions),
+    [relevantInvoices, relevantTransactions]
   );
 
   const timeline = useMemo(

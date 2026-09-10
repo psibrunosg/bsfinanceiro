@@ -113,86 +113,6 @@ function CardsPageInner() {
   const openInvoices = invoices.filter((inv) => inv.status !== "paid");
   const nextInvoice = [...openInvoices].sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""))[0];
 
-  const renderInvoice = (inv: (typeof invoices)[number], cardName?: string) => {
-    const items = inv.credit_card_installments || [];
-    const invCard = selectedCard || cards.find((c) => c.id === inv.credit_card_id);
-    return (
-      <article
-        className="account-row"
-        key={inv.id}
-        style={{ cursor: "pointer" }}
-        onClick={(e) => {
-          if ((e.target as HTMLElement).closest("button")) return;
-          setMirrorInvoice(inv);
-          setMirrorCard(invCard || null);
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
-            <strong>
-              {cardName ? `${cardName} · vence ` : "Vence "}
-              {dateFmt.format(new Date(`${inv.due_date}T12:00:00`))}
-            </strong>
-            <b>{money(invoiceTotal(inv))}</b>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-            <small className="muted" data-status={inv.status}>
-              {inv.status === "paid" ? "Paga" : "Em aberto"}
-            </small>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <button
-                type="button"
-                className="button-secondary ui-button--sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMirrorInvoice(inv);
-                  setMirrorCard(invCard || null);
-                }}
-              >
-                Espelho da fatura
-              </button>
-              {inv.status !== "paid" && (
-                <button
-                  type="button"
-                  className="button-primary ui-button--sm"
-                  style={{
-                    background: "var(--accent, #10B981)",
-                    borderColor: "transparent",
-                    color: "#fff",
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMirrorInvoice(inv);
-                    setMirrorCard(invCard || null);
-                  }}
-                >
-                  Pagar fatura
-                </button>
-              )}
-            </div>
-          </div>
-          {items.length > 0 && (
-            <ul className="list" style={{ marginTop: 8 }}>
-              {items.map((i, n) => {
-                const p = Array.isArray(i.credit_card_purchases)
-                  ? i.credit_card_purchases[0]
-                  : i.credit_card_purchases;
-                return (
-                  <li key={n}>
-                    <span>
-                      {p?.description || "Compra"} · {i.installment_number}/
-                      {p?.installment_count || 1}
-                    </span>
-                    <b>{money(i.amount)}</b>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </article>
-    );
-  };
 
   async function submitCard(form: FormData) {
     const name = form.get("name");
@@ -624,17 +544,80 @@ function CardsPageInner() {
         currentMonth={new Date().toISOString().slice(0, 7)}
       />
 
-      <section className="dashboard-card">
-        <h3>Todas as Faturas Recentes</h3>
-        {invoices.length === 0 && (
-          <p className="dashboard-empty">Nenhuma fatura registrada.</p>
-        )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {invoices.map((inv) =>
-            renderInvoice(inv, cards.find((c) => c.id === inv.credit_card_id)?.name || "Cartão"),
-          )}
-        </div>
-      </section>
+      {openInvoices.length > 0 ? (
+        <section className="dashboard-card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+            <h3 style={{ margin: 0, fontSize: "1.1rem" }}>Faturas em Aberto</h3>
+            <span className="muted" style={{ fontSize: "0.85rem" }}>
+              {openInvoices.length} fatura(s) a vencer
+            </span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {openInvoices.slice(0, 5).map((inv) => {
+              const invCard = cards.find((c) => c.id === inv.credit_card_id);
+              return (
+                <article
+                  className="account-row"
+                  key={inv.id}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => {
+                    setMirrorInvoice(inv);
+                    setMirrorCard(invCard || null);
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+                      <strong>
+                        {invCard?.name ? `${invCard.name} · vence ` : "Vence "}
+                        {dateFmt.format(new Date(`${inv.due_date}T12:00:00`))}
+                      </strong>
+                      <b style={{ color: "#EF4444" }}>{money(invoiceTotal(inv))}</b>
+                    </div>
+                    <small className="muted" data-status={inv.status}>
+                      Em aberto
+                    </small>
+                  </div>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="button-secondary ui-button--sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMirrorInvoice(inv);
+                        setMirrorCard(invCard || null);
+                      }}
+                    >
+                      Espelho
+                    </button>
+                    <button
+                      type="button"
+                      className="button-primary ui-button--sm"
+                      style={{
+                        background: "var(--accent, #10B981)",
+                        borderColor: "transparent",
+                        color: "#fff",
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMirrorInvoice(inv);
+                        setMirrorCard(invCard || null);
+                      }}
+                    >
+                      Pagar
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : (
+        <section className="dashboard-card" style={{ textAlign: "center", padding: "1.5rem" }}>
+          <p className="muted" style={{ margin: 0 }}>
+            🎉 Nenhuma fatura pendente no momento. Todas as suas faturas estão em dia!
+          </p>
+        </section>
+      )}
 
       {activeModalCard && (
         <CardInvoicesModal

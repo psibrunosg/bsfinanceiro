@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -53,7 +53,27 @@ export function InvoiceMirrorModal({
     return allInvoices.find((inv) => inv.id === selectedInvoiceId) || initialInvoice;
   }, [allInvoices, selectedInvoiceId, initialInvoice]);
 
-  const items = useMemo(() => activeInvoice.credit_card_installments || [], [activeInvoice.credit_card_installments]);
+  const [onDemandItems, setOnDemandItems] = useState<(typeof activeInvoice.credit_card_installments) | null>(null);
+
+  useEffect(() => {
+    setOnDemandItems(null);
+    if (!activeInvoice.credit_card_installments || activeInvoice.credit_card_installments.length === 0) {
+      fetch(`/api/cards/invoice-items?invoice_id=${encodeURIComponent(activeInvoice.id)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.items)) {
+            setOnDemandItems(data.items);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [activeInvoice.id, activeInvoice.credit_card_installments]);
+
+  const items = useMemo(() => {
+    if (onDemandItems && onDemandItems.length > 0) return onDemandItems;
+    return activeInvoice.credit_card_installments || [];
+  }, [onDemandItems, activeInvoice.credit_card_installments]);
+
   const installmentsTotal = items.reduce((s, i) => s + Number(i.amount), 0);
   const totalAmount = installmentsTotal > 0 ? installmentsTotal : Number(activeInvoice.total_amount || 0);
 

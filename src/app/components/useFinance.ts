@@ -125,6 +125,7 @@ interface BootstrapResponseData {
   commitments?: Commitment[];
   occurrences?: Occurrence[];
   transactions?: Transaction[];
+  invoices?: Invoice[];
   payslips?: import("./types").Payslip[];
 }
 
@@ -278,53 +279,71 @@ export function useFinance(
 
     const today = todayInSaoPaulo();
 
+    const applyBootstrapPayload = (boot: BootstrapResponseData, currentDay: string) => {
+      setAccounts(boot.accounts || []);
+      setCategories(boot.categories || []);
+      setCards(boot.cards || []);
+      setInvoices(boot.invoices || []);
+      setBudgets(boot.budgets || []);
+      setGoals(boot.goals || []);
+      setDebts(boot.debts || []);
+      setInvestmentAssets(boot.investments || []);
+      setWorkspaceUsers(boot.workspace_users || []);
+      if (boot.alert_preferences) setAlertPrefs(boot.alert_preferences);
+      if (boot.workspace_preferences) {
+        setWorkspacePrefs(boot.workspace_preferences);
+        if (boot.workspace_preferences.default_cash_account_id) {
+          setDefaultCashAccountId(boot.workspace_preferences.default_cash_account_id);
+        }
+      }
+      if (boot.commitments) setCommitments(boot.commitments);
+      if (boot.occurrences) setOccurrences(boot.occurrences);
+      if (boot.payslips && Array.isArray(boot.payslips)) {
+        setPayslips(boot.payslips.map((ps: import("./types").Payslip) => ({
+          ...ps,
+          gross_amount: Number(ps.gross_amount || 0),
+          discounts_amount: Number(ps.discounts_amount || 0),
+          net_amount: Number(ps.net_amount || 0),
+        })));
+      }
+
+      const allTx: Transaction[] = boot.transactions || [];
+      setTransactions(allTx);
+      setDashboardTransactions(allTx);
+      setTransactionTotal(allTx.length);
+      setTodayTransactions(allTx.filter((t: Transaction) => t.competence_date === currentDay && t.status === "paid"));
+
+      const spentByCat: Record<string, number> = {};
+      const currentMonthPrefix = currentDay.slice(0, 7);
+      for (const tx of allTx) {
+        if (tx.type === "expense" && tx.status === "paid" && tx.competence_date.startsWith(currentMonthPrefix) && tx.category_id) {
+          spentByCat[tx.category_id] = (spentByCat[tx.category_id] || 0) + Number(tx.amount);
+        }
+      }
+      setMonthSpent(spentByCat);
+    };
+
+    // 0. Cache em memória fresco (< 60s): resposta instantânea (0ms) ao trocar de tela
+    if (
+      !isTestEnv &&
+      memoryBootstrapCache &&
+      memoryBootstrapCache.workspaceId === ws.id &&
+      Date.now() - memoryBootstrapCache.timestamp < 60_000 &&
+      Array.isArray(memoryBootstrapCache.data?.accounts)
+    ) {
+      applyBootstrapPayload(memoryBootstrapCache.data, today);
+      setLoading(false);
+      hasLoaded.current = true;
+      return;
+    }
+
     // 1. Tenta carregar via API REST da VPS (PostgreSQL dedicado)
     try {
       const apiRes = await fetch(`/api/bootstrap?workspace_id=${encodeURIComponent(ws.id)}`);
       if (apiRes.ok) {
         const boot = await apiRes.json();
         if (boot && Array.isArray(boot.accounts)) {
-          setAccounts(boot.accounts || []);
-          setCategories(boot.categories || []);
-          setCards(boot.cards || []);
-          setInvoices(boot.invoices || []);
-          setBudgets(boot.budgets || []);
-          setGoals(boot.goals || []);
-          setDebts(boot.debts || []);
-          setInvestmentAssets(boot.investments || []);
-          setWorkspaceUsers(boot.workspace_users || []);
-          if (boot.alert_preferences) setAlertPrefs(boot.alert_preferences);
-          if (boot.workspace_preferences) {
-            setWorkspacePrefs(boot.workspace_preferences);
-            if (boot.workspace_preferences.default_cash_account_id) {
-              setDefaultCashAccountId(boot.workspace_preferences.default_cash_account_id);
-            }
-          }
-          if (boot.commitments) setCommitments(boot.commitments);
-          if (boot.occurrences) setOccurrences(boot.occurrences);
-          if (boot.payslips && Array.isArray(boot.payslips)) {
-            setPayslips(boot.payslips.map((ps: import("./types").Payslip) => ({
-              ...ps,
-              gross_amount: Number(ps.gross_amount || 0),
-              discounts_amount: Number(ps.discounts_amount || 0),
-              net_amount: Number(ps.net_amount || 0),
-            })));
-          }
-
-          const allTx: Transaction[] = boot.transactions || [];
-          setTransactions(allTx);
-          setDashboardTransactions(allTx);
-          setTransactionTotal(allTx.length);
-          setTodayTransactions(allTx.filter((t: Transaction) => t.competence_date === today && t.status === "paid"));
-
-          const spentByCat: Record<string, number> = {};
-          const currentMonthPrefix = today.slice(0, 7);
-          for (const tx of allTx) {
-            if (tx.type === "expense" && tx.status === "paid" && tx.competence_date.startsWith(currentMonthPrefix) && tx.category_id) {
-              spentByCat[tx.category_id] = (spentByCat[tx.category_id] || 0) + Number(tx.amount);
-            }
-          }
-          setMonthSpent(spentByCat);
+          applyBootstrapPayload(boot, today);
           if (!isTestEnv) {
             memoryBootstrapCache = {
               workspaceId: ws.id,

@@ -417,6 +417,7 @@ try {
                     FROM credit_card_installments i
                     JOIN credit_card_purchases p ON p.id = i.purchase_id
                     WHERE i.workspace_id = ?
+                    AND (i.competence_date >= (CURRENT_DATE - INTERVAL '12 months')::date)
                     ORDER BY i.competence_date ASC, i.installment_number ASC
                 ");
                 $instStmt->execute([$workspaceId]);
@@ -1693,6 +1694,41 @@ try {
         $db->commit();
 
         echo json_encode(['success' => true, 'purchase_id' => $purchaseId, 'installments' => $installments]);
+        exit;
+    }
+
+    // 18.1 Data: Single Invoice Items (On-Demand)
+    if ($uri === '/cards/invoice-items' && $method === 'GET') {
+        $invoiceId = $_GET['invoice_id'] ?? null;
+        if (!$invoiceId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'invoice_id is required']);
+            exit;
+        }
+        $stmt = $db->prepare("
+            SELECT i.id, i.invoice_id, i.installment_number, i.amount, i.competence_date,
+                   p.description, p.installment_count
+            FROM credit_card_installments i
+            JOIN credit_card_purchases p ON p.id = i.purchase_id
+            WHERE i.invoice_id = ?
+            ORDER BY i.competence_date ASC, i.installment_number ASC
+        ");
+        $stmt->execute([$invoiceId]);
+        $rows = $stmt->fetchAll();
+        $items = [];
+        foreach ($rows as $inst) {
+            $items[] = [
+                'id' => $inst['id'],
+                'installment_number' => (int)$inst['installment_number'],
+                'amount' => (float)$inst['amount'],
+                'competence_date' => $inst['competence_date'],
+                'credit_card_purchases' => [
+                    'description' => $inst['description'],
+                    'installment_count' => (int)$inst['installment_count']
+                ]
+            ];
+        }
+        echo json_encode(['success' => true, 'items' => $items]);
         exit;
     }
 
