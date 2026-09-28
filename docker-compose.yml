@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:16-alpine
@@ -8,7 +6,7 @@ services:
     environment:
       - POSTGRES_DB=bsfinanceiro
       - POSTGRES_USER=bstrainer
-      - POSTGRES_PASSWORD=eTEklwZkO8dwrbazpVzeQpOXWwVraRcS7x48
+      - POSTGRES_PASSWORD=${BSFINANCEIRO_DB_PASSWORD:?Defina BSFINANCEIRO_DB_PASSWORD no ambiente da VPS}
     volumes:
       - bsfinanceiro-db-data:/var/lib/postgresql/data
       - ./database/full_production_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
@@ -41,7 +39,8 @@ services:
       - DB_PORT=5432
       - DB_NAME=bsfinanceiro
       - DB_USER=bstrainer
-      - DB_PASSWORD=eTEklwZkO8dwrbazpVzeQpOXWwVraRcS7x48
+      - DB_PASSWORD=${BSFINANCEIRO_DB_PASSWORD:?Defina BSFINANCEIRO_DB_PASSWORD no ambiente da VPS}
+      - APP_AUTH_SECRET=${APP_AUTH_SECRET:-}
     volumes:
       - /opt/backups/bsfinanceiro:/opt/backups/bsfinanceiro:ro
     restart: unless-stopped

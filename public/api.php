@@ -3,7 +3,7 @@
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Shortcut-Token, X-Idempotency-Key');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -19,7 +19,13 @@ function getDb() {
     $port = getenv('DB_PORT') ?: '5432';
     $dbname = getenv('DB_NAME') ?: 'bsfinanceiro';
     $user = getenv('DB_USER') ?: 'bstrainer';
-    $pass = getenv('DB_PASSWORD') ?: getenv('DB_PASS') ?: 'eTEklwZkO8dwrbazpVzeQpOXWwVraRcS7x48';
+    $pass = getenv('DB_PASSWORD') ?: getenv('DB_PASS');
+
+    if (!$pass) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database password is not configured.']);
+        exit;
+    }
 
     try {
         $dsn = "pgsql:host=$host;port=$port;dbname=$dbname";
@@ -33,6 +39,109 @@ function getDb() {
         echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
         exit;
     }
+}
+
+function base64UrlEncode(string $value): string {
+    return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+}
+
+function base64UrlDecode(string $value): string|false {
+    $padding = strlen($value) % 4;
+    if ($padding) $value .= str_repeat('=', 4 - $padding);
+    return base64_decode(strtr($value, '-_', '+/'), true);
+}
+
+function authSecret(): string {
+    $secret = getenv('APP_AUTH_SECRET') ?: getenv('DB_PASSWORD') ?: getenv('DB_PASS');
+    if (!$secret || strlen($secret) < 32) {
+        http_response_code(500);
+        echo json_encode(['error' => 'APP_AUTH_SECRET is not configured securely.']);
+        exit;
+    }
+    return $secret;
+}
+
+function issueAuthToken(string $userId, string $email): string {
+    $payload = base64UrlEncode(json_encode([
+        'uid' => $userId,
+        'email' => $email,
+        'exp' => time() + 86400 * 30,
+    ], JSON_UNESCAPED_SLASHES));
+    $signature = base64UrlEncode(hash_hmac('sha256', $payload, authSecret(), true));
+    return $payload . '.' . $signature;
+}
+
+function readAuthToken(): ?string {
+    $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (preg_match('/Bearer\s+(.+)$/i', $header, $matches)) {
+        return trim($matches[1]);
+    }
+    return null;
+}
+
+function requireSessionUser(PDO $db): array {
+    $token = readAuthToken();
+    if (!$token || !str_contains($token, '.')) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Sessão inválida. Entre novamente no BS Financeiro.']);
+        exit;
+    }
+
+    [$payloadPart, $signaturePart] = explode('.', $token, 2);
+    $expected = base64UrlEncode(hash_hmac('sha256', $payloadPart, authSecret(), true));
+    if (!hash_equals($expected, $signaturePart)) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Sessão inválida. Entre novamente no BS Financeiro.']);
+        exit;
+    }
+
+    $decoded = base64UrlDecode($payloadPart);
+    $payload = $decoded ? json_decode($decoded, true) : null;
+    if (!is_array($payload) || empty($payload['uid']) || ($payload['exp'] ?? 0) < time()) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Sessão expirada. Entre novamente no BS Financeiro.']);
+        exit;
+    }
+
+    $stmt = $db->prepare('SELECT id, email, display_name FROM users WHERE id = ? LIMIT 1');
+    $stmt->execute([$payload['uid']]);
+    $user = $stmt->fetch();
+    if (!$user) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Usuário da sessão não encontrado.']);
+        exit;
+    }
+    return $user;
+}
+
+function ensureShortcutSchema(PDO $db): void {
+    $db->exec("CREATE TABLE IF NOT EXISTS shortcut_devices (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        token_hash CHAR(64) UNIQUE NOT NULL,
+        token_hint VARCHAR(20),
+        default_account_id UUID REFERENCES accounts(id) ON DELETE SET NULL,
+        default_category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+        active BOOLEAN NOT NULL DEFAULT true,
+        last_used_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )");
+    $db->exec("CREATE TABLE IF NOT EXISTS shortcut_request_log (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        device_id UUID NOT NULL REFERENCES shortcut_devices(id) ON DELETE CASCADE,
+        request_key VARCHAR(120) NOT NULL,
+        response_json JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (device_id, request_key)
+    )");
+}
+
+function shortcutBearerToken(): ?string {
+    $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (preg_match('/Bearer\s+(.+)$/i', $header, $matches)) return trim($matches[1]);
+    return $_SERVER['HTTP_X_SHORTCUT_TOKEN'] ?? null;
 }
 
 $uri = $_SERVER['REQUEST_URI'];
@@ -139,7 +248,7 @@ try {
             'success' => true,
             'user' => $user,
             'workspace' => $workspace,
-            'token' => base64_encode(json_encode(['uid' => $userId, 'email' => $email, 'exp' => time() + 86400 * 30]))
+            'token' => issueAuthToken($userId, $email)
         ]);
         exit;
     }
@@ -178,7 +287,7 @@ try {
                 'display_name' => $user['display_name']
             ],
             'workspace' => $workspace,
-            'token' => base64_encode(json_encode(['uid' => $user['id'], 'email' => $user['email'], 'exp' => time() + 86400 * 30]))
+            'token' => issueAuthToken($user['id'], $user['email'])
         ]);
         exit;
     }
@@ -542,25 +651,102 @@ try {
         exit;
     }
 
-    // 5.1 Shortcuts & Siri Integration
-    if ($uri === '/shortcuts' && $method === 'POST') {
-        $defaultToken = getenv('SHORTCUTS_API_KEY') ?: 'bsf_shortcut_token_2026';
-        $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-        $bearerToken = '';
-        if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
-            $bearerToken = trim($matches[1]);
-        }
-        $headerToken = $_SERVER['HTTP_X_SHORTCUT_TOKEN'] ?? '';
-        $queryToken = $_GET['token'] ?? '';
-        $bodyToken = $body['token'] ?? '';
-        $providedToken = $bearerToken ?: ($headerToken ?: ($queryToken ?: $bodyToken));
+    // 5.1 Dispositivos autorizados para Atalhos/Siri
+    if ($uri === '/shortcut-devices' && $method === 'GET') {
+        ensureShortcutSchema($db);
+        $user = requireSessionUser($db);
+        $stmt = $db->prepare("SELECT id, workspace_id, name, token_hint, default_account_id, default_category_id, active, last_used_at, created_at
+                              FROM shortcut_devices WHERE owner_id = ? ORDER BY created_at DESC");
+        $stmt->execute([$user['id']]);
+        echo json_encode(['success' => true, 'devices' => $stmt->fetchAll()]);
+        exit;
+    }
 
-        if ($providedToken !== $defaultToken) {
+    if ($uri === '/shortcut-devices' && $method === 'POST') {
+        ensureShortcutSchema($db);
+        $user = requireSessionUser($db);
+        $name = trim($body['name'] ?? 'iPhone');
+        $workspaceId = $body['workspace_id'] ?? null;
+        $accountId = !empty($body['default_account_id']) ? $body['default_account_id'] : null;
+        $categoryId = !empty($body['default_category_id']) ? $body['default_category_id'] : null;
+
+        if (!$workspaceId) {
+            $stmt = $db->prepare("SELECT id FROM workspaces WHERE owner_id = ? ORDER BY created_at ASC LIMIT 1");
+            $stmt->execute([$user['id']]);
+            $workspaceId = $stmt->fetchColumn() ?: null;
+        }
+        $stmt = $db->prepare("SELECT id FROM workspaces WHERE id = ? AND owner_id = ? LIMIT 1");
+        $stmt->execute([$workspaceId, $user['id']]);
+        if (!$stmt->fetchColumn()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'Workspace não pertence ao usuário autenticado.']);
+            exit;
+        }
+
+        if ($accountId) {
+            $stmt = $db->prepare("SELECT id FROM accounts WHERE id = ? AND workspace_id = ? AND owner_id = ? AND active = true");
+            $stmt->execute([$accountId, $workspaceId, $user['id']]);
+            if (!$stmt->fetchColumn()) $accountId = null;
+        }
+        if (!$accountId) {
+            $stmt = $db->prepare("SELECT COALESCE(
+                (SELECT default_cash_account_id FROM workspace_preferences WHERE workspace_id = ? AND owner_id = ? LIMIT 1),
+                (SELECT id FROM accounts WHERE workspace_id = ? AND owner_id = ? AND active = true AND is_system = false ORDER BY created_at ASC LIMIT 1)
+            )");
+            $stmt->execute([$workspaceId, $user['id'], $workspaceId, $user['id']]);
+            $accountId = $stmt->fetchColumn() ?: null;
+        }
+        if (!$accountId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Cadastre ou selecione uma conta padrão antes de criar o atalho.']);
+            exit;
+        }
+
+        $rawToken = 'bsf_sk_' . base64UrlEncode(random_bytes(32));
+        $tokenHash = hash('sha256', $rawToken);
+        $tokenHint = substr($rawToken, -8);
+        $stmt = $db->prepare("INSERT INTO shortcut_devices
+            (owner_id, workspace_id, name, token_hash, token_hint, default_account_id, default_category_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id, workspace_id, name, token_hint, default_account_id, default_category_id, active, created_at");
+        $stmt->execute([$user['id'], $workspaceId, $name ?: 'iPhone', $tokenHash, $tokenHint, $accountId, $categoryId]);
+        echo json_encode(['success' => true, 'device' => $stmt->fetch(), 'token' => $rawToken]);
+        exit;
+    }
+
+    if ($uri === '/shortcut-devices' && $method === 'DELETE') {
+        ensureShortcutSchema($db);
+        $user = requireSessionUser($db);
+        $deviceId = $_GET['id'] ?? $body['id'] ?? null;
+        if (!$deviceId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'ID do dispositivo é obrigatório.']);
+            exit;
+        }
+        $stmt = $db->prepare("DELETE FROM shortcut_devices WHERE id = ? AND owner_id = ?");
+        $stmt->execute([$deviceId, $user['id']]);
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    // 5.2 Registro rápido via dispositivo autorizado
+    if ($uri === '/shortcuts' && $method === 'POST') {
+        ensureShortcutSchema($db);
+        $providedToken = shortcutBearerToken() ?: ($_GET['token'] ?? ($body['token'] ?? null));
+        if (!$providedToken) {
             http_response_code(401);
-            echo json_encode([
-                'success' => false,
-                'error' => 'Token de autorização inválido ou ausente. Verifique a chave configurada no seu Atalho.'
-            ]);
+            echo json_encode(['success' => false, 'error' => 'Token do dispositivo ausente.']);
+            exit;
+        }
+
+        $stmt = $db->prepare("SELECT id, owner_id, workspace_id, default_account_id, default_category_id
+                              FROM shortcut_devices
+                              WHERE token_hash = ? AND active = true
+                              LIMIT 1");
+        $stmt->execute([hash('sha256', $providedToken)]);
+        $device = $stmt->fetch();
+        if (!$device) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'Dispositivo não autorizado ou token revogado.']);
             exit;
         }
 
@@ -569,14 +755,27 @@ try {
         $type = ($body['type'] ?? 'expense') === 'income' ? 'income' : 'expense';
         $installments = max(1, min(60, (int)($body['installments'] ?? 1)));
         $startDate = $body['date'] ?? date('Y-m-d');
-        $workspaceId = $body['workspace_id'] ?? null;
-        $ownerId = $body['owner_id'] ?? null;
-        $accountId = $body['account_id'] ?? null;
-        $categoryId = $body['category_id'] ?? null;
+        $workspaceId = $device['workspace_id'];
+        $ownerId = $device['owner_id'];
+        $accountId = $device['default_account_id'];
+        $categoryId = !empty($body['category_id']) ? $body['category_id'] : $device['default_category_id'];
+        $requestKey = trim($_SERVER['HTTP_X_IDEMPOTENCY_KEY'] ?? ($body['request_id'] ?? ''));
+
+        if ($requestKey !== '') {
+            $stmt = $db->prepare("SELECT response_json FROM shortcut_request_log WHERE device_id = ? AND request_key = ? LIMIT 1");
+            $stmt->execute([$device['id'], $requestKey]);
+            $existing = $stmt->fetchColumn();
+            if ($existing) {
+                echo $existing;
+                exit;
+            }
+        }
 
         if (isset($body['amount']) && is_string($body['amount'])) {
             $cleaned = preg_replace('/[^\d,.]/', '', $body['amount']);
-            $cleaned = str_replace('.', '', $cleaned);
+            if (str_contains($cleaned, ',') && str_contains($cleaned, '.')) {
+                $cleaned = str_replace('.', '', $cleaned);
+            }
             $cleaned = str_replace(',', '.', $cleaned);
             $amount = (float)$cleaned;
         }
@@ -587,67 +786,71 @@ try {
             exit;
         }
 
-        if (!$workspaceId) {
-            $stmt = $db->query("SELECT id, owner_id FROM workspaces ORDER BY created_at ASC LIMIT 1");
-            $ws = $stmt->fetch();
-            if ($ws) {
-                $workspaceId = $ws['id'];
-                $ownerId = $ownerId ?: $ws['owner_id'];
-            }
+        $stmt = $db->prepare("SELECT id FROM accounts WHERE id = ? AND workspace_id = ? AND owner_id = ? AND active = true LIMIT 1");
+        $stmt->execute([$accountId, $workspaceId, $ownerId]);
+        if (!$stmt->fetchColumn()) {
+            http_response_code(409);
+            echo json_encode(['success' => false, 'error' => 'A conta padrão deste dispositivo não está mais disponível.']);
+            exit;
         }
 
-        if (!$accountId && $workspaceId) {
-            $stmt = $db->prepare("SELECT id FROM accounts WHERE workspace_id = ? ORDER BY created_at ASC LIMIT 1");
-            $stmt->execute([$workspaceId]);
-            $accountId = $stmt->fetchColumn() ?: null;
+        if ($categoryId) {
+            $stmt = $db->prepare("SELECT id FROM categories WHERE id = ? AND workspace_id = ? AND owner_id = ? AND kind = ? LIMIT 1");
+            $stmt->execute([$categoryId, $workspaceId, $ownerId, $type]);
+            if (!$stmt->fetchColumn()) $categoryId = null;
         }
 
-        if (!$categoryId && $workspaceId) {
+        if (!$categoryId) {
             $descLower = mb_strtolower($description, 'UTF-8');
-            $stmt = $db->prepare("SELECT id, name FROM categories WHERE workspace_id = ? AND kind = ?");
-            $stmt->execute([$workspaceId, $type]);
-            $cats = $stmt->fetchAll();
-            foreach ($cats as $c) {
-                $catLower = mb_strtolower($c['name'], 'UTF-8');
+            $stmt = $db->prepare("SELECT id, name FROM categories WHERE workspace_id = ? AND owner_id = ? AND kind = ?");
+            $stmt->execute([$workspaceId, $ownerId, $type]);
+            foreach ($stmt->fetchAll() as $category) {
+                $catLower = mb_strtolower($category['name'], 'UTF-8');
                 if (strpos($descLower, $catLower) !== false || strpos($catLower, $descLower) !== false) {
-                    $categoryId = $c['id'];
+                    $categoryId = $category['id'];
                     break;
                 }
             }
         }
 
-        $stmt = $db->prepare("INSERT INTO transactions 
-            (workspace_id, owner_id, account_id, destination_account_id, category_id, type, description, amount, interest_amount, competence_date, paid_at, status)
-            VALUES (?, ?, ?, NULL, ?, ?, ?, ?, 0, ?, ?, 'paid') RETURNING *");
+        $db->beginTransaction();
+        $stmt = $db->prepare("INSERT INTO transactions
+            (workspace_id, owner_id, account_id, destination_account_id, category_id, type, description, amount, interest_amount,
+             competence_date, paid_at, status, installment_current, installment_total)
+            VALUES (?, ?, ?, NULL, ?, ?, ?, ?, 0, ?, ?, 'paid', ?, ?) RETURNING id");
 
-        $inserted = [];
+        $insertedIds = [];
         $installmentAmount = round($amount / $installments, 2);
         $centsDiff = round($amount - ($installmentAmount * $installments), 2);
-
         for ($i = 1; $i <= $installments; $i++) {
             $curAmount = ($i === 1) ? ($installmentAmount + $centsDiff) : $installmentAmount;
             $curDesc = ($installments > 1) ? "{$description} ({$i}/{$installments})" : $description;
-            
-            if ($i === 1) {
-                $curDate = $startDate;
-            } else {
-                $time = strtotime($startDate . " +" . ($i - 1) . " month");
-                $curDate = date('Y-m-d', $time);
-            }
-
-            $stmt->execute([$workspaceId, $ownerId, $accountId, $categoryId, $type, $curDesc, $curAmount, $curDate, $curDate]);
-            $inserted[] = $stmt->fetch();
+            $curDate = $i === 1 ? $startDate : date('Y-m-d', strtotime($startDate . " +" . ($i - 1) . " month"));
+            $stmt->execute([$workspaceId, $ownerId, $accountId, $categoryId, $type, $curDesc, $curAmount, $curDate, $curDate, $i, $installments]);
+            $insertedIds[] = $stmt->fetchColumn();
         }
 
-        echo json_encode([
+        $db->prepare("UPDATE shortcut_devices SET last_used_at = NOW() WHERE id = ?")->execute([$device['id']]);
+        $response = [
             'success' => true,
-            'count' => count($inserted),
+            'count' => count($insertedIds),
+            'transaction_ids' => $insertedIds,
             'amount' => $amount,
             'installments' => $installments,
-            'message' => $installments > 1 
+            'message' => $installments > 1
                 ? "{$installments} parcelas de {$description} registradas com sucesso!"
                 : "{$description} de R$ " . number_format($amount, 2, ',', '.') . " registrado com sucesso!"
-        ]);
+        ];
+
+        if ($requestKey !== '') {
+            $stmt = $db->prepare("INSERT INTO shortcut_request_log (device_id, request_key, response_json)
+                                  VALUES (?, ?, ?::jsonb)
+                                  ON CONFLICT (device_id, request_key) DO NOTHING");
+            $stmt->execute([$device['id'], $requestKey, json_encode($response, JSON_UNESCAPED_UNICODE)]);
+        }
+        $db->commit();
+
+        echo json_encode($response, JSON_UNESCAPED_UNICODE);
         exit;
     }
 
