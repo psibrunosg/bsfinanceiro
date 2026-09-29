@@ -14,32 +14,7 @@ import { useCurrentUser } from "./components/useCurrentUser";
 import { addMonths } from "@/lib/finance/local-date";
 import { aggregateExpensesByCategory, computeMonthlyFlow, lastNMonths } from "@/lib/finance/aggregations";
 import { generateInsights } from "@/lib/finance/insights";
-import { InterestRadarWidget } from "./components/InterestRadarWidget";
-import { SubscriptionHubWidget } from "./components/SubscriptionHubWidget";
-import { InstallmentTimelineWidget } from "./components/InstallmentTimelineWidget";
-import { MicroExpenseRadarWidget } from "./components/MicroExpenseRadarWidget";
-import { HealthScoreWidget } from "./components/HealthScoreWidget";
-import { VisualizationsWidget } from "./components/VisualizationsWidget";
 import { AlertsWidget } from "./components/AlertsWidget";
-import { DebtPayoffWidget } from "./components/DebtPayoffWidget";
-import { GoalPlannerWidget } from "./components/GoalPlannerWidget";
-import { TaxRadarWidget } from "./components/TaxRadarWidget";
-import { ClinicBusinessWidget } from "./components/ClinicBusinessWidget";
-import { CoupleFinanceWidget } from "./components/CoupleFinanceWidget";
-import { ImpulseCalculatorWidget } from "./components/ImpulseCalculatorWidget";
-import { FireDashboardWidget } from "./components/FireDashboardWidget";
-import { ScenarioSimulatorWidget } from "./components/ScenarioSimulatorWidget";
-import { AcademicRoiWidget } from "./components/AcademicRoiWidget";
-import { EmergencyFundWidget } from "./components/EmergencyFundWidget";
-import { ExpenseReviewWidget } from "./components/ExpenseReviewWidget";
-import { FinancialCalendarWidget } from "./components/FinancialCalendarWidget";
-import { AnnualWrappedWidget } from "./components/AnnualWrappedWidget";
-import { FinancialAssistantWidget } from "./components/FinancialAssistantWidget";
-import { BankNotificationAssistantWidget } from "./components/BankNotificationAssistantWidget";
-import { ZeroBasedBudgetWidget } from "./components/ZeroBasedBudgetWidget";
-import { TravelSandboxWidget } from "./components/TravelSandboxWidget";
-import { WarrantyVaultWidget } from "./components/WarrantyVaultWidget";
-import { MilesTrackerWidget } from "./components/MilesTrackerWidget";
 
 const ASSET_TYPE_LABEL: Record<string, string> = {
   stock: "Ações",
@@ -63,7 +38,7 @@ function Trend({ pct }: { pct: number | null }) {
 }
 
 export function DashboardPage() {
-  const { workspace, accounts, transactions, invoices, categories, goals, occurrences, budgets, alertPrefs, loading, investmentAssets, investmentOperations, commitments = [], cashPosition, payslips = [] } = useFinance("dashboard");
+  const { workspace, accounts, transactions, invoices, categories, goals, occurrences, budgets, alertPrefs, loading, investmentAssets, investmentOperations, cashPosition } = useFinance("dashboard");
   const { month, nextMonth } = useMonth();
   const { displayName } = useCurrentUser();
   const assets = useMemo(() => investmentAssets || [], [investmentAssets]);
@@ -291,122 +266,6 @@ export function DashboardPage() {
         preferences={alertPrefs} 
       />
       
-      <VisualizationsWidget transactions={transactions} categories={categories} accounts={accounts} currentMonth={month} nextMonth={nextMonth} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <HealthScoreWidget
-        monthlyIncome={metrics.monthIncome}
-        monthlyExpenses={metrics.monthExpense}
-        availableCash={metrics.balance}
-        investedTotal={investments.total}
-      />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <InterestRadarWidget transactions={transactions} currentMonth={month} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <SubscriptionHubWidget transactions={transactions} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <InstallmentTimelineWidget invoices={invoices} transactions={transactions} currentMonth={month} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <MicroExpenseRadarWidget transactions={transactions} currentMonth={month} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <DebtPayoffWidget accounts={accounts} invoices={invoices} transactions={transactions} currentMonth={month} />
-    </div>
-
-    {goals.length > 0 && (
-      <div style={{ marginTop: '24px' }}>
-        <GoalPlannerWidget goals={goals} currentMonth={month} />
-      </div>
-    )}
-
-    <div style={{ marginTop: '24px' }}>
-      <TaxRadarWidget transactions={transactions} currentMonth={month} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <ClinicBusinessWidget transactions={transactions} currentMonth={month} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <CoupleFinanceWidget transactions={transactions} currentMonth={month} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <ImpulseCalculatorWidget payslips={payslips} transactions={transactions} selectedMonth={month} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <FireDashboardWidget monthlyExpenses={metrics.monthExpense} currentNetWorth={investments.total} currentMonth={month} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <ScenarioSimulatorWidget estimatedMonthlyIncome={metrics.monthIncome} estimatedMonthlyExpenses={metrics.monthExpense} currentBalance={metrics.balance} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <AcademicRoiWidget currentMonthlyIncome={metrics.monthIncome} currentMonth={month} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <EmergencyFundWidget monthlyFixedExpenses={metrics.monthExpense} initialFundBalance={Math.max(0, metrics.balance)} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <ExpenseReviewWidget transactions={transactions} currentMonth={month} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <FinancialCalendarWidget transactions={transactions} currentMonth={month} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <AnnualWrappedWidget transactions={transactions} year={parseInt(month.slice(0, 4), 10) || 2026} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <FinancialAssistantWidget
-        data={{
-          accounts,
-          categories,
-          transactions,
-          commitments: commitments.map((c) => ({
-            id: c.id,
-            description: c.description,
-            amount: Number(c.amount) || 0,
-            due_day: Number(c.due_day) || 1,
-          })),
-        }}
-      />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <BankNotificationAssistantWidget />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <ZeroBasedBudgetWidget monthlyIncome={metrics.monthIncome || 0} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <TravelSandboxWidget />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <WarrantyVaultWidget referenceDate={`${month}-15`} />
-    </div>
-
-    <div style={{ marginTop: '24px' }}>
-      <MilesTrackerWidget />
     </div>
 
     <div className="bento-row bento-row--2" style={{ marginTop: '24px' }}>

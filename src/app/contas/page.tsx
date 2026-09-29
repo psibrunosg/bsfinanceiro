@@ -1,2 +1,2 @@
-import { AccountsPage } from "../pages";
+import { AccountsPage } from "../AccountsPage";
 export default function Page() { return <AccountsPage />; }

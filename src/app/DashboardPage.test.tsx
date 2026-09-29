@@ -106,13 +106,17 @@ afterEach(() => {
 });
 
 describe("DashboardPage integration", () => {
-  it("renders dashboard header, metrics, and interest radar", async () => {
+  it("renders a concise dashboard with core metrics and summaries", async () => {
     renderDashboard();
 
     expect(screen.getByText(/Aqui está o resumo das suas finanças/i)).toBeDefined();
     expect(screen.getByText("Patrimônio líquido")).toBeDefined();
     expect(screen.getByText("Receitas")).toBeDefined();
     expect(screen.getByText("Despesas")).toBeDefined();
-    expect(screen.getByText("Radar de Juros & Custos Ocultos")).toBeDefined();
+    expect(screen.getByText("Investimentos")).toBeDefined();
+    expect(screen.getByText("Evolução do patrimônio")).toBeDefined();
+    expect(screen.getByText("Metas")).toBeDefined();
+    expect(screen.getByText("Transações recentes")).toBeDefined();
+    expect(screen.queryByText("Radar de Juros & Custos Ocultos")).toBeNull();
   });
 });

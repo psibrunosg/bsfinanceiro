@@ -19,7 +19,7 @@ const desktopLinks = [
   { href: "/relatorios/", label: "Relatórios", icon: ChartColumn },
   { href: "/saude/", label: "Saúde financeira", icon: Activity },
   { href: "/categorias/", label: "Categorias", icon: ReceiptText },
-  { href: "/configuracoes/", label: "Mais", icon: Menu },
+  { href: "/mais/", label: "Mais", icon: Menu },
 ];
 
 const COLLAPSE_KEY = "bsf-nav-collapsed";
@@ -111,7 +111,7 @@ export function Nav() {
       <Link href="/ganhos/" className={isLinkActive(pathname, "/ganhos/") ? "active" : ""}><TrendingUp aria-hidden="true" /><span>Ganhos</span></Link>
       <Link href="/movimentacoes/" className="mobile-add" aria-label="Adicionar movimentação"><CirclePlus aria-hidden="true" /></Link>
       <Link href="/gastos/" className={isLinkActive(pathname, "/gastos/") ? "active" : ""}><ReceiptText aria-hidden="true" /><span>Gastos</span></Link>
-      <Link href="/configuracoes/" className={isLinkActive(pathname, "/configuracoes/") ? "active" : ""}><Menu aria-hidden="true" /><span>Mais</span></Link>
+      <Link href="/mais/" className={isLinkActive(pathname, "/mais/") || isLinkActive(pathname, "/configuracoes/") ? "active" : ""}><Menu aria-hidden="true" /><span>Mais</span></Link>
     </nav>
   </>;
 }

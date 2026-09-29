@@ -1,2 +1,2 @@
-import { TransactionsPage } from "../pages";
+import { TransactionsPage } from "../TransactionsPage";
 export default function Page() { return <TransactionsPage />; }

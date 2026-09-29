@@ -1,2 +1,2 @@
-import { PlanningPage } from "../pages";
+import { PlanningPage } from "../PlanningPage";
 export default function Page() { return <PlanningPage />; }

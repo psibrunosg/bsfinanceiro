@@ -2,6 +2,9 @@
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useFinance } from "./useFinance";
+import { apiFetch } from "@/lib/api-client";
+
+vi.mock("@/lib/api-client", () => ({ apiFetch: vi.fn() }));
 
 type QueryState = {
   table: string;
@@ -230,6 +233,11 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 beforeEach(() => {
+  localStorage.setItem("bsfinanceiro_user", JSON.stringify({ id: "user-1", email: "qa@example.com" }));
+  localStorage.setItem("bsfinanceiro_workspace", JSON.stringify({ id: "workspace-1", name: "Pessoal", kind: "personal" }));
+  localStorage.setItem("bsfinanceiro_token", "test-token");
+  vi.mocked(apiFetch).mockRejectedValue(new Error("Forçar fallback legado neste conjunto de testes"));
+
   mocks.queries.length = 0;
   mocks.rpcMonths.length = 0;
   mocks.from.mockReset().mockImplementation(createQuery);

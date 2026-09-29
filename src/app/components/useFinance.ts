@@ -10,7 +10,6 @@ import {
   useState,
 } from "react";
 import { appPath } from "@/lib/app-path";
-import { createClient } from "@/lib/supabase/client";
 import { monthStart, nextMonthStart } from "./Money";
 import {
   monthStartsThroughDate,
@@ -129,6 +128,8 @@ interface BootstrapResponseData {
   transactions?: Transaction[];
   invoices?: Invoice[];
   payslips?: import("./types").Payslip[];
+  investment_operations?: import("./types").InvestmentOperation[];
+  workspace_invites?: import("./types").WorkspaceInvite[];
 }
 
 interface BootstrapCache {
@@ -148,7 +149,6 @@ export function useFinance(
   cardId?: string,
   options: UseFinanceOptions = {},
 ): FinanceData {
-  const supabase = useMemo(() => createClient(), []);
   const initialCache = !isTestEnv && memoryBootstrapCache ? memoryBootstrapCache.data : null;
   const [loading, setLoading] = useState(!initialCache);
   const [ownerId, setOwnerId] = useState<string | null>(() => {
@@ -244,38 +244,12 @@ export function useFinance(
       }
     }
 
-    if (!user) {
-      try {
-        const { data: userData } = await supabase.auth.getUser();
-        user = userData?.user ?? null;
-      } catch {}
-    }
-
-    if (!user) {
+    if (!user || !ws) {
       window.location.replace(appPath("/entrar"));
       return;
     }
 
     setOwnerId(user.id);
-
-    if (!ws) {
-      try {
-        const { data: workspaceData } = await supabase
-          .from("workspaces")
-          .select("id,name,kind")
-          .eq("owner_id", user.id)
-          .eq("kind", "personal")
-          .order("created_at")
-          .limit(1)
-          .maybeSingle();
-        ws = workspaceData;
-      } catch {}
-    }
-
-    if (!ws) {
-      window.location.replace(appPath("/onboarding"));
-      return;
-    }
 
     setWorkspace(ws);
 
@@ -290,7 +264,9 @@ export function useFinance(
       setGoals(boot.goals || []);
       setDebts(boot.debts || []);
       setInvestmentAssets(boot.investments || []);
+      setInvestmentOperations(boot.investment_operations || []);
       setWorkspaceUsers(boot.workspace_users || []);
+      setWorkspaceInvites(boot.workspace_invites || []);
       if (boot.alert_preferences) setAlertPrefs(boot.alert_preferences);
       if (boot.workspace_preferences) {
         setWorkspacePrefs(boot.workspace_preferences);
@@ -359,8 +335,12 @@ export function useFinance(
         }
       }
     } catch {
-      // API não disponível, segue para o Supabase como fallback
+      // Compatibilidade temporária: o fallback legado é carregado sob demanda.
     }
+
+    // O caminho principal da VPS não carrega mais o SDK Supabase no primeiro load.
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
 
     const [
       { data: accountRows },
@@ -730,7 +710,6 @@ export function useFinance(
     hasLoaded.current = true;
     setLoading(false);
   }, [
-    supabase,
     route,
     cardId,
     historyQuery,

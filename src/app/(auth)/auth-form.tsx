@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
-import { appPath, appUrl, LOGO_URL } from "@/lib/app-path";
-import { createClient } from "@/lib/supabase/client";
-import { authErrorMessage, authLoginErrorMessage, authSchema } from "@/lib/validation/auth";
+import { appPath, LOGO_URL } from "@/lib/app-path";
+import { authSchema } from "@/lib/validation/auth";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [state, setState] = useState<{ error?: string; success?: string }>(() => {
@@ -57,34 +56,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         }
       }
     } catch {
-      // API não respondeu ou ambiente sem backend — tenta Supabase
-    }
-
-    // 2. Fallback Supabase
-    let supabase;
-    try {
-      supabase = createClient();
-    } catch {
-      setState({ error: "O servico de acesso esta indisponivel. Tente novamente em alguns instantes." });
+      setState({ error: "O serviço de acesso está indisponível. Tente novamente em alguns instantes." });
       setPending(false);
       return;
     }
 
-    if (enter) {
-      const { error } = await supabase.auth.signInWithPassword(parsed.data);
-      if (error) setState({ error: authLoginErrorMessage(error) });
-      else window.location.replace(appPath("/"));
-    } else {
-      const { error } = await supabase.auth.signUp({
-        ...parsed.data,
-        options: { emailRedirectTo: appUrl("/auth/callback") },
-      });
-      setState(
-        error
-          ? { error: authErrorMessage(error) }
-          : { success: "Conta criada com sucesso! Você já pode entrar." },
-      );
-    }
+    setState({ error: "Não foi possível concluir o acesso. Tente novamente." });
     setPending(false);
   }
 

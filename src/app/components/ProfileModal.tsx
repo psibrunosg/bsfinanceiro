@@ -5,7 +5,6 @@ import { apiFetch } from "@/lib/api-client";
 import React, { useState, useEffect } from "react";
 import { User, Lock, X, Check, Loader2, LogOut, ShieldCheck, Briefcase, Calendar, Phone } from "lucide-react";
 import { appPath } from "@/lib/app-path";
-import { createClient } from "@/lib/supabase/client";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -185,16 +184,13 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
     }
   }
 
-  async function handleSignOut() {
-    try {
-      await createClient().auth.signOut();
-    } catch {}
+  function handleSignOut() {
     if (typeof window !== "undefined") {
       localStorage.removeItem("bsfinanceiro_user");
       localStorage.removeItem("bsfinanceiro_workspace");
       localStorage.removeItem("bsfinanceiro_token");
+      window.location.replace(appPath("/entrar"));
     }
-    window.location.replace(appPath("/entrar"));
   }
 
   return (
