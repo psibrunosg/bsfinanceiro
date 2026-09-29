@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
@@ -48,7 +50,7 @@ export function CategoriesPage() {
     if (!categoryId) return;
     setUncategorized((rows) => rows.filter((t) => t.id !== transactionId));
     try {
-      const res = await fetch("/api/transactions/categorize", {
+      const res = await apiFetch("/api/transactions/categorize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ transaction_id: transactionId, category_id: categoryId }),
@@ -79,7 +81,7 @@ export function CategoriesPage() {
     const color = form.get("color") || "#087f5b";
 
     try {
-      const res = await fetch("/api/categories", {
+      const res = await apiFetch("/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

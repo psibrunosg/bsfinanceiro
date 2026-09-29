@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import {
   useCallback,
   useEffect,
@@ -339,7 +341,7 @@ export function useFinance(
 
     // 1. Tenta carregar via API REST da VPS (PostgreSQL dedicado)
     try {
-      const apiRes = await fetch(`/api/bootstrap?workspace_id=${encodeURIComponent(ws.id)}`);
+      const apiRes = await apiFetch(`/api/bootstrap?workspace_id=${encodeURIComponent(ws.id)}`);
       if (apiRes.ok) {
         const boot = await apiRes.json();
         if (boot && Array.isArray(boot.accounts)) {

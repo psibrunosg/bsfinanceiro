@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useFinance } from "../components/useFinance";
 import { Nav } from "../components/Nav";
@@ -120,7 +122,7 @@ export default function InvestimentosPage() {
     if (!workspace) return;
     try {
       try {
-        const res = await fetch(`/api/bootstrap?workspace_id=${encodeURIComponent(workspace.id)}`);
+        const res = await apiFetch(`/api/bootstrap?workspace_id=${encodeURIComponent(workspace.id)}`);
         if (res.ok) {
           const boot = await res.json();
           if (boot.investments) {
@@ -229,7 +231,7 @@ export default function InvestimentosPage() {
 
   const loadBenchmarks = useCallback(async () => {
     try {
-      const res = await fetch("/api/investments/benchmarks");
+      const res = await apiFetch("/api/investments/benchmarks");
       if (res.ok) {
         const data = await res.json();
         if (data.benchmarks) {
@@ -246,8 +248,7 @@ export default function InvestimentosPage() {
       if (!workspace) return;
       setSyncingQuotes(true);
       try {
-        const res = await fetch(
-          `/api/investments/sync-quotes?workspace_id=${encodeURIComponent(workspace.id)}`
+        const res = await apiFetch(`/api/investments/sync-quotes?workspace_id=${encodeURIComponent(workspace.id)}`
         );
         if (res.ok) {
           const data = await res.json();
@@ -289,13 +290,13 @@ export default function InvestimentosPage() {
       const ticker = asset.ticker || asset.name;
       setMessage(`Buscando cotação de ${ticker} no mercado...`);
       try {
-        const res = await fetch(`/api/investments/quote?ticker=${encodeURIComponent(ticker)}`);
+        const res = await apiFetch(`/api/investments/quote?ticker=${encodeURIComponent(ticker)}`);
         if (res.ok) {
           const data = await res.json();
           if (data.quote) {
             const price = data.quote.price;
             const today = new Date().toISOString().slice(0, 10);
-            await fetch("/api/investments/quotes", {
+            await apiFetch("/api/investments/quotes", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -340,7 +341,7 @@ export default function InvestimentosPage() {
       setSearching(true);
       searchTimeoutRef.current = setTimeout(async () => {
         try {
-          const res = await fetch(`/api/investments/search?q=${encodeURIComponent(value.trim())}`);
+          const res = await apiFetch(`/api/investments/search?q=${encodeURIComponent(value.trim())}`);
           if (res.ok) {
             const data = await res.json();
             setSearchResults(data.results || []);
@@ -361,7 +362,7 @@ export default function InvestimentosPage() {
     setTickerQuery(result.ticker);
     setSearchResults([]);
     try {
-      const res = await fetch(`/api/investments/quote?ticker=${encodeURIComponent(result.ticker)}`);
+      const res = await apiFetch(`/api/investments/quote?ticker=${encodeURIComponent(result.ticker)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.quote) {
@@ -460,7 +461,7 @@ export default function InvestimentosPage() {
     const isShared = form.get("is_shared") === "on";
 
     try {
-      const res = await fetch("/api/investments/assets", {
+      const res = await apiFetch("/api/investments/assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -513,7 +514,7 @@ export default function InvestimentosPage() {
     const operation_date = String(form.get("operation_date") || "");
 
     try {
-      const res = await fetch("/api/investments/operations", {
+      const res = await apiFetch("/api/investments/operations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -561,7 +562,7 @@ export default function InvestimentosPage() {
     const quoteDate = String(form.get("quote_date") || "");
 
     try {
-      const res = await fetch("/api/investments/quotes", {
+      const res = await apiFetch("/api/investments/quotes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

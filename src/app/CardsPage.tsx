@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useSearchParams } from "next/navigation";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
@@ -123,7 +125,7 @@ function CardsPageInner() {
     const due_day = Number(form.get("due_day"));
 
     try {
-      const res = await fetch("/api/cards", {
+      const res = await apiFetch("/api/cards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -192,7 +194,7 @@ function CardsPageInner() {
     const due_day = Number(form.get("due_day"));
 
     try {
-      const res = await fetch("/api/cards", {
+      const res = await apiFetch("/api/cards", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

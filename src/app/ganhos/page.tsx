@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFinance } from "../components/useFinance";
 import { Nav } from "../components/Nav";
@@ -88,7 +90,7 @@ export default function GanhosPage() {
     if (!workspace) return;
     try {
       try {
-        const res = await fetch(`/api/bootstrap?workspace_id=${encodeURIComponent(workspace.id)}`);
+        const res = await apiFetch(`/api/bootstrap?workspace_id=${encodeURIComponent(workspace.id)}`);
         if (res.ok) {
           const boot = await res.json();
           if (boot.patients) {
@@ -335,7 +337,7 @@ export default function GanhosPage() {
   async function submitPatient(form: FormData) {
     const fullName = String(form.get("full_name") || "");
     try {
-      const res = await fetch("/api/patients", {
+      const res = await apiFetch("/api/patients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -374,7 +376,7 @@ export default function GanhosPage() {
     const notes = form.get("notes") ? String(form.get("notes")) : null;
 
     try {
-      const res = await fetch("/api/patient-earnings", {
+      const res = await apiFetch("/api/patient-earnings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -418,7 +420,7 @@ export default function GanhosPage() {
     const receivedDate = String(form.get("received_date") || "");
 
     try {
-      const res = await fetch("/api/patient-earnings/receive", {
+      const res = await apiFetch("/api/patient-earnings/receive", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -469,7 +471,7 @@ export default function GanhosPage() {
     }
 
     try {
-      const res = await fetch("/api/payslips", {
+      const res = await apiFetch("/api/payslips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -555,7 +557,7 @@ export default function GanhosPage() {
     const competence_date = form.get("competence_date");
 
     try {
-      const res = await fetch("/api/transactions", {
+      const res = await apiFetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

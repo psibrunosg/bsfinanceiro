@@ -3,7 +3,9 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { CardsPage } from "./CardsPage";
+import { apiFetch } from "@/lib/api-client";
 
+vi.mock("@/lib/api-client", () => ({ apiFetch: vi.fn() }));
 
 let mockSearchParams = new URLSearchParams("cardId=card-1");
 vi.mock("next/navigation", () => ({
@@ -50,10 +52,10 @@ describe("CardsPage card form", () => {
   it("allows opening the form and saving a new card", async () => {
     mockSearchParams = new URLSearchParams();
     
-    global.fetch = vi.fn().mockResolvedValue({
+    vi.mocked(apiFetch).mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ success: true })
-    });
+      json: () => Promise.resolve({ success: true }),
+    } as Response);
     
     render(<CardsPage />);
     
@@ -72,7 +74,7 @@ describe("CardsPage card form", () => {
     fireEvent.submit(limitInput.closest("form")!);
     
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith("/api/cards", expect.any(Object));
+      expect(apiFetch).toHaveBeenCalledWith("/api/cards", expect.any(Object));
     });
   });
 });

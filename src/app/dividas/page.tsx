@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState } from "react";
 import { useFinance } from "@/app/components/useFinance";
 import { Nav } from "@/app/components/Nav";
@@ -17,7 +19,7 @@ export default function DividasPage() {
   async function handleAddDebt(debt: Omit<import('@/app/components/types').Debt, 'id' | 'workspace_id' | 'created_at' | 'updated_at'>) {
     if (!workspace) return;
     try {
-      const res = await fetch("/api/debts", {
+      const res = await apiFetch("/api/debts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

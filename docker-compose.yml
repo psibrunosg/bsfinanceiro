@@ -41,6 +41,7 @@ services:
       - DB_USER=bstrainer
       - DB_PASSWORD=${BSFINANCEIRO_DB_PASSWORD:?Defina BSFINANCEIRO_DB_PASSWORD no ambiente da VPS}
       - APP_AUTH_SECRET=${APP_AUTH_SECRET:-}
+      - APP_ORIGIN=${APP_ORIGIN:-https://financeiro.bssaude.com.br}
     volumes:
       - /opt/backups/bsfinanceiro:/opt/backups/bsfinanceiro:ro
     restart: unless-stopped

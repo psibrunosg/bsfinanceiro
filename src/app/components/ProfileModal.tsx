@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import React, { useState, useEffect } from "react";
 import { User, Lock, X, Check, Loader2, LogOut, ShieldCheck, Briefcase, Calendar, Phone } from "lucide-react";
 import { appPath } from "@/lib/app-path";
@@ -55,7 +57,7 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
       }
 
       if (uid) {
-        fetch(`/api/profile?user_id=${encodeURIComponent(uid)}`)
+        apiFetch("/api/profile")
           .then((res) => res.json())
           .then((data) => {
             if (data.profile) {
@@ -88,7 +90,7 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
     }
 
     try {
-      const res = await fetch("/api/profile/update", {
+      const res = await apiFetch("/api/profile/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -140,8 +142,8 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
       return;
     }
 
-    if (newPassword.length < 6) {
-      setPasswordMsg({ type: "error", text: "A nova senha deve ter no mínimo 6 caracteres." });
+    if (newPassword.length < 8) {
+      setPasswordMsg({ type: "error", text: "A nova senha deve ter no mínimo 8 caracteres." });
       return;
     }
 
@@ -157,7 +159,7 @@ export function ProfileModal({ isOpen, onClose, userEmail, onProfileUpdated }: P
     }
 
     try {
-      const res = await fetch("/api/auth/change-password", {
+      const res = await apiFetch("/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
@@ -115,7 +117,7 @@ function TransactionsPageInner() {
     const installments = Math.max(1, parseInt(String(form.get("installments") || "1"), 10) || 1);
 
     try {
-      const res = await fetch("/api/transactions", {
+      const res = await apiFetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

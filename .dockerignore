@@ -1,0 +1,16 @@
+node_modules
+.next
+out
+test-results
+work
+.git
+.github
+e2e
+coverage
+*.log
+.env
+.env.*
+!.env.example
+tsconfig.tsbuildinfo
+.superpowers
+.claude

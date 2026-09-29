@@ -6,6 +6,9 @@ import ExpensesHubPage from "./page";
 import { createClient } from "@/lib/supabase/client";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { MonthProvider } from "../components/MonthContext";
+import { apiFetch } from "@/lib/api-client";
+
+vi.mock("@/lib/api-client", () => ({ apiFetch: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
@@ -31,6 +34,7 @@ describe("ExpensesHubPage recurrent form", () => {
     HTMLDialogElement.prototype.showModal = vi.fn();
     HTMLDialogElement.prototype.close = vi.fn();
     vi.resetAllMocks();
+    vi.mocked(apiFetch).mockRejectedValue(new Error("API indisponível"));
   });
   afterEach(() => {
     cleanup();
@@ -101,7 +105,7 @@ describe("ExpensesHubPage recurrent form", () => {
   });
 
   it("submits a new recurrent commitment via API when available", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (url: RequestInfo | URL) => {
+    vi.mocked(apiFetch).mockImplementation(async (url: RequestInfo | URL) => {
       const urlStr = String(url);
       if (urlStr.includes("/api/commitments")) {
         return {
@@ -160,7 +164,7 @@ describe("ExpensesHubPage recurrent form", () => {
     fireEvent.submit(amountInput.closest("form")!);
 
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith(
+      expect(apiFetch).toHaveBeenCalledWith(
         "/api/commitments",
         expect.objectContaining({
           method: "POST",
@@ -177,6 +181,5 @@ describe("ExpensesHubPage recurrent form", () => {
       expect(screen.getByRole("status").textContent).toContain("Compromisso criado.");
     });
 
-    fetchSpy.mockRestore();
   });
 });

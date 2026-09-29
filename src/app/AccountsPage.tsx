@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
@@ -137,7 +139,7 @@ export function AccountsPage() {
     try {
       // 1. Tenta salvar na API local da VPS
       try {
-        const res = await fetch("/api/accounts", {
+        const res = await apiFetch("/api/accounts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import React, { useState, useMemo, useEffect } from "react";
 import {
   X,
@@ -126,7 +128,7 @@ export function CardInvoicesModal({
     }
 
     try {
-      const res = await fetch("/api/cards/purchase", {
+      const res = await apiFetch("/api/cards/purchase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

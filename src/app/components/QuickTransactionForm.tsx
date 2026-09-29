@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import { addMonthsToDate, todayInSaoPaulo } from "@/lib/finance/local-date";
 import { createClient } from "@/lib/supabase/client";
@@ -102,7 +104,7 @@ export function QuickTransactionForm({
       if (typeof window !== "undefined" && !process.env.VITEST) {
         try {
           if (isCreditCard) {
-            const res = await fetch("/api/cards/purchase", {
+            const res = await apiFetch("/api/cards/purchase", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -121,7 +123,7 @@ export function QuickTransactionForm({
               saved = true;
             }
           } else {
-            const res = await fetch("/api/transactions", {
+            const res = await apiFetch("/api/transactions", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({

@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
@@ -30,7 +32,7 @@ export function SettingsPage() {
         const role = String(form.get("invite_role") || "editor");
 
         try {
-          const res = await fetch("/api/invites", {
+          const res = await apiFetch("/api/invites", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -78,7 +80,7 @@ export function SettingsPage() {
       };
 
       try {
-        const res = await fetch("/api/preferences", {
+        const res = await apiFetch("/api/preferences", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -114,7 +116,7 @@ export function SettingsPage() {
       if (form.has("default_category_id")) p.default_category_id = (form.get("default_category_id") as string) || null;
       
       try {
-        const res = await fetch("/api/preferences", {
+        const res = await apiFetch("/api/preferences", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFinance } from "../components/useFinance";
 import { Nav } from "../components/Nav";
@@ -90,7 +92,7 @@ export default function GastosPage() {
     if (!workspace) return;
     try {
       try {
-        const res = await fetch(`/api/bootstrap?workspace_id=${encodeURIComponent(workspace.id)}`);
+        const res = await apiFetch(`/api/bootstrap?workspace_id=${encodeURIComponent(workspace.id)}`);
         if (res.ok) {
           const boot = await res.json();
           if (boot.commitments) {
@@ -251,7 +253,7 @@ export default function GastosPage() {
     const competence_date = form.get("competence_date");
 
     try {
-      const res = await fetch("/api/transactions", {
+      const res = await apiFetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -303,7 +305,7 @@ export default function GastosPage() {
     const category_id = form.get("category_id") || null;
 
     try {
-      const res = await fetch("/api/commitments", {
+      const res = await apiFetch("/api/commitments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -350,7 +352,7 @@ export default function GastosPage() {
     const paid_on = new Date().toISOString().slice(0, 10);
 
     try {
-      const res = await fetch("/api/commitments/pay", {
+      const res = await apiFetch("/api/commitments/pay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

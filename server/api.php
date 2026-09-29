@@ -1,12 +1,22 @@
 <?php
 // BS Financeiro - REST API (PostgreSQL na VPS)
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Shortcut-Token, X-Idempotency-Key');
 
+$allowedOrigin = getenv('APP_ORIGIN') ?: '';
+$requestOrigin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if ($allowedOrigin !== '' && $requestOrigin === $allowedOrigin) {
+    header('Access-Control-Allow-Origin: ' . $allowedOrigin);
+    header('Vary: Origin');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+    if ($requestOrigin !== '' && ($allowedOrigin === '' || $requestOrigin !== $allowedOrigin)) {
+        http_response_code(403);
+        exit;
+    }
+    http_response_code(204);
     exit;
 }
 
@@ -35,8 +45,9 @@ function getDb() {
         ]);
         return $pdo;
     } catch (PDOException $e) {
+        error_log('BS Financeiro database connection failed: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
+        echo json_encode(['error' => 'Não foi possível conectar ao banco de dados.']);
         exit;
     }
 }
@@ -114,6 +125,60 @@ function requireSessionUser(PDO $db): array {
     return $user;
 }
 
+function requireWorkspaceAccess(PDO $db, string $userId, string $workspaceId): void {
+    $stmt = $db->prepare(
+        'SELECT w.id
+         FROM workspaces w
+         LEFT JOIN workspace_users wu
+           ON wu.workspace_id = w.id AND wu.user_id = ?
+         WHERE w.id = ? AND (w.owner_id = ? OR wu.user_id IS NOT NULL)
+         LIMIT 1'
+    );
+    $stmt->execute([$userId, $workspaceId, $userId]);
+    if (!$stmt->fetchColumn()) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Você não tem acesso a este espaço financeiro.']);
+        exit;
+    }
+}
+
+function requireResourceWorkspaceAccess(
+    PDO $db,
+    string $userId,
+    string $table,
+    string $resourceId
+): string {
+    $allowedTables = [
+        'accounts',
+        'categories',
+        'credit_cards',
+        'credit_card_invoices',
+        'transactions',
+        'debts',
+        'fixed_commitments',
+        'fixed_commitment_occurrences',
+        'patients',
+        'patient_earnings',
+        'financial_goals',
+        'investment_assets',
+    ];
+    if (!in_array($table, $allowedTables, true)) {
+        throw new RuntimeException('Tabela de autorização inválida.');
+    }
+
+    $stmt = $db->prepare("SELECT workspace_id FROM {$table} WHERE id = ? LIMIT 1");
+    $stmt->execute([$resourceId]);
+    $workspaceId = $stmt->fetchColumn();
+    if (!$workspaceId) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Recurso não encontrado.']);
+        exit;
+    }
+
+    requireWorkspaceAccess($db, $userId, (string)$workspaceId);
+    return (string)$workspaceId;
+}
+
 function ensureShortcutSchema(PDO $db): void {
     $db->exec("CREATE TABLE IF NOT EXISTS shortcut_devices (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -167,6 +232,7 @@ try {
 
     // 1.1 Backup Status
     if ($uri === '/backup-status' && $method === 'GET') {
+        requireSessionUser($db);
         $statusFile = '/opt/backups/bsfinanceiro/latest.json';
         if (file_exists($statusFile)) {
             $data = json_decode(file_get_contents($statusFile), true);
@@ -183,9 +249,9 @@ try {
         $password = $body['password'] ?? '';
         $name = trim($body['name'] ?? explode('@', $email)[0]);
 
-        if (empty($email) || empty($password) || strlen($password) < 6) {
+        if (empty($email) || empty($password) || strlen($password) < 8) {
             http_response_code(400);
-            echo json_encode(['error' => 'E-mail e senha (mínimo 6 caracteres) são obrigatórios.', 'received' => $body, 'raw' => $rawInput]);
+            echo json_encode(['error' => 'E-mail e senha (mínimo 8 caracteres) são obrigatórios.']);
             exit;
         }
 
@@ -292,15 +358,30 @@ try {
         exit;
     }
 
+    // Todas as rotas abaixo são privadas, exceto o endpoint de captura rápida,
+    // que usa seu próprio token de dispositivo.
+    $sessionUser = null;
+    $isShortcutCapture = $uri === '/shortcuts' && $method === 'POST';
+    if (!$isShortcutCapture) {
+        $sessionUser = requireSessionUser($db);
+        // Identidade nunca é aceita do cliente em rotas privadas.
+        $body['owner_id'] = $sessionUser['id'];
+
+        $requestedWorkspaceId = $_GET['workspace_id'] ?? $body['workspace_id'] ?? null;
+        if (is_string($requestedWorkspaceId) && $requestedWorkspaceId !== '') {
+            requireWorkspaceAccess($db, $sessionUser['id'], $requestedWorkspaceId);
+        }
+    }
+
     // 3.1. Auth: Change Password
     if ($uri === '/auth/change-password' && $method === 'POST') {
-        $userId = $body['user_id'] ?? null;
+        $userId = $sessionUser['id'];
         $currentPassword = $body['current_password'] ?? '';
         $newPassword = $body['new_password'] ?? '';
 
-        if (!$userId || empty($currentPassword) || empty($newPassword) || strlen($newPassword) < 6) {
+        if (empty($currentPassword) || empty($newPassword) || strlen($newPassword) < 8) {
             http_response_code(400);
-            echo json_encode(['error' => 'Preencha a senha atual e a nova senha (mínimo 6 caracteres).']);
+            echo json_encode(['error' => 'Preencha a senha atual e a nova senha (mínimo 8 caracteres).']);
             exit;
         }
 
@@ -324,12 +405,7 @@ try {
 
     // 3.2. Profile: Get & Update Profile Customization
     if ($uri === '/profile' && $method === 'GET') {
-        $userId = $_GET['user_id'] ?? null;
-        if (!$userId) {
-            http_response_code(400);
-            echo json_encode(['error' => 'user_id is required']);
-            exit;
-        }
+        $userId = $sessionUser['id'];
 
         $stmt = $db->prepare("SELECT u.id, u.email, u.display_name, p.age, p.birth_date, p.profession, p.phone, p.avatar_color, p.theme_preference 
                               FROM users u LEFT JOIN profiles p ON p.id = u.id WHERE u.id = ?");
@@ -341,18 +417,12 @@ try {
     }
 
     if ($uri === '/profile/update' && $method === 'POST') {
-        $userId = $body['user_id'] ?? null;
+        $userId = $sessionUser['id'];
         $displayName = trim($body['display_name'] ?? '');
         $age = !empty($body['age']) ? (int)$body['age'] : null;
         $profession = trim($body['profession'] ?? '');
         $phone = trim($body['phone'] ?? '');
         $avatarColor = trim($body['avatar_color'] ?? '#8b5cf6');
-
-        if (!$userId) {
-            http_response_code(400);
-            echo json_encode(['error' => 'user_id is required']);
-            exit;
-        }
 
         if (!empty($displayName)) {
             $db->prepare("UPDATE users SET display_name = ? WHERE id = ?")->execute([$displayName, $userId]);
@@ -608,9 +678,25 @@ try {
 
         // If no account provided, pick the first available
         if (!$accountId) {
-            $stmt = $db->prepare("SELECT id FROM accounts WHERE workspace_id = ? LIMIT 1");
+            $stmt = $db->prepare("SELECT id FROM accounts WHERE workspace_id = ? AND active = true LIMIT 1");
             $stmt->execute([$workspaceId]);
             $accountId = $stmt->fetchColumn();
+        }
+
+        if (!$accountId || requireResourceWorkspaceAccess($db, $sessionUser['id'], 'accounts', $accountId) !== $workspaceId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'A conta não pertence ao espaço financeiro informado.']);
+            exit;
+        }
+        if ($destinationAccountId && requireResourceWorkspaceAccess($db, $sessionUser['id'], 'accounts', $destinationAccountId) !== $workspaceId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'A conta de destino não pertence ao mesmo espaço financeiro.']);
+            exit;
+        }
+        if ($categoryId && requireResourceWorkspaceAccess($db, $sessionUser['id'], 'categories', $categoryId) !== $workspaceId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'A categoria não pertence ao mesmo espaço financeiro.']);
+            exit;
         }
 
         $installments = max(1, (int)($body['installments'] ?? 1));
@@ -861,6 +947,7 @@ try {
             echo json_encode(['error' => 'ID da transação é obrigatório']);
             exit;
         }
+        requireResourceWorkspaceAccess($db, $sessionUser['id'], 'transactions', $id);
         $stmt = $db->prepare("DELETE FROM transactions WHERE id = ?");
         $stmt->execute([$id]);
         echo json_encode(['success' => true]);
@@ -1032,6 +1119,7 @@ try {
     // 10.1 Data: Update Card
     if (($uri === '/cards/update' || $uri === '/cards') && ($method === 'PUT' || $method === 'POST') && !empty($body['id'])) {
         $cardId = $body['id'];
+        requireResourceWorkspaceAccess($db, $sessionUser['id'], 'credit_cards', $cardId);
         $name = trim($body['name'] ?? '');
         $brand = !empty($body['brand']) ? $body['brand'] : null;
         $lastFour = !empty($body['last_four']) ? trim($body['last_four']) : null;
@@ -1059,6 +1147,7 @@ try {
     if ($uri === '/cards/delete' && $method === 'POST') {
         $cardId = $body['id'] ?? null;
         if ($cardId) {
+            requireResourceWorkspaceAccess($db, $sessionUser['id'], 'credit_cards', $cardId);
             $stmt = $db->prepare("DELETE FROM credit_cards WHERE id = ?");
             $stmt->execute([$cardId]);
         }
@@ -1077,6 +1166,13 @@ try {
         if (!$workspaceId || !$invoiceId || !$accountId) {
             http_response_code(400);
             echo json_encode(['error' => 'ID da fatura, workspace e conta pagadora são obrigatórios']);
+            exit;
+        }
+
+        $accountWorkspaceId = requireResourceWorkspaceAccess($db, $sessionUser['id'], 'accounts', $accountId);
+        if ($accountWorkspaceId !== $workspaceId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'A conta pagadora não pertence ao mesmo espaço financeiro.']);
             exit;
         }
 
@@ -1134,6 +1230,14 @@ try {
             exit;
         }
 
+        $txWorkspaceId = requireResourceWorkspaceAccess($db, $sessionUser['id'], 'transactions', $transactionId);
+        $categoryWorkspaceId = requireResourceWorkspaceAccess($db, $sessionUser['id'], 'categories', $categoryId);
+        if ($txWorkspaceId !== $categoryWorkspaceId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'A categoria não pertence ao mesmo espaço financeiro da transação.']);
+            exit;
+        }
+
         $stmt = $db->prepare("UPDATE transactions SET category_id = ? WHERE id = ? RETURNING *");
         $stmt->execute([$categoryId, $transactionId]);
         $tx = $stmt->fetch();
@@ -1176,6 +1280,7 @@ try {
             echo json_encode(['error' => 'ID da dívida é obrigatório']);
             exit;
         }
+        requireResourceWorkspaceAccess($db, $sessionUser['id'], 'debts', $id);
         $stmt = $db->prepare("DELETE FROM debts WHERE id = ?");
         $stmt->execute([$id]);
         echo json_encode(['success' => true]);
@@ -1226,6 +1331,7 @@ try {
             echo json_encode(['error' => 'ID do compromisso é obrigatório']);
             exit;
         }
+        requireResourceWorkspaceAccess($db, $sessionUser['id'], 'fixed_commitments', $id);
         $stmt = $db->prepare("UPDATE fixed_commitments SET active = false WHERE id = ?");
         $stmt->execute([$id]);
         $stmtDelOcc = $db->prepare("DELETE FROM fixed_commitment_occurrences WHERE commitment_id = ? AND status = 'pending'");
@@ -1255,6 +1361,13 @@ try {
         if (!$occ) {
             http_response_code(404);
             echo json_encode(['error' => 'Compromisso não encontrado']);
+            exit;
+        }
+        requireWorkspaceAccess($db, $sessionUser['id'], (string)$occ['workspace_id']);
+        $accountWorkspaceId = requireResourceWorkspaceAccess($db, $sessionUser['id'], 'accounts', $accountId);
+        if ($accountWorkspaceId !== (string)$occ['workspace_id']) {
+            http_response_code(400);
+            echo json_encode(['error' => 'A conta de pagamento não pertence ao mesmo espaço financeiro.']);
             exit;
         }
 
@@ -1365,6 +1478,13 @@ try {
         if (!$earning) {
             http_response_code(404);
             echo json_encode(['error' => 'Atendimento não encontrado']);
+            exit;
+        }
+        requireWorkspaceAccess($db, $sessionUser['id'], (string)$earning['workspace_id']);
+        $accountWorkspaceId = requireResourceWorkspaceAccess($db, $sessionUser['id'], 'accounts', $accountId);
+        if ($accountWorkspaceId !== (string)$earning['workspace_id']) {
+            http_response_code(400);
+            echo json_encode(['error' => 'A conta de recebimento não pertence ao mesmo espaço financeiro.']);
             exit;
         }
 
@@ -1726,9 +1846,19 @@ try {
             $ownerId = $stmt->fetchColumn();
         }
 
-        $stmtAsset = $db->prepare("SELECT name, ticker FROM investment_assets WHERE id = ?");
-        $stmtAsset->execute([$assetId]);
+        $stmtAsset = $db->prepare("SELECT name, ticker FROM investment_assets WHERE id = ? AND workspace_id = ?");
+        $stmtAsset->execute([$assetId, $workspaceId]);
         $asset = $stmtAsset->fetch();
+        if (!$asset) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Ativo não encontrado neste espaço financeiro.']);
+            exit;
+        }
+        if ($accountId && requireResourceWorkspaceAccess($db, $sessionUser['id'], 'accounts', $accountId) !== $workspaceId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'A conta não pertence ao mesmo espaço financeiro.']);
+            exit;
+        }
 
         $stmt = $db->prepare("INSERT INTO investment_operations (workspace_id, owner_id, asset_id, operation_type, quantity, unit_price, operation_date) 
             VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *");
@@ -1803,8 +1933,8 @@ try {
             $ownerId = $stmt->fetchColumn();
         }
 
-        $stmtCard = $db->prepare("SELECT id, account_id, closing_day, due_day, name FROM credit_cards WHERE id = ? OR account_id = ?");
-        $stmtCard->execute([$cardId, $cardId]);
+        $stmtCard = $db->prepare("SELECT id, account_id, closing_day, due_day, name FROM credit_cards WHERE workspace_id = ? AND (id = ? OR account_id = ?)");
+        $stmtCard->execute([$workspaceId, $cardId, $cardId]);
         $card = $stmtCard->fetch();
         if ($card) {
             $cardId = $card['id'];
@@ -1908,6 +2038,7 @@ try {
             echo json_encode(['error' => 'invoice_id is required']);
             exit;
         }
+        requireResourceWorkspaceAccess($db, $sessionUser['id'], 'credit_card_invoices', $invoiceId);
         $stmt = $db->prepare("
             SELECT i.id, i.invoice_id, i.installment_number, i.amount, i.competence_date,
                    p.description, p.installment_count
@@ -1953,6 +2084,12 @@ try {
             $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
             $stmt->execute([$workspaceId]);
             $ownerId = $stmt->fetchColumn();
+        }
+
+        if (requireResourceWorkspaceAccess($db, $sessionUser['id'], 'financial_goals', $goalId) !== $workspaceId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'A meta não pertence ao espaço financeiro informado.']);
+            exit;
         }
 
         $stmt = $db->prepare("INSERT INTO goal_contributions (workspace_id, owner_id, financial_goal_id, amount, note) 
@@ -2038,7 +2175,8 @@ try {
     http_response_code(404);
     echo json_encode(['error' => 'Rota não encontrada']);
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
+    error_log('BS Financeiro API error: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    echo json_encode(['error' => 'Ocorreu um erro interno. Tente novamente.']);
 }

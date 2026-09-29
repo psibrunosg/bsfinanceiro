@@ -9,4 +9,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["php", "-S", "0.0.0.0:8000", "public/api.php"]
+CMD ["php", "-S", "0.0.0.0:8000", "server/api.php"]

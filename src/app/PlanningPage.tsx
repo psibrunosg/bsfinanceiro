@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
@@ -36,7 +38,7 @@ function PlanningPageInner() {
     const amount = parseMoney(form.get("amount"));
 
     try {
-      const res = await fetch("/api/budgets", {
+      const res = await apiFetch("/api/budgets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -69,7 +71,7 @@ function PlanningPageInner() {
     const deadline = form.get("deadline") || null;
 
     try {
-      const res = await fetch("/api/goals", {
+      const res = await apiFetch("/api/goals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -109,7 +111,7 @@ function PlanningPageInner() {
     const note = form.get("note") ? String(form.get("note")) : "Aporte";
 
     try {
-      const res = await fetch("/api/goals/contributions", {
+      const res = await apiFetch("/api/goals/contributions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
