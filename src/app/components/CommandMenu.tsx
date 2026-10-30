@@ -1,133 +1,118 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+
+const ROUTES = [
+  { id: "dashboard", label: "Painel", href: "/" },
+  { id: "movimentacoes", label: "Movimentações", href: "/movimentacoes/" },
+  { id: "ganhos", label: "Ganhos", href: "/ganhos/" },
+  { id: "gastos", label: "Gastos", href: "/gastos/" },
+  { id: "contas", label: "Contas", href: "/contas/" },
+  { id: "cartoes", label: "Cartões", href: "/cartoes/" },
+  { id: "investimentos", label: "Investimentos", href: "/investimentos/" },
+  { id: "dividas", label: "Dívidas", href: "/dividas/" },
+  { id: "planejamento", label: "Planejamento", href: "/planejamento/" },
+  { id: "relatorios", label: "Relatórios", href: "/relatorios/" },
+  { id: "saude", label: "Saúde financeira", href: "/saude/" },
+  { id: "categorias", label: "Categorias", href: "/categorias/" },
+  { id: "mais", label: "Mais", href: "/mais/" },
+  { id: "configuracoes", label: "Configurações", href: "/configuracoes/" },
+] as const;
 
 export function CommandMenu() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ id: string; label: string; href: string }[]>([]);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((o) => !o);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setOpen((value) => !value);
+        return;
       }
-      
-      // se nÃ£o estÃ¡ em input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
-      if (e.key === "/") {
-        e.preventDefault();
-        setOpen(true);
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement
+      ) {
+        return;
       }
-      if (e.key.toLowerCase() === "n") {
-        e.preventDefault();
+
+      if (event.key === "/") {
+        event.preventDefault();
+        setOpen(true);
+      } else if (event.key.toLowerCase() === "n") {
+        event.preventDefault();
         router.push("/movimentacoes?new=1");
       }
     };
+
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [router]);
 
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-      setQuery("");
-      setResults([]);
-    }
+    if (!open) return;
+    setQuery("");
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 50);
+    return () => window.clearTimeout(timer);
   }, [open]);
 
-  useEffect(() => {
-    if (!open || query.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    let active = true;
-
-    async function search() {
-      // Very simple remote search over accounts and categories to avoid full state load
-      const term = `%${query}%`;
-      const [acc, cat] = await Promise.all([
-        supabase.from("accounts").select("id,name").ilike("name", term).limit(5),
-        supabase.from("categories").select("id,name").ilike("name", term).limit(5)
-      ]);
-
-      if (!active) return;
-
-      const items: { id: string; label: string; href: string }[] = [];
-      
-      if (acc.data) {
-        acc.data.forEach(a => items.push({ id: a.id, label: `Conta: ${a.name}`, href: "/contas/" }));
-      }
-      if (cat.data) {
-        cat.data.forEach(c => items.push({ id: c.id, label: `Categoria: ${c.name}`, href: "/categorias/" }));
-      }
-      
-      // Static routes
-      const staticRoutes = [
-        { id: "s1", label: "Ir para Dashboard", href: "/" },
-        { id: "s2", label: "Ir para Movimentações", href: "/movimentacoes/" },
-        { id: "s3", label: "Ir para Contas", href: "/contas/" },
-        { id: "s4", label: "Ir para Categorias", href: "/categorias/" },
-        { id: "s5", label: "Ir para Relatórios", href: "/relatorios/" },
-        { id: "s6", label: "Ir para Planejamento", href: "/planejamento/" },
-        { id: "s7", label: "Ir para Investimentos", href: "/investimentos/" }
-      ];
-
-      const filteredRoutes = staticRoutes.filter(r => r.label.toLowerCase().includes(query.toLowerCase()));
-      
-      setResults([...filteredRoutes, ...items]);
-    }
-
-    const t = setTimeout(search, 300);
-    return () => { active = false; clearTimeout(t); };
-  }, [query, open, supabase]);
+  const results = useMemo(() => {
+    const term = query.trim().toLocaleLowerCase("pt-BR");
+    if (!term) return ROUTES.slice(0, 7);
+    return ROUTES.filter((route) =>
+      route.label.toLocaleLowerCase("pt-BR").includes(term),
+    );
+  }, [query]);
 
   if (!open) return null;
 
   return (
     <div className="modal-backdrop" style={{ zIndex: 9999 }} onClick={() => setOpen(false)}>
-      <div className="modal-content command-menu" onClick={e => e.stopPropagation()} style={{ maxWidth: "600px", padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <input 
+      <div
+        className="modal-content command-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navegação rápida"
+        onClick={(event) => event.stopPropagation()}
+        style={{ maxWidth: "600px", padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}
+      >
+        <label htmlFor="command-menu-search" className="sr-only">Buscar área do BS Financeiro</label>
+        <input
+          id="command-menu-search"
           ref={inputRef}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Busque contas, categorias, transações ou digite um comando..."
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Busque uma área do BS Financeiro..."
           style={{ width: "100%", padding: "20px", border: "none", borderBottom: "1px solid var(--border)", fontSize: "1.1rem", background: "transparent", color: "var(--text)", outline: "none" }}
         />
-        <div style={{ maxHeight: "300px", overflowY: "auto" }}>
-          {results.length > 0 ? (
+        <div style={{ maxHeight: "340px", overflowY: "auto" }}>
+          {results.length ? (
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {results.map((r, i) => (
-                <li key={`${r.id}-${i}`}>
-                  <button 
-                    onClick={() => { router.push(r.href); setOpen(false); }}
-                    style={{ width: "100%", padding: "16px 20px", border: "none", borderBottom: "1px solid var(--border)", background: "transparent", color: "var(--text)", textAlign: "left", cursor: "pointer", transition: "background 0.2s" }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--surface-2)"}
-                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+              {results.map((result) => (
+                <li key={result.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      router.push(result.href);
+                      setOpen(false);
+                    }}
+                    style={{ width: "100%", padding: "16px 20px", border: "none", borderBottom: "1px solid var(--border)", background: "transparent", color: "var(--text)", textAlign: "left", cursor: "pointer" }}
                   >
-                    {r.label}
+                    {result.label}
                   </button>
                 </li>
               ))}
             </ul>
-          ) : query.length >= 2 ? (
-            <p style={{ padding: "20px", margin: 0, color: "var(--muted)", textAlign: "center" }}>Nenhum resultado encontrado.</p>
           ) : (
-            <div style={{ padding: "20px", color: "var(--muted)", fontSize: "0.9rem" }}>
-              <p style={{ margin: "0 0 10px 0" }}><strong>Dica de atalhos:</strong></p>
-              <ul style={{ margin: 0, paddingLeft: "20px" }}>
-                <li><kbd style={{ background: "var(--surface-2)", padding: "2px 6px", borderRadius: "4px" }}>N</kbd> Nova transaÃ§Ã£o</li>
-                <li><kbd style={{ background: "var(--surface-2)", padding: "2px 6px", borderRadius: "4px" }}>/</kbd> Abrir busca</li>
-                <li><kbd style={{ background: "var(--surface-2)", padding: "2px 6px", borderRadius: "4px" }}>Cmd + K</kbd> Abrir busca</li>
-              </ul>
-            </div>
+            <p style={{ padding: "20px", margin: 0, color: "var(--muted)", textAlign: "center" }}>
+              Nenhuma área encontrada.
+            </p>
           )}
         </div>
       </div>

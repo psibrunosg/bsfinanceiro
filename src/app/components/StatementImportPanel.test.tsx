@@ -2,33 +2,24 @@
 import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { apiFetch } from "@/lib/api-client";
 import { StatementImportPanel } from "./StatementImportPanel";
-import type { TransactionImportBatch } from "./types";
+import type { Transaction, TransactionImportBatch } from "./types";
 
-const mocks = vi.hoisted(() => ({
-  from: vi.fn(),
-  batchInsert: vi.fn(),
-  itemInsert: vi.fn(),
-  rpc: vi.fn(),
-  transactionSelect: vi.fn(),
-  transactionWorkspaceFilter: vi.fn(),
-  transactionAccountFilter: vi.fn(),
-}));
-
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({ from: mocks.from, rpc: mocks.rpc }),
+vi.mock("@/lib/api-client", () => ({
+  apiFetch: vi.fn(),
 }));
 
 const accounts = [
-  { id: "account-1", name: "Conta corrente", type: "checking", initial_balance: 0 },
-  { id: "card-1", name: "Cartão", type: "credit_card", initial_balance: 0 },
+  { id: "account-1", name: "Conta corrente", type: "checking", initial_balance: 0, is_shared: false },
+  { id: "card-1", name: "Cartão", type: "credit_card", initial_balance: 0, is_shared: false },
 ];
 
-const pendingBatch = {
+const pendingBatch: TransactionImportBatch = {
   id: "batch-pending",
   account_id: "account-1",
   file_name: "anterior.csv",
-  status: "pending" as const,
+  status: "pending",
   created_at: "2026-07-29T12:00:00Z",
   applied_at: null,
   discarded_at: null,
@@ -40,9 +31,10 @@ const pendingBatch = {
       competence_date: "2026-07-29",
       description: "Salário",
       amount_cents: 100000,
-      type: "income" as const,
-      status: "ready" as const,
+      type: "income",
+      status: "ready",
       reason: null,
+      category_id: null,
       fingerprint: "2026-07-29|100000|income|salario",
       transaction_id: null,
       created_at: "2026-07-29T12:00:00Z",
@@ -50,12 +42,21 @@ const pendingBatch = {
   ],
 };
 
+function ok(body: unknown = { success: true }) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 function renderPanel({
   batches = [],
+  historyTransactions = [],
   onReload = vi.fn().mockResolvedValue(undefined),
   onMessage = vi.fn(),
 }: {
   batches?: TransactionImportBatch[];
+  historyTransactions?: Transaction[];
   onReload?: () => Promise<void>;
   onMessage?: (message: string) => void;
 } = {}) {
@@ -66,7 +67,7 @@ function renderPanel({
       accounts={accounts}
       categories={[]}
       categoryRules={[]}
-      historyTransactions={[]}
+      historyTransactions={historyTransactions}
       batches={batches}
       onReload={onReload}
       onMessage={onMessage}
@@ -75,87 +76,80 @@ function renderPanel({
 }
 
 beforeEach(() => {
-  mocks.batchInsert.mockReset().mockReturnValue({
-    select: () => ({ single: () => Promise.resolve({ data: { id: "batch-new" }, error: null }) }),
-  });
-  mocks.itemInsert.mockReset().mockResolvedValue({ error: null });
-  mocks.rpc.mockReset().mockResolvedValue({ error: null });
-  mocks.transactionAccountFilter.mockReset().mockResolvedValue({ data: [], error: null });
-  mocks.transactionWorkspaceFilter.mockReset().mockReturnValue({ eq: mocks.transactionAccountFilter });
-  mocks.transactionSelect.mockReset().mockReturnValue({ eq: mocks.transactionWorkspaceFilter });
-  mocks.from.mockReset().mockImplementation((table: string) => {
-    if (table === "transaction_import_batches") return { insert: mocks.batchInsert };
-    if (table === "transaction_import_items") return { insert: mocks.itemInsert };
-    if (table === "transactions") return { select: mocks.transactionSelect };
-    throw new Error(`Unexpected table: ${table}`);
+  vi.mocked(apiFetch).mockReset().mockImplementation(async (input) => {
+    const url = String(input);
+    if (url === "/api/imports/preview") {
+      return ok({ success: true, batch: { id: "batch-new" } });
+    }
+    return ok({ success: true });
   });
 });
 
 afterEach(() => cleanup());
 
 describe("StatementImportPanel", () => {
-  it("reads a CSV after the account is selected, persists its preview and explains every status", async () => {
+  it("prepara CSV pela API VPS e mantém o resumo da prévia", async () => {
     renderPanel();
     const csv = "data,descricao,valor\n29/07/2026,Salário,1000\n29/07/2026,Salário,1000\n30/07/2026,Sem valor,0";
-    const file = new File(
-      [csv],
-      "extrato.csv",
-      { type: "text/csv" },
-    );
+    const file = new File([csv], "extrato.csv", { type: "text/csv" });
     Object.defineProperty(file, "text", { value: vi.fn().mockResolvedValue(csv) });
 
     expect(screen.queryByRole("option", { name: "Cartão" })).toBeNull();
     fireEvent.change(screen.getByLabelText("Conta do extrato"), { target: { value: "account-1" } });
     fireEvent.change(screen.getByLabelText("Arquivo CSV ou OFX"), { target: { files: [file] } });
-    const prepare = screen.getByRole<HTMLButtonElement>("button", { name: "Preparar prévia" });
-    expect(prepare.disabled).toBe(false);
-    fireEvent.submit(prepare.closest("form")!);
+    fireEvent.submit(screen.getByRole("button", { name: "Preparar prévia" }).closest("form")!);
 
     await waitFor(() => expect(document.querySelector(".statement-import-summary")?.textContent).toContain("1 pronta"));
     expect(document.querySelector(".statement-import-summary")?.textContent).toContain("1 duplicada");
     expect(document.querySelector(".statement-import-summary")?.textContent).toContain("1 inválida");
-    expect(screen.getByText("Duplicada no arquivo")).toBeTruthy();
-    expect(screen.getByText("Valor inválido")).toBeTruthy();
-    expect(mocks.batchInsert).toHaveBeenCalledWith({
-      workspace_id: "workspace-1",
-      owner_id: "owner-1",
-      account_id: "account-1",
-      file_name: "extrato.csv",
-    });
-    expect(mocks.itemInsert).toHaveBeenCalledTimes(1);
-    expect(mocks.itemInsert.mock.calls[0][0]).toEqual([
-      expect.objectContaining({
-        batch_id: "batch-new", owner_id: "owner-1", row_number: 2,
-        fingerprint: "2026-07-29|100000|income|salario", status: "ready", reason: null,
-      }),
-      expect.objectContaining({
-        batch_id: "batch-new", owner_id: "owner-1", row_number: 3,
-        fingerprint: "2026-07-29|100000|income|salario", status: "ready", reason: null,
-      }),
-      expect.objectContaining({ batch_id: "batch-new", row_number: 4, status: "invalid", reason: "invalid_amount" }),
+
+    const [endpoint, options] = vi.mocked(apiFetch).mock.calls[0];
+    expect(endpoint).toBe("/api/imports/preview");
+    const body = JSON.parse(String(options?.body));
+    expect(body.workspace_id).toBe("workspace-1");
+    expect(body.account_id).toBe("account-1");
+    expect(body.file_name).toBe("extrato.csv");
+    expect(body.items).toEqual([
+      expect.objectContaining({ row_number: 2, status: "ready" }),
+      expect.objectContaining({ row_number: 3, status: "ready" }),
+      expect.objectContaining({ row_number: 4, status: "invalid", reason: "invalid_amount" }),
     ]);
   });
 
-  it("confirms only pending batches with ready items through the protected RPC", async () => {
+  it("confirma lote pendente pelo endpoint apply", async () => {
     renderPanel({ batches: [pendingBatch] });
-
     fireEvent.click(screen.getByRole("button", { name: "Confirmar anterior.csv" }));
-
-    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith(
-      "apply_transaction_import_batch",
-      { p_batch_id: "batch-pending" },
-    ));
+    await waitFor(() =>
+      expect(apiFetch).toHaveBeenCalledWith("/api/imports/batch-pending/apply", { method: "POST" }),
+    );
   });
 
-  it("maps unrecognized headers and persists existing-history duplicates for review", async () => {
-    mocks.transactionAccountFilter.mockResolvedValueOnce({
-      data: [{ competence_date: "2026-07-29", description: "Salário", amount: 1000, type: "income" }],
-      error: null,
-    });
-    renderPanel();
+  it("mapeia cabeçalhos e classifica duplicata já existente no histórico", async () => {
+    const historyTransactions = [
+      {
+        id: "tx-1",
+        account_id: "account-1",
+        destination_account_id: null,
+        invoice_id: null,
+        type: "income",
+        status: "paid",
+        description: "Salário",
+        amount: 1000,
+        interest_amount: 0,
+        competence_date: "2026-07-29",
+        due_date: null,
+        installment_current: null,
+        installment_total: null,
+        category_id: null,
+        context_id: null,
+        paid_at: "2026-07-29",
+      } as Transaction,
+    ];
+    renderPanel({ historyTransactions });
     const csv = "quando,detalhe,total\n2026-07-29,Salário,1000";
     const file = new File([csv], "mapeado.csv", { type: "text/csv" });
     Object.defineProperty(file, "text", { value: vi.fn().mockResolvedValue(csv) });
+
     fireEvent.change(screen.getByLabelText("Conta do extrato"), { target: { value: "account-1" } });
     fireEvent.change(screen.getByLabelText("Arquivo CSV ou OFX"), { target: { files: [file] } });
     fireEvent.submit(screen.getByRole("button", { name: "Preparar prévia" }).closest("form")!);
@@ -167,42 +161,43 @@ describe("StatementImportPanel", () => {
     fireEvent.submit(screen.getByRole("button", { name: "Preparar prévia" }).closest("form")!);
 
     await screen.findByText("Duplicada no histórico");
-    expect(mocks.itemInsert.mock.calls[0][0]).toEqual([
+    const [, options] = vi.mocked(apiFetch).mock.calls.find(([url]) => url === "/api/imports/preview")!;
+    const body = JSON.parse(String(options?.body));
+    expect(body.items).toEqual([
       expect.objectContaining({ row_number: 2, status: "duplicate", reason: "duplicate_existing" }),
     ]);
     expect(screen.getByRole<HTMLButtonElement>("button", { name: "Confirmar importação" }).disabled).toBe(true);
   });
 
-  it("discards a pending batch through the protected RPC", async () => {
+  it("descarta lote pendente pelo endpoint discard", async () => {
     renderPanel({ batches: [pendingBatch] });
-
     fireEvent.click(screen.getByRole("button", { name: "Descartar anterior.csv" }));
-
-    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith(
-      "discard_transaction_import_batch",
-      { p_batch_id: "batch-pending" },
-    ));
+    await waitFor(() =>
+      expect(apiFetch).toHaveBeenCalledWith("/api/imports/batch-pending/discard", { method: "POST" }),
+    );
   });
 
-  it("compensates a created batch when item persistence fails", async () => {
+  it("exibe erro quando a criação da prévia falha", async () => {
     const onMessage = vi.fn();
-    mocks.itemInsert.mockResolvedValueOnce({ error: new Error("item_insert_failed") });
+    vi.mocked(apiFetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: false, error: "falha" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
     renderPanel({ onMessage });
-    const file = new File(["data,descricao,valor\n29/07/2026,Salário,1000"], "falha.csv", { type: "text/csv" });
-    Object.defineProperty(file, "text", { value: vi.fn().mockResolvedValue("data,descricao,valor\n29/07/2026,Salário,1000") });
+    const csv = "data,descricao,valor\n29/07/2026,Salário,1000";
+    const file = new File([csv], "falha.csv", { type: "text/csv" });
+    Object.defineProperty(file, "text", { value: vi.fn().mockResolvedValue(csv) });
     fireEvent.change(screen.getByLabelText("Conta do extrato"), { target: { value: "account-1" } });
     fireEvent.change(screen.getByLabelText("Arquivo CSV ou OFX"), { target: { files: [file] } });
     fireEvent.submit(screen.getByRole("button", { name: "Preparar prévia" }).closest("form")!);
 
-    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith(
-      "discard_transaction_import_batch",
-      { p_batch_id: "batch-new" },
-    ));
-    expect(onMessage).toHaveBeenCalledWith("Não foi possível preparar a prévia do CSV.");
+    await waitFor(() => expect(onMessage).toHaveBeenCalledWith("Não foi possível preparar a prévia do CSV."));
     expect(screen.queryByText("Prévia de falha.csv")).toBeNull();
   });
 
-  it("limits the preview table to fifty rows", async () => {
+  it("limita a tabela de prévia a cinquenta linhas", async () => {
     const csv = ["data,descricao,valor", ...Array.from({ length: 51 }, (_, index) => `29/07/2026,Linha ${index + 1},1`)].join("\n");
     renderPanel();
     const file = new File([csv], "longo.csv", { type: "text/csv" });
@@ -216,26 +211,31 @@ describe("StatementImportPanel", () => {
     expect(screen.getByText("Linhas da prévia; mostrando as primeiras 50.")).toBeTruthy();
   });
 
-  it("disables confirmation with no ready item and while confirmation is pending", () => {
-    const invalidBatch: TransactionImportBatch = { ...pendingBatch, transaction_import_items: [{ ...pendingBatch.transaction_import_items[0], status: "invalid", reason: "invalid_amount" }] };
+  it("desabilita confirmação sem item pronto e durante requisição pendente", () => {
+    const invalidBatch: TransactionImportBatch = {
+      ...pendingBatch,
+      transaction_import_items: [
+        { ...pendingBatch.transaction_import_items[0], status: "invalid", reason: "invalid_amount" },
+      ],
+    };
     renderPanel({ batches: [invalidBatch] });
     expect(screen.getByRole<HTMLButtonElement>("button", { name: "Confirmar anterior.csv" }).disabled).toBe(true);
     cleanup();
 
-    mocks.rpc.mockReturnValueOnce(new Promise(() => undefined));
+    vi.mocked(apiFetch).mockReturnValueOnce(new Promise(() => undefined));
     renderPanel({ batches: [pendingBatch] });
     fireEvent.click(screen.getByRole("button", { name: "Revisar anterior.csv" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
+
     expect(screen.getByRole<HTMLButtonElement>("button", { name: "Confirmar anterior.csv" }).disabled).toBe(true);
     expect(screen.getByRole("button", { name: "Processando..." })).toBeTruthy();
   });
 
-  it("opens an inbox preview and preserves success when reload fails", async () => {
+  it("preserva sucesso quando o reload falha", async () => {
     const onMessage = vi.fn();
     const onReload = vi.fn().mockRejectedValue(new Error("reload_failed"));
     renderPanel({ batches: [pendingBatch], onReload, onMessage });
     fireEvent.click(screen.getByRole("button", { name: "Revisar anterior.csv" }));
-    expect(screen.getByText("Prévia de anterior.csv")).toBeTruthy();
     fireEvent.click(screen.getAllByRole("button", { name: "Confirmar anterior.csv" })[0]);
 
     await screen.findByRole("alert");

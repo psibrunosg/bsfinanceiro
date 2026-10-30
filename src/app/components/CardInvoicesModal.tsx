@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import React, { useState, useMemo, useEffect } from "react";
 import {
   X,
@@ -13,7 +15,6 @@ import { BrandLogo } from "../brand-logo";
 import { money, dateFmt } from "./Money";
 import { Card, Category, Invoice, StatementImport, Transaction } from "./types";
 import { calculateCardLimitUsage } from "@/lib/finance/card";
-import { createClient } from "@/lib/supabase/client";
 
 interface CardInvoicesModalProps {
   card: Card;
@@ -25,6 +26,7 @@ interface CardInvoicesModalProps {
   onReload: () => Promise<void>;
   onOpenMirrorInvoice: (invoice: Invoice) => void;
   statementImports?: StatementImport[];
+  statementReview?: React.ReactNode;
   submitStatementImport?: (form: FormData) => Promise<void>;
   importingStatement?: boolean;
   statementImportFeedback?: string;
@@ -42,6 +44,7 @@ export function CardInvoicesModal({
   onReload,
   onOpenMirrorInvoice,
   statementImports = [],
+  statementReview,
   submitStatementImport,
   importingStatement = false,
   statementImportFeedback = "",
@@ -53,7 +56,6 @@ export function CardInvoicesModal({
   const [purchaseSubmitting, setPurchaseSubmitting] = useState(false);
   const [purchaseMessage, setPurchaseMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const supabase = useMemo(() => createClient(), []);
   const currentMonthRef = useMemo(() => new Date().toISOString().slice(0, 7), []);
 
   // FILTRAGEM ESTRITA: Garante que apenas as faturas DESTE cartão sejam consideradas
@@ -113,20 +115,34 @@ export function CardInvoicesModal({
 
     const form = new FormData(e.currentTarget);
     const description = String(form.get("description") || "").trim();
-    const totalAmount = parseFloat(String(form.get("total_amount") || "0").replace(/\./g, "").replace(",", "."));
-    const purchasedOn = String(form.get("purchased_on") || new Date().toISOString().slice(0, 10));
-    const installmentCount = Math.max(1, parseInt(String(form.get("installment_count") || "1"), 10) || 1);
-    const categoryId = form.get("category_id") ? String(form.get("category_id")) : null;
+    const totalAmount = parseFloat(
+      String(form.get("total_amount") || "0")
+        .replace(/\./g, "")
+        .replace(",", "."),
+    );
+    const purchasedOn = String(
+      form.get("purchased_on") || new Date().toISOString().slice(0, 10),
+    );
+    const installmentCount = Math.max(
+      1,
+      parseInt(String(form.get("installment_count") || "1"), 10) || 1,
+    );
+    const categoryId = form.get("category_id")
+      ? String(form.get("category_id"))
+      : null;
     const notes = form.get("notes") ? String(form.get("notes")) : null;
 
     if (!description || totalAmount <= 0) {
-      setPurchaseMessage({ type: "error", text: "Preencha a descrição e um valor válido." });
+      setPurchaseMessage({
+        type: "error",
+        text: "Preencha a descrição e um valor válido.",
+      });
       setPurchaseSubmitting(false);
       return;
     }
 
     try {
-      const res = await fetch("/api/cards/purchase", {
+      const res = await apiFetch("/api/cards/purchase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -141,45 +157,32 @@ export function CardInvoicesModal({
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success) {
-        setPurchaseMessage({
-          type: "success",
-          text: `Compra registrada com sucesso! ${installmentCount > 1 ? `${installmentCount} parcelas geradas nas faturas.` : "Lançamento adicionado."}`,
-        });
-        (e.target as HTMLFormElement).reset();
-        await onReload();
-        setActiveTab("invoices");
-        return;
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Não foi possível registrar a compra.");
       }
-    } catch {
-      // fallback to Supabase RPC
-    }
-
-    const { error } = await supabase.rpc("create_installment_purchase", {
-      p_credit_card_id: card.id,
-      p_description: description,
-      p_total_amount: totalAmount,
-      p_purchased_on: purchasedOn,
-      p_installment_count: installmentCount,
-      p_category_id: categoryId,
-      p_notes: notes,
-      p_idempotency_key: crypto.randomUUID(),
-    });
-
-    if (error) {
-      setPurchaseMessage({ type: "error", text: "Não foi possível registrar a compra." });
-    } else {
       setPurchaseMessage({
         type: "success",
-        text: `Compra registrada com sucesso! ${installmentCount > 1 ? `${installmentCount} parcelas geradas nas faturas.` : "Lançamento adicionado."}`,
+        text:
+          "Compra registrada com sucesso! " +
+          (installmentCount > 1
+            ? installmentCount + " parcelas geradas nas faturas."
+            : "Lançamento adicionado."),
       });
-      (e.target as HTMLFormElement).reset();
+      e.currentTarget.reset();
       await onReload();
       setActiveTab("invoices");
+    } catch (error) {
+      setPurchaseMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível registrar a compra.",
+      });
+    } finally {
+      setPurchaseSubmitting(false);
     }
-    setPurchaseSubmitting(false);
   }
-
   return (
     <div
       role="dialog"
@@ -726,7 +729,7 @@ export function CardInvoicesModal({
                   style={{ width: "100%", padding: "10px 12px", borderRadius: "10px" }}
                 />
                 <small id="statement-import-help" className="muted" style={{ display: "block", margin: "6px 0 12px" }}>
-                  Até 5 MB. Formatos suportados: PDF ou fixture de fatura.
+                  Até 5 MB. PDF com texto selecionável ou texto do layout Santander.
                 </small>
 
                 <button
@@ -750,6 +753,7 @@ export function CardInvoicesModal({
                 )}
               </form>
 
+              {statementReview}
               {statementImports.length > 0 && (
                 <div style={{ marginTop: "2rem" }}>
                   <h4 style={{ fontSize: "0.95rem", marginBottom: "0.5rem" }}>Importações Recentes</h4>

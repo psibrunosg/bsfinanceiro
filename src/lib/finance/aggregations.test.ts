@@ -168,6 +168,22 @@ describe("computeEvolution", () => {
 
     expect(computeEvolution(transactions, 0, months)).toEqual([100, 1000]);
   });
+
+  test("transferência entre contas (perna expense + perna income) não altera o saldo", () => {
+    const withoutTransfer = [
+      tx({ type: "income", amount: "1000", competence_date: "2026-07-10" }),
+    ];
+    const withTransfer = [
+      ...withoutTransfer,
+      tx({ type: "expense", amount: "300", competence_date: "2026-07-15", is_transfer: true }),
+      tx({ type: "income", amount: "300", competence_date: "2026-07-15", is_transfer: true }),
+    ];
+    const months = [new Date(2026, 6, 1)];
+
+    expect(computeEvolution(withTransfer, 500, months)).toEqual(
+      computeEvolution(withoutTransfer, 500, months),
+    );
+  });
 });
 
 describe("lastNMonths", () => {

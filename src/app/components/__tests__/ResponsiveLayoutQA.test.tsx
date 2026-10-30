@@ -14,20 +14,6 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      insert: vi.fn().mockResolvedValue({ error: null }),
-    })),
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u1", user_metadata: { name: "User" } } } }),
-    },
-  }),
-}));
-
 vi.mock("../useFinance", () => ({
   useFinance: () => ({
     ownerId: "u1",

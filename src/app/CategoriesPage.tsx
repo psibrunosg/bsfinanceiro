@@ -1,14 +1,15 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
 import { List } from "./components/List";
 import { SimpleForm } from "./components/SimpleForm";
 import { CATEGORY_KIND_LABEL } from "./components/types";
-import { createClient } from "@/lib/supabase/client";
 import { money, dateFmt } from "./components/Money";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Tag, TrendingDown, TrendingUp } from "lucide-react";
 
 type UncategorizedTx = {
@@ -20,49 +21,50 @@ type UncategorizedTx = {
 };
 
 export function CategoriesPage() {
-  const { workspace, categories, loading, message, setMessage, reload } =
-    useFinance("categories");
-  const supabase = useMemo(() => createClient(), []);
-  const [uncategorized, setUncategorized] = useState<UncategorizedTx[]>([]);
-  const [uncategorizedLoading, setUncategorizedLoading] = useState(true);
+  const {
+    workspace,
+    categories,
+    transactions,
+    loading,
+    message,
+    setMessage,
+    reload,
+  } = useFinance("categories");
 
-  const loadUncategorized = useCallback(async () => {
-    if (!workspace) return;
-    const { data } = await supabase
-      .from("transactions")
-      .select("id,description,amount,competence_date,type")
-      .eq("workspace_id", workspace.id)
-      .is("category_id", null)
-      .in("type", ["expense", "income"])
-      .order("competence_date", { ascending: false })
-      .limit(100);
-    setUncategorized((data ?? []) as UncategorizedTx[]);
-    setUncategorizedLoading(false);
-  }, [supabase, workspace]);
-
-  useEffect(() => {
-    void loadUncategorized();
-  }, [loadUncategorized]);
+  const uncategorized = useMemo(
+    () =>
+      transactions
+        .filter(
+          (transaction) =>
+            !transaction.category_id &&
+            (transaction.type === "expense" || transaction.type === "income"),
+        )
+        .slice(0, 100) as UncategorizedTx[],
+    [transactions],
+  );
 
   async function categorize(transactionId: string, categoryId: string) {
     if (!categoryId) return;
-    setUncategorized((rows) => rows.filter((t) => t.id !== transactionId));
     try {
-      const res = await fetch("/api/transactions/categorize", {
+      const res = await apiFetch("/api/transactions/categorize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transaction_id: transactionId, category_id: categoryId }),
+        body: JSON.stringify({
+          transaction_id: transactionId,
+          category_id: categoryId,
+        }),
       });
-      if (!res.ok) throw new Error();
-    } catch {
-      const { error } = await supabase
-        .from("transactions")
-        .update({ category_id: categoryId })
-        .eq("id", transactionId);
-      if (error) {
-        setMessage("Não foi possível categorizar o lançamento.");
-        await loadUncategorized();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Não foi possível categorizar o lançamento.");
       }
+      await reload();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível categorizar o lançamento.",
+      );
     }
   }
 
@@ -79,7 +81,7 @@ export function CategoriesPage() {
     const color = form.get("color") || "#087f5b";
 
     try {
-      const res = await fetch("/api/categories", {
+      const res = await apiFetch("/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -89,32 +91,19 @@ export function CategoriesPage() {
           color,
         }),
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setMessage("Categoria criada.");
-      } else {
-        const { data: userData } = await supabase.auth.getUser();
-        const { error } = await supabase.from("categories").insert({
-          workspace_id: workspace.id,
-          owner_id: userData?.user?.id,
-          name,
-          kind,
-          color,
-        });
-        setMessage(error ? "Não foi possível criar a categoria." : "Categoria criada.");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Não foi possível criar a categoria.");
       }
-    } catch {
-      const { data: userData } = await supabase.auth.getUser();
-      const { error } = await supabase.from("categories").insert({
-        workspace_id: workspace.id,
-        owner_id: userData?.user?.id,
-        name,
-        kind,
-        color,
-      });
-      setMessage(error ? "Não foi possível criar a categoria." : "Categoria criada.");
+      setMessage("Categoria criada.");
+      await reload();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível criar a categoria.",
+      );
     }
-    await reload();
   }
 
   return (
@@ -126,7 +115,7 @@ export function CategoriesPage() {
       />
       <Nav />
       {message && <p className="form-success">{message}</p>}
-      {!uncategorizedLoading && uncategorized.length > 0 && (
+      {uncategorized.length > 0 && (
         <List title={`Sem categoria · ${uncategorized.length}`}>
           {uncategorized.map((t) => {
             const options = categories.filter((c) => c.kind === t.type);

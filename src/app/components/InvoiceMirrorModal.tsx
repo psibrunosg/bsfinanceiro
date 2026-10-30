@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
@@ -58,7 +60,7 @@ export function InvoiceMirrorModal({
   useEffect(() => {
     setOnDemandItems(null);
     if (!activeInvoice.credit_card_installments || activeInvoice.credit_card_installments.length === 0) {
-      fetch(`/api/cards/invoice-items?invoice_id=${encodeURIComponent(activeInvoice.id)}`)
+      apiFetch(`/api/cards/invoice-items?invoice_id=${encodeURIComponent(activeInvoice.id)}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.success && Array.isArray(data.items)) {
@@ -147,7 +149,7 @@ export function InvoiceMirrorModal({
     setPaySuccessMsg("");
 
     try {
-      const res = await fetch("/api/cards/pay-invoice", {
+      const res = await apiFetch("/api/cards/pay-invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

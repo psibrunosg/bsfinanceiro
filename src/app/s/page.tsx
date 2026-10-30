@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { PrintButton } from "@/app/components/PrintButton";
 import { money } from "@/app/components/Money";
 
@@ -20,15 +19,25 @@ function SharedReportContent() {
       return;
     }
     
-    const supabase = createClient();
-    supabase.rpc("get_shared_report_data", { p_token: token }).then(({ data: resData, error }) => {
-      if (error || !resData) {
-        setError(true);
-      } else {
-        setData(resData as never); // using as never inside then
+    const controller = new AbortController();
+    setLoading(true);
+    setError(false);
+    setData(null);
+    fetch(`/api/reports/shared?token=${encodeURIComponent(token)}`, {
+      signal: controller.signal,
+      credentials: "omit",
+    }).then(async (response) => {
+      const result = await response.json();
+      if (!response.ok || !result?.data?.report || !Array.isArray(result.data.transactions)) {
+        throw new Error("shared_report_failed");
       }
-      setLoading(false);
+      if (!controller.signal.aborted) setData(result.data);
+    }).catch(() => {
+      if (!controller.signal.aborted) setError(true);
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
     });
+    return () => controller.abort();
   }, [token]);
 
   if (loading) return <main style={{ padding: "2rem" }}>Carregando relatório...</main>;

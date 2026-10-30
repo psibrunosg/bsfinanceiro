@@ -54,6 +54,17 @@ CREATE TABLE IF NOT EXISTS workspace_preferences (
     owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     default_cash_account_id UUID,
     primary_color VARCHAR(20),
+    default_context_id UUID,
+    default_period VARCHAR(30) DEFAULT 'current_month',
+    hide_values BOOLEAN NOT NULL DEFAULT false,
+    compact_mode BOOLEAN NOT NULL DEFAULT false,
+    personal_color VARCHAR(20) DEFAULT '#087f5b',
+    clinic_color VARCHAR(20) DEFAULT '#b93636',
+    default_category_id UUID,
+    default_appointment_value NUMERIC(14,2) DEFAULT 0,
+    default_billing_deadline_days INTEGER DEFAULT 30,
+    alert_overdue_earnings BOOLEAN NOT NULL DEFAULT true,
+    alert_stale_quotes BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (workspace_id, owner_id)
 );
@@ -66,6 +77,15 @@ CREATE TABLE IF NOT EXISTS alert_preferences (
     interest_alerts BOOLEAN DEFAULT true,
     invoice_closing_alerts BOOLEAN DEFAULT true,
     subscription_alerts BOOLEAN DEFAULT true,
+    budget_alerts BOOLEAN NOT NULL DEFAULT true,
+    goal_alerts BOOLEAN NOT NULL DEFAULT true,
+    fixed_commitment_alerts BOOLEAN NOT NULL DEFAULT true,
+    credit_card_alerts BOOLEAN NOT NULL DEFAULT true,
+    low_balance_alerts BOOLEAN NOT NULL DEFAULT true,
+    weekly_digest BOOLEAN NOT NULL DEFAULT true,
+    budget_warning_percent SMALLINT NOT NULL DEFAULT 80,
+    low_balance_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+    weekly_digest_day SMALLINT NOT NULL DEFAULT 1,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (workspace_id, owner_id)
 );
@@ -149,6 +169,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+    context_id UUID REFERENCES financial_contexts(id) ON DELETE SET NULL,
     destination_account_id UUID REFERENCES accounts(id) ON DELETE SET NULL,
     invoice_id UUID REFERENCES credit_card_invoices(id) ON DELETE SET NULL,
     type transaction_type NOT NULL,
@@ -165,6 +186,33 @@ CREATE TABLE IF NOT EXISTS transactions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- 12.1 Dispositivos autorizados para registro rápido (Atalhos/Siri)
+CREATE TABLE IF NOT EXISTS shortcut_devices (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    token_hash CHAR(64) UNIQUE NOT NULL,
+    token_hint VARCHAR(20),
+    default_account_id UUID REFERENCES accounts(id) ON DELETE SET NULL,
+    default_category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
+    last_used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS shortcut_request_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    device_id UUID NOT NULL REFERENCES shortcut_devices(id) ON DELETE CASCADE,
+    request_key VARCHAR(120) NOT NULL,
+    response_json JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (device_id, request_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_shortcut_devices_owner ON shortcut_devices(owner_id, workspace_id);
+CREATE INDEX IF NOT EXISTS idx_shortcut_request_log_created ON shortcut_request_log(device_id, created_at DESC);
 
 -- 13. Compromissos Fixos e Assinaturas
 CREATE TABLE IF NOT EXISTS fixed_commitments (

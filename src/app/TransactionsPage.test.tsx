@@ -77,16 +77,6 @@ const transactions = [
   },
 ];
 
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    auth: {
-      getUser: vi.fn(),
-      signOut: vi.fn(),
-    },
-    from: vi.fn(),
-  }),
-}));
-
 beforeEach(() => {
   navigationMocks.pathname = "/movimentacoes";
   navigationMocks.searchParams = new URLSearchParams();
@@ -200,7 +190,7 @@ describe("TransactionsPage", () => {
     render(<TransactionsPage />);
 
     expect(screen.getAllByRole("link", { name: "Mais" })[0].getAttribute("href")).toBe(
-      "/configuracoes",
+      "/mais",
     );
     expect(
       screen.getByRole("link", { name: "Categorias" }).getAttribute("aria-current"),

@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useSearchParams } from "next/navigation";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
@@ -9,7 +11,7 @@ import { SimpleForm } from "./components/SimpleForm";
 import { Dialog } from "./components/Dialog";
 import { money, parseMoney, dateFmt } from "./components/Money";
 import { BrandLogo, CARD_BRANDS } from "./brand-logo";
-import { createClient } from "@/lib/supabase/client";
+import { CardStatementReview } from "./components/CardStatementReview";
 import { useMemo, Suspense, useState, useEffect } from "react";
 import { CalendarClock, CreditCard, TrendingDown, Wallet } from "lucide-react";
 import { InterestRadarWidget } from "./components/InterestRadarWidget";
@@ -26,6 +28,11 @@ function statementImportErrorMessage(errorCode: string | null) {
     case "checksum_mismatch": return "O arquivo enviado não corresponde ao arquivo validado. Envie-o novamente.";
     case "purchase_creation_failed": return "A compra não pôde ser criada. Tente novamente.";
     case "processing_failed": return "A importação foi interrompida e poderá ser tentada novamente.";
+    case "unsupported_layout": return "Layout não suportado. Envie uma fatura Santander com texto selecionável.";
+    case "pdf_without_selectable_text": return "O PDF não contém texto selecionável. Envie um PDF original do banco.";
+    case "pdf_too_many_pages": return "O PDF deve ter no máximo 20 páginas.";
+    case "invalid_pdf": return "O PDF não pôde ser lido. Envie o arquivo original do banco.";
+    case "ambiguous_financial_fields": return "Os valores da fatura não puderam ser identificados com segurança.";
     default: return "Não foi possível enviar a importação.";
   }
 }
@@ -43,6 +50,7 @@ function CardsPageInner() {
   }, [selectedCardId]);
 
   const [importingStatement, setImportingStatement] = useState(false);
+  const [statementReviewVersion, setStatementReviewVersion] = useState(0);
   const [statementImportFeedback, setStatementImportFeedback] = useState("");
   const [statementImportFailed, setStatementImportFailed] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
@@ -62,7 +70,7 @@ function CardsPageInner() {
     statementImports,
     transactions,
   } = useFinance(selectedCardId ? "card" : "cards", selectedCardId || undefined);
-  const supabase = useMemo(() => createClient(), []);
+
   const currentMonthRef = useMemo(() => new Date().toISOString().slice(0, 7), []);
 
   // Calcula para cada cartão o uso real do limite (faturas abertas + parcelas futuras a vencer)
@@ -123,7 +131,7 @@ function CardsPageInner() {
     const due_day = Number(form.get("due_day"));
 
     try {
-      const res = await fetch("/api/cards", {
+      const res = await apiFetch("/api/cards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -136,50 +144,21 @@ function CardsPageInner() {
           due_day,
         }),
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setMessage("Cartão adicionado.");
-        setEditingCardId(null);
-        setOpenDialog(false);
-        await reload();
-        return;
-      } else {
-        const { data: userData } = await supabase.auth.getUser();
-        const { error } = await supabase.rpc("create_credit_card", {
-          p_workspace_id: workspace.id,
-          p_owner_id: userData?.user?.id,
-          p_name: name,
-          p_brand: brand,
-          p_last_four: last_four,
-          p_credit_limit: credit_limit,
-          p_closing_day: closing_day,
-          p_due_day: due_day,
-        });
-        setMessage(error ? "Não foi possível adicionar o cartão." : "Cartão adicionado.");
-        if (!error) {
-          setEditingCardId(null);
-          setOpenDialog(false);
-        }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Não foi possível adicionar o cartão.");
       }
-    } catch {
-      const { data: userData } = await supabase.auth.getUser();
-      const { error } = await supabase.rpc("create_credit_card", {
-        p_workspace_id: workspace.id,
-        p_owner_id: userData?.user?.id,
-        p_name: name,
-        p_brand: brand,
-        p_last_four: last_four,
-        p_credit_limit: credit_limit,
-        p_closing_day: closing_day,
-        p_due_day: due_day,
-      });
-      setMessage(error ? "Não foi possível adicionar o cartão." : "Cartão adicionado.");
-      if (!error) {
-        setEditingCardId(null);
-        setOpenDialog(false);
-      }
+      setMessage("Cartão adicionado.");
+      setEditingCardId(null);
+      setOpenDialog(false);
+      await reload();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível adicionar o cartão.",
+      );
     }
-    await reload();
   }
 
   async function updateCard(form: FormData) {
@@ -192,7 +171,7 @@ function CardsPageInner() {
     const due_day = Number(form.get("due_day"));
 
     try {
-      const res = await fetch("/api/cards", {
+      const res = await apiFetch("/api/cards", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -206,36 +185,21 @@ function CardsPageInner() {
           due_day,
         }),
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setMessage("Cartão atualizado.");
-        setEditingCardId(null);
-        setOpenDialog(false);
-        await reload();
-        return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Não foi possível editar o cartão.");
       }
-    } catch {
-      // fallback to supabase
-    }
-
-    const { error } = await supabase
-      .from("credit_cards")
-      .update({
-        name,
-        brand,
-        last_four,
-        credit_limit,
-        closing_day,
-        due_day,
-      })
-      .eq("id", editingCardId)
-      .eq("workspace_id", workspace.id);
-    setMessage(error ? "Não foi possível editar o cartão." : "Cartão atualizado.");
-    if (!error) {
+      setMessage("Cartão atualizado.");
       setEditingCardId(null);
       setOpenDialog(false);
+      await reload();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível editar o cartão.",
+      );
     }
-    await reload();
   }
 
   async function submitStatementImport(form: FormData) {
@@ -253,39 +217,20 @@ function CardsPageInner() {
       setStatementImportFailed(true);
       return;
     }
-    const contentType = file.type === "application/pdf" ? "application/pdf" : "text/plain";
-    const checksum = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer())))
-      .map((value) => value.toString(16).padStart(2, "0"))
-      .join("");
-
     setImportingStatement(true);
     try {
-      const { data: created, error: createError } = await supabase.rpc("create_credit_card_statement_import", {
-        p_credit_card_id: targetCardId,
-        p_file_name: file.name,
-        p_content_type: contentType,
-        p_size_bytes: file.size,
-        p_sha256: checksum,
-      });
-      const job = Array.isArray(created) ? created[0] : created;
-      if (createError || !job) throw new Error("create_import_failed");
-      if (job.status !== "pending") {
-        setStatementImportFeedback("Este arquivo já possui uma importação em andamento ou concluída.");
-        await reload();
-        return;
-      }
-
-      await supabase.storage.from("credit-card-statements").remove([job.storage_path]);
-      const { error: uploadError } = await supabase.storage.from("credit-card-statements").upload(job.storage_path, file, { contentType });
-      if (uploadError) throw uploadError;
-      const { error: queueError } = await supabase.rpc("queue_credit_card_statement_import", { p_import_id: job.id });
-      if (queueError) throw queueError;
-      const { data: result, error: workerError } = await supabase.functions.invoke("process-credit-card-statement-import", { body: { importId: job.id } });
-      if (workerError) throw workerError;
-      setStatementImportFailed(result?.status !== "imported");
-      setStatementImportFeedback(result?.status === "imported" ? "Importação concluída." : statementImportErrorMessage(result?.error));
-    } catch {
-      setStatementImportFeedback(statementImportErrorMessage("request_failed"));
+      const upload = new FormData();
+      upload.set("statement", file);
+      upload.set("credit_card_id", targetCardId || "");
+      const response = await apiFetch("/api/card-statement-imports", { method: "POST", body: upload });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível enviar a importação.");
+      const failed = result.import?.status === "failed";
+      setStatementImportFailed(failed);
+      setStatementImportFeedback(failed ? statementImportErrorMessage(result.error) : result.duplicate ? "Este arquivo já foi enviado. Confira a revisão abaixo." : "Fatura processada. Revise as compras antes de confirmar.");
+      setStatementReviewVersion((value) => value + 1);
+    } catch (error) {
+      setStatementImportFeedback(error instanceof Error ? error.message : statementImportErrorMessage("request_failed"));
       setStatementImportFailed(true);
     } finally {
       setImportingStatement(false);
@@ -509,12 +454,12 @@ function CardsPageInner() {
         <section className="dashboard-card" aria-labelledby="statement-import-title">
           <div>
             <h3 id="statement-import-title">Importar fatura experimental</h3>
-            <p className="muted">Aceita apenas a fixture sintética documentada. PDFs e layouts reais serão recusados sem criar compras.</p>
+            <p className="muted">Faturas Santander com texto selecionável. Revise os valores extraídos antes de confirmar.</p>
           </div>
           <form className="simple-form" aria-busy={importingStatement} onSubmit={(event) => { event.preventDefault(); void submitStatementImport(new FormData(event.currentTarget)); }}>
             <label htmlFor="statement-file">Arquivo de fatura</label>
             <input id="statement-file" name="statement" type="file" accept="application/pdf,text/plain,.txt,.bsf-fixture" required disabled={importingStatement} aria-invalid={statementImportFailed || undefined} aria-describedby={statementImportDescribedBy} />
-            <small id="statement-import-help">Até 5 MB. Apenas a fixture sintética é processada nesta etapa.</small>
+            <small id="statement-import-help">Até 5 MB. PDF com texto selecionável ou texto do layout Santander.</small>
             <button disabled={importingStatement}>{importingStatement ? "Enviando..." : "Enviar para importação"}</button>
             {statementImportFeedback && <p id="statement-import-feedback" className={statementImportFailed ? "form-error" : "form-success"} role={statementImportFailed ? "alert" : "status"}>{statementImportFeedback}</p>}
           </form>
@@ -525,6 +470,8 @@ function CardsPageInner() {
           )}
         </section>
       )}
+
+      <CardStatementReview workspaceId={workspace.id} cardId={activeModalCardId || selectedCardId} version={statementReviewVersion} onApplied={reload} />
 
       <InstallmentTimelineWidget
         invoices={invoices}
@@ -627,6 +574,7 @@ function CardsPageInner() {
           workspaceId={workspace.id}
           transactions={transactions}
           statementImports={statementImports}
+          statementReview={<CardStatementReview workspaceId={workspace.id} cardId={activeModalCard.id} version={statementReviewVersion} onApplied={reload} />}
           submitStatementImport={submitStatementImport}
           importingStatement={importingStatement}
           statementImportFeedback={statementImportFeedback}

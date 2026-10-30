@@ -1,23 +1,29 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState } from "react";
 import { useFinance } from "@/app/components/useFinance";
 import { Nav } from "@/app/components/Nav";
 import { DebtListWidget } from "@/app/components/DebtListWidget";
 import { DebtSimulatorWidget } from "@/app/components/DebtSimulatorWidget";
 import { DebtForm } from "@/app/components/DebtForm";
-import { createClient } from "@/lib/supabase/client";
 import { PageHeader } from "@/app/components/PageHeader";
 
 export default function DividasPage() {
-  const { debts, workspace, loading } = useFinance("dividas");
+  const { debts, workspace, loading, message, setMessage, reload } =
+    useFinance("dividas");
   const [formOpen, setFormOpen] = useState(false);
-  const supabase = createClient();
 
-  async function handleAddDebt(debt: Omit<import('@/app/components/types').Debt, 'id' | 'workspace_id' | 'created_at' | 'updated_at'>) {
+  async function handleAddDebt(
+    debt: Omit<
+      import("@/app/components/types").Debt,
+      "id" | "workspace_id" | "created_at" | "updated_at"
+    >,
+  ) {
     if (!workspace) return;
     try {
-      const res = await fetch("/api/debts", {
+      const res = await apiFetch("/api/debts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -25,20 +31,19 @@ export default function DividasPage() {
           workspace_id: workspace.id,
         }),
       });
-      if (res.ok) {
-        window.location.reload();
-        return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Não foi possível salvar a dívida.");
       }
-    } catch {}
-
-    const { error } = await supabase.from("debts").insert({
-      ...debt,
-      workspace_id: workspace.id,
-    });
-    if (error) {
-      alert("Erro ao salvar dívida: " + error.message);
-    } else {
-      window.location.reload();
+      setMessage("Dívida adicionada.");
+      setFormOpen(false);
+      await reload();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar a dívida.",
+      );
     }
   }
 
@@ -62,6 +67,14 @@ export default function DividasPage() {
           onClick: () => setFormOpen(true),
         }}
       />
+      {message && (
+        <p
+          className={message.startsWith("Não") ? "form-error" : "form-success"}
+          role={message.startsWith("Não") ? "alert" : "status"}
+        >
+          {message}
+        </p>
+      )}
       
       <div style={{ display: "grid", gap: "2rem", gridTemplateColumns: "1fr" }}>
         <DebtListWidget debts={debts || []} onAdd={() => setFormOpen(true)} />

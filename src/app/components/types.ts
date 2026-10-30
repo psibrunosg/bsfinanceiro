@@ -74,6 +74,7 @@ export type Transaction = {
   installment_current?: number | null;
   installment_total?: number | null;
   category_id?: string | null;
+  context_id?: string | null;
   invoice_id?: string | null;
 };
 export type StatementImport = {
@@ -213,7 +214,7 @@ export type InvestmentOperation = {
   id: string;
   workspace_id: string;
   owner_id: string;
-  context_id: string;
+  context_id?: string | null;
   asset_id: string;
   operation_type: 'buy' | 'sell';
   quantity: number;
@@ -222,6 +223,13 @@ export type InvestmentOperation = {
   notes?: string;
   transaction_id?: string;
   created_at: string;
+};
+
+export type InvestmentQuote = {
+  id: string;
+  asset_id: string;
+  quote_date: string;
+  unit_price: number;
 };
 
 export type Payslip = {

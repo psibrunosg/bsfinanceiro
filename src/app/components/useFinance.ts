@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import {
   useCallback,
   useEffect,
@@ -8,17 +10,9 @@ import {
   useState,
 } from "react";
 import { appPath } from "@/lib/app-path";
-import { createClient } from "@/lib/supabase/client";
-import { monthStart, nextMonthStart } from "./Money";
-import {
-  monthStartsThroughDate,
-  todayInSaoPaulo,
-} from "../../lib/finance/local-date";
+import { todayInSaoPaulo } from "../../lib/finance/local-date";
 import { buildDashboardMoneyModel } from "../../lib/finance/today-adapter";
-import {
-  decisionWindowCutoff,
-  type SpendingPower,
-} from "../../lib/finance/spending-power";
+import type { SpendingPower } from "../../lib/finance/spending-power";
 import type {
   Workspace,
   WorkspacePreference,
@@ -37,9 +31,6 @@ import type {
   TransactionCategoryRule,
 } from "./types";
 
-const TRANSACTION_SELECT =
-  "id,account_id,destination_account_id,type,status,description,amount,competence_date,category_id,invoice_id";
-const DASHBOARD_QUERY_BATCH_SIZE = 500;
 export const TRANSACTION_HISTORY_PAGE_SIZE = 25;
 
 export type TransactionHistoryFilters = {
@@ -73,6 +64,7 @@ export type FinanceData = {
   debts: import("./types").Debt[];
   investmentAssets: import("./types").InvestmentAsset[];
   investmentOperations: import("./types").InvestmentOperation[];
+  investmentQuotes: import("./types").InvestmentQuote[];
   workspaceUsers: import("./types").WorkspaceUser[];
   workspaceInvites: import("./types").WorkspaceInvite[];
   categories: Category[];
@@ -127,6 +119,12 @@ interface BootstrapResponseData {
   transactions?: Transaction[];
   invoices?: Invoice[];
   payslips?: import("./types").Payslip[];
+  investment_operations?: import("./types").InvestmentOperation[];
+  investment_quotes?: import("./types").InvestmentQuote[];
+  workspace_invites?: import("./types").WorkspaceInvite[];
+  category_rules?: TransactionCategoryRule[];
+  contexts?: FinancialContext[];
+  transaction_import_batches?: TransactionImportBatch[];
 }
 
 interface BootstrapCache {
@@ -143,10 +141,9 @@ export function clearFinanceCache() {
 
 export function useFinance(
   route: string,
-  cardId?: string,
+  _cardId?: string,
   options: UseFinanceOptions = {},
 ): FinanceData {
-  const supabase = useMemo(() => createClient(), []);
   const initialCache = !isTestEnv && memoryBootstrapCache ? memoryBootstrapCache.data : null;
   const [loading, setLoading] = useState(!initialCache);
   const [ownerId, setOwnerId] = useState<string | null>(() => {
@@ -169,15 +166,16 @@ export function useFinance(
   });
   const [accounts, setAccounts] = useState<Account[]>(initialCache?.accounts || []);
   const [categories, setCategories] = useState<Category[]>(initialCache?.categories || []);
-  const [categoryRules, setCategoryRules] = useState<TransactionCategoryRule[]>([]);
+  const [categoryRules, setCategoryRules] = useState<TransactionCategoryRule[]>(initialCache?.category_rules || []);
   const [debts, setDebts] = useState<import("./types").Debt[]>(initialCache?.debts || []);
   const [investmentAssets, setInvestmentAssets] = useState<import("./types").InvestmentAsset[]>(initialCache?.investments || []);
-  const [investmentOperations, setInvestmentOperations] = useState<import("./types").InvestmentOperation[]>([]);
+  const [investmentOperations, setInvestmentOperations] = useState<import("./types").InvestmentOperation[]>(initialCache?.investment_operations || []);
+  const [investmentQuotes, setInvestmentQuotes] = useState<import("./types").InvestmentQuote[]>(initialCache?.investment_quotes || []);
   const [cards, setCards] = useState<Card[]>(initialCache?.cards || []);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>(initialCache?.invoices || []);
   const [payslips, setPayslips] = useState<import("./types").Payslip[]>(initialCache?.payslips || []);
   const [workspaceUsers, setWorkspaceUsers] = useState<import("./types").WorkspaceUser[]>(initialCache?.workspace_users || []);
-  const [workspaceInvites, setWorkspaceInvites] = useState<import("./types").WorkspaceInvite[]>([]);
+  const [workspaceInvites, setWorkspaceInvites] = useState<import("./types").WorkspaceInvite[]>(initialCache?.workspace_invites || []);
   const [transactions, setTransactions] = useState<Transaction[]>(initialCache?.transactions || []);
   const [dashboardTransactions, setDashboardTransactions] = useState<
     Transaction[]
@@ -205,12 +203,12 @@ export function useFinance(
   const [commitments, setCommitments] = useState<Commitment[]>(initialCache?.commitments || []);
   const [occurrences, setOccurrences] = useState<Occurrence[]>(initialCache?.occurrences || []);
   const [alertPrefs, setAlertPrefs] = useState<AlertPreference | null>(initialCache?.alert_preferences || null);
-  const [statementImports, setStatementImports] = useState<StatementImport[]>([]);
-  const [transactionImportBatches, setTransactionImportBatches] = useState<
-    TransactionImportBatch[]
-  >([]);
+  const [statementImports] = useState<StatementImport[]>([]);
+  const [transactionImportBatches, setTransactionImportBatches] = useState<TransactionImportBatch[]>(
+    initialCache?.transaction_import_batches || [],
+  );
   const [workspacePrefs, setWorkspacePrefs] = useState<WorkspacePreference | null>(initialCache?.workspace_preferences || null);
-  const [contexts, setContexts] = useState<FinancialContext[]>([]);
+  const [contexts, setContexts] = useState<FinancialContext[]>(initialCache?.contexts || []);
   const [defaultCashAccountId, setDefaultCashAccountId] = useState<string | null>(
     initialCache?.workspace_preferences?.default_cash_account_id || null,
   );
@@ -242,38 +240,12 @@ export function useFinance(
       }
     }
 
-    if (!user) {
-      try {
-        const { data: userData } = await supabase.auth.getUser();
-        user = userData?.user ?? null;
-      } catch {}
-    }
-
-    if (!user) {
+    if (!user || !ws) {
       window.location.replace(appPath("/entrar"));
       return;
     }
 
     setOwnerId(user.id);
-
-    if (!ws) {
-      try {
-        const { data: workspaceData } = await supabase
-          .from("workspaces")
-          .select("id,name,kind")
-          .eq("owner_id", user.id)
-          .eq("kind", "personal")
-          .order("created_at")
-          .limit(1)
-          .maybeSingle();
-        ws = workspaceData;
-      } catch {}
-    }
-
-    if (!ws) {
-      window.location.replace(appPath("/onboarding"));
-      return;
-    }
 
     setWorkspace(ws);
 
@@ -288,7 +260,13 @@ export function useFinance(
       setGoals(boot.goals || []);
       setDebts(boot.debts || []);
       setInvestmentAssets(boot.investments || []);
+      setInvestmentOperations(boot.investment_operations || []);
+      setInvestmentQuotes(boot.investment_quotes || []);
       setWorkspaceUsers(boot.workspace_users || []);
+      setWorkspaceInvites(boot.workspace_invites || []);
+      setCategoryRules(boot.category_rules || []);
+      setContexts(boot.contexts || []);
+      setTransactionImportBatches(boot.transaction_import_batches || []);
       if (boot.alert_preferences) setAlertPrefs(boot.alert_preferences);
       if (boot.workspace_preferences) {
         setWorkspacePrefs(boot.workspace_preferences);
@@ -308,10 +286,37 @@ export function useFinance(
       }
 
       const allTx: Transaction[] = boot.transactions || [];
-      setTransactions(allTx);
+      const filteredTransactions =
+        route === "transactions"
+          ? allTx.filter((tx) => {
+              const normalizedQuery = historyQuery.toLocaleLowerCase("pt-BR");
+              const matchesQuery =
+                !normalizedQuery ||
+                tx.description.toLocaleLowerCase("pt-BR").includes(normalizedQuery);
+              const matchesType = !historyType || tx.type === historyType;
+              const matchesFrom = !historyFrom || tx.competence_date >= historyFrom;
+              const matchesTo = !historyTo || tx.competence_date <= historyTo;
+              return matchesQuery && matchesType && matchesFrom && matchesTo;
+            })
+          : allTx;
+      const pageStart = historyPage * TRANSACTION_HISTORY_PAGE_SIZE;
+      const visibleTransactions =
+        route === "transactions"
+          ? filteredTransactions.slice(
+              pageStart,
+              pageStart + TRANSACTION_HISTORY_PAGE_SIZE,
+            )
+          : filteredTransactions;
+
+      setTransactions(visibleTransactions);
       setDashboardTransactions(allTx);
-      setTransactionTotal(allTx.length);
-      setTodayTransactions(allTx.filter((t: Transaction) => t.competence_date === currentDay && t.status === "paid"));
+      setTransactionTotal(filteredTransactions.length);
+      setTodayTransactions(
+        allTx.filter(
+          (t: Transaction) =>
+            t.competence_date === currentDay && t.status === "paid",
+        ),
+      );
 
       const spentByCat: Record<string, number> = {};
       const currentMonthPrefix = currentDay.slice(0, 7);
@@ -337,400 +342,62 @@ export function useFinance(
       return;
     }
 
-    // 1. Tenta carregar via API REST da VPS (PostgreSQL dedicado)
+    // 1. Carrega exclusivamente via API REST da VPS (PostgreSQL dedicado).
     try {
-      const apiRes = await fetch(`/api/bootstrap?workspace_id=${encodeURIComponent(ws.id)}`);
-      if (apiRes.ok) {
-        const boot = await apiRes.json();
-        if (boot && Array.isArray(boot.accounts)) {
-          applyBootstrapPayload(boot, today);
-          if (!isTestEnv) {
-            memoryBootstrapCache = {
-              workspaceId: ws.id,
-              data: boot,
-              timestamp: Date.now(),
-            };
-          }
-          setLoading(false);
-          hasLoaded.current = true;
-          return;
-        }
+      const apiRes = await apiFetch(`/api/bootstrap?workspace_id=${encodeURIComponent(ws.id)}`);
+
+      if (apiRes.status === 401) {
+        try {
+          localStorage.removeItem("bsfinanceiro_user");
+          localStorage.removeItem("bsfinanceiro_workspace");
+          localStorage.removeItem("bsfinanceiro_token");
+        } catch {}
+        window.location.replace(appPath("/entrar"));
+        return;
       }
-    } catch {
-      // API não disponível, segue para o Supabase como fallback
-    }
 
-    const [
-      { data: accountRows },
-      { data: categoryRows },
-      { data: cardRows },
-      { data: preferenceRows },
-      { data: dashboardGoalRows },
-      { data: dashboardBudgetRows },
-      { data: workspacePreferenceRows },
-      { data: contextRows },
-    ] = await Promise.all([
-      supabase
-        .from("accounts")
-        .select("id,name,type,initial_balance,is_shared")
-        .eq("workspace_id", ws.id)
-        .eq("active", true)
-        .eq("is_system", false)
-        .order("created_at"),
-      supabase
-        .from("categories")
-        .select("id,name,kind,color")
-        .eq("workspace_id", ws.id)
-        .eq("active", true)
-        .order("name"),
-      supabase
-        .from("credit_cards")
-        .select("id,account_id,name,brand,last_four,credit_limit,closing_day,due_day")
-        .eq("workspace_id", ws.id)
-        .eq("active", true)
-        .order("created_at"),
-      route === "dashboard" || route === "settings"
-        ? supabase
-            .from("alert_preferences")
-            .select("*")
-            .eq("workspace_id", ws.id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      route === "dashboard"
-        ? supabase
-            .from("financial_goals")
-            .select("id,name,target_amount,current_amount,deadline,status")
-            .eq("workspace_id", ws.id)
-            .eq("status", "active")
-            .order("created_at")
-        : Promise.resolve({ data: [] }),
-      route === "dashboard"
-        ? supabase
-            .from("monthly_budgets")
-            .select("id,category_id,amount")
-            .eq("workspace_id", ws.id)
-        : Promise.resolve({ data: [] }),
-      route === "dashboard" || route === "settings"
-        ? supabase
-            .from("workspace_preferences")
-            .select(route === "settings" ? "*" : "default_cash_account_id")
-            .eq("workspace_id", ws.id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      route === "settings"
-        ? supabase
-            .from("financial_contexts")
-            .select("id,workspace_id,owner_id,kind,name,color,active,created_at")
-            .eq("workspace_id", ws.id)
-            .eq("active", true)
-            .order("name")
-        : Promise.resolve({ data: [] }),
-    ]);
-
-    let visibleTransactionRows: Transaction[] = [];
-    let calculationTransactionRows: Transaction[] = [];
-    let upcomingTransactionRows: Transaction[] = [];
-    let occurrenceRows: Occurrence[] = [];
-    let historyTotal = 0;
-    let importBatchRows: TransactionImportBatch[] = [];
-
-    if (route === "dashboard") {
-      const { data: nextIncomeData } = await supabase
-        .from("transactions")
-        .select(TRANSACTION_SELECT)
-        .eq("workspace_id", ws.id)
-        .eq("status", "planned")
-        .eq("type", "income")
-        .gte("competence_date", today)
-        .order("competence_date", { ascending: true })
-        .order("id", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      const nextIncome = nextIncomeData as Transaction | null;
-      const cutoff = decisionWindowCutoff(
-        today,
-        nextIncome?.competence_date ?? null,
-      );
-
-      const loadDashboardTransactionBatch = async (
-        status: "paid" | "planned",
-        from: number,
-        to: number,
-      ) => {
-        let query = supabase
-          .from("transactions")
-          .select(TRANSACTION_SELECT)
-          .eq("workspace_id", ws.id)
-          .eq("status", status)
-          .order("competence_date", { ascending: true })
-          .order("id", { ascending: true });
-        if (status === "planned") {
-          query = query
-            .eq("type", "expense")
-            .gte("competence_date", today)
-            .lte("competence_date", cutoff);
-        }
-        const { data } = await query.range(from, to);
-        return (data ?? []) as Transaction[];
-      };
-
-      const loadAllDashboardTransactions = async (
-        status: "paid" | "planned",
-      ) => {
-        const rows: Transaction[] = [];
-        for (let from = 0; ; from += DASHBOARD_QUERY_BATCH_SIZE) {
-          const batch = await loadDashboardTransactionBatch(
-            status,
-            from,
-            from + DASHBOARD_QUERY_BATCH_SIZE - 1,
-          );
-          rows.push(...batch);
-          if (batch.length < DASHBOARD_QUERY_BATCH_SIZE) break;
-        }
-        return rows;
-      };
-
-      const [paidRows, plannedExpenseRows, materializedResults] =
-        await Promise.all([
-          loadAllDashboardTransactions("paid"),
-          loadAllDashboardTransactions("planned"),
-          Promise.all(
-            monthStartsThroughDate(today, cutoff).map((month) =>
-              supabase.rpc("materialize_fixed_commitment_occurrences", {
-                p_workspace_id: ws.id,
-                p_month: month,
-              }),
-            ),
-          ),
-        ]);
-
-      upcomingTransactionRows = [
-        ...plannedExpenseRows,
-        ...(nextIncome ? [nextIncome] : []),
-      ];
-      calculationTransactionRows = [...paidRows, ...upcomingTransactionRows];
-      // Consumidores (Dashboard, Saúde, Relatórios) fazem agregação mensal
-      // client-side sobre o dataset inteiro — não só os últimos 30 lançamentos.
-      visibleTransactionRows = calculationTransactionRows;
-      occurrenceRows = materializedResults.flatMap(
-        (result) => (result.data ?? []) as Occurrence[],
-      );
-    } else if (route === "transactions") {
-      let query = supabase
-        .from("transactions")
-        .select(TRANSACTION_SELECT, { count: "exact" })
-        .eq("workspace_id", ws.id);
-      if (historyQuery) query = query.ilike("description", `%${historyQuery}%`);
-      if (historyType) query = query.eq("type", historyType);
-      if (historyFrom) query = query.gte("competence_date", historyFrom);
-      if (historyTo) query = query.lte("competence_date", historyTo);
-
-      const from = historyPage * TRANSACTION_HISTORY_PAGE_SIZE;
-      const [{ data, count }, { data: batches }] = await Promise.all([
-        query
-          .order("competence_date", { ascending: false })
-          .order("id", { ascending: false })
-          .range(from, from + TRANSACTION_HISTORY_PAGE_SIZE - 1),
-        supabase
-          .from("transaction_import_batches")
-          .select(
-            "id,account_id,file_name,status,created_at,applied_at,discarded_at,transaction_import_items(id,batch_id,row_number,competence_date,description,amount_cents,type,status,reason,fingerprint,transaction_id,created_at)",
-          )
-          .eq("workspace_id", ws.id)
-          .order("created_at", { ascending: false })
-          .limit(10),
-      ]);
-      visibleTransactionRows = (data ?? []) as Transaction[];
-      historyTotal = count ?? 0;
-      importBatchRows = (batches ?? []) as TransactionImportBatch[];
-    } else if (route === "accounts") {
-      // Saldo por conta soma initial_balance + todo o histórico de lançamentos:
-      // uma lista truncada aqui sub-computa o saldo real de contas antigas.
-      const rows: Transaction[] = [];
-      for (let from = 0; ; from += DASHBOARD_QUERY_BATCH_SIZE) {
-        const { data } = await supabase
-          .from("transactions")
-          .select(TRANSACTION_SELECT)
-          .eq("workspace_id", ws.id)
-          .order("competence_date", { ascending: false })
-          .order("id", { ascending: false })
-          .range(from, from + DASHBOARD_QUERY_BATCH_SIZE - 1);
-        const batch = (data ?? []) as Transaction[];
-        rows.push(...batch);
-        if (batch.length < DASHBOARD_QUERY_BATCH_SIZE) break;
+      if (!apiRes.ok) {
+        let detail = "";
+        try {
+          const payload = await apiRes.json();
+          detail = typeof payload?.error === "string" ? payload.error : "";
+        } catch {}
+        throw new Error(detail || `Falha ao carregar dados (HTTP ${apiRes.status}).`);
       }
-      visibleTransactionRows = rows;
-    } else {
-      const { data } = await supabase
-        .from("transactions")
-        .select(TRANSACTION_SELECT)
-        .eq("workspace_id", ws.id)
-        .order("competence_date", { ascending: false })
-        .order("id", { ascending: false })
-        .limit(30);
-      visibleTransactionRows = (data ?? []) as Transaction[];
-    }
 
-    if (requestId !== requestSequence.current) return;
-
-    setOwnerId(user.id);
-    setWorkspace(ws);
-    setAccounts(accountRows || []);
-    setCategories(categoryRows || []);
-      const { data: rulesRows } = await supabase.from('transaction_category_rules').select('*').eq('workspace_id', ws.id);
-      setCategoryRules(rulesRows || []);
-      const { data: debtsRows } = await supabase.from('debts').select('*').eq('workspace_id', ws.id);
-      setDebts(debtsRows || []);
-
-      const { data: assetsRows } = await supabase.from('investment_assets').select('*').eq('workspace_id', ws.id);
-      setInvestmentAssets(assetsRows || []);
-
-      const { data: opsRows } = await supabase.from('investment_operations').select('*').eq('workspace_id', ws.id);
-      setInvestmentOperations(opsRows || []);
-
-      const { data: wUsers } = await supabase.from('workspace_users').select('*').eq('workspace_id', ws.id);
-      setWorkspaceUsers(wUsers || []);
-      
-      const { data: wInvites } = await supabase.from('workspace_invites').select('*').eq('workspace_id', ws.id);
-      setWorkspaceInvites(wInvites || []);
-      setCards(cardRows || []);
-    setTransactions(visibleTransactionRows);
-    setDashboardTransactions(calculationTransactionRows);
-    setTodayTransactions(upcomingTransactionRows);
-    setTransactionTotal(historyTotal);
-    setAlertPrefs(preferenceRows || null);
-    setTransactionImportBatches(importBatchRows);
-    setWorkspacePrefs(workspacePreferenceRows || null);
-    setContexts((contextRows ?? []) as FinancialContext[]);
-
-    if (route === "dashboard" || route === "settings") {
-      const workspacePreference =
-        workspacePreferenceRows as WorkspacePreference | null;
-      const preferredAccountId =
-        workspacePreference?.default_cash_account_id ?? null;
-      const isActiveCashAccount = (accountRows || []).some(
-        (account) =>
-          account.id === preferredAccountId &&
-          (account.type === "checking" ||
-            account.type === "cash" ||
-            account.type === "savings"),
-      );
-      setDefaultCashAccountId(
-        isActiveCashAccount ? preferredAccountId : null,
-      );
-      setGoals(dashboardGoalRows || []);
-      setBudgets(dashboardBudgetRows || []);
-      setOccurrences(occurrenceRows);
-    }
-
-    if (route === "card" && cardId) {
-      const [{ data }, { data: importRows }] = await Promise.all([
-        supabase
-          .from("credit_card_invoices")
-          .select(
-            "id,credit_card_id,due_date,closing_date,paid_at,status,total_amount,credit_card_installments(amount,installment_number,credit_card_purchases(description,installment_count))",
-          )
-          .eq("credit_card_id", cardId)
-          .order("due_date", { ascending: false })
-          .limit(48),
-        supabase
-          .from("credit_card_statement_imports")
-          .select("id,file_name,status,error_code,created_at")
-          .eq("credit_card_id", cardId)
-          .order("created_at", { ascending: false })
-          .limit(5),
-      ]);
-      setInvoices(data || []);
-      setStatementImports(importRows || []);
-    } else if (route === "cards" || route === "accounts") {
-      const { data } = await supabase
-        .from("credit_card_invoices")
-        .select(
-          "id,credit_card_id,due_date,closing_date,paid_at,status,total_amount,credit_card_installments(amount,installment_number,credit_card_purchases(description,installment_count))",
-        )
-        .eq("workspace_id", ws.id)
-        .order("due_date", { ascending: false })
-        .limit(48);
-      setInvoices(data || []);
-    } else if (route === "planning") {
-      const [{ data: budgetRows }, { data: goalRows }, { data: spentRows }] =
-        await Promise.all([
-          supabase
-            .from("monthly_budgets")
-            .select("id,category_id,amount")
-            .eq("workspace_id", ws.id)
-            .eq("month", monthStart()),
-          supabase
-            .from("financial_goals")
-            .select("id,name,target_amount,current_amount,deadline,status")
-            .eq("workspace_id", ws.id)
-            .neq("status", "cancelled")
-            .order("created_at"),
-          supabase
-            .from("transactions")
-            .select("category_id,amount")
-            .eq("workspace_id", ws.id)
-            .eq("type", "expense")
-            .gte("competence_date", monthStart())
-            .lt("competence_date", nextMonthStart()),
-        ]);
-      setBudgets(budgetRows || []);
-      setGoals(goalRows || []);
-      const spent: Record<string, number> = {};
-      for (const row of spentRows || []) {
-        if (row.category_id) {
-          spent[row.category_id] =
-            (spent[row.category_id] || 0) + Number(row.amount);
-        }
+      const boot = await apiRes.json();
+      if (!boot || !Array.isArray(boot.accounts)) {
+        throw new Error("A API retornou um bootstrap inválido.");
       }
-      setMonthSpent(spent);
-    }
-    
-    let commitmentRows: Commitment[] = [];
-    if (route === "commitments") {
-      const { data } = await supabase
-        .from("fixed_commitments")
-        .select("id,description,amount,due_day,account_id,category_id")
-        .eq("workspace_id", ws.id)
-        .eq("active", true)
-        .order("due_day");
-      commitmentRows = (data || []) as Commitment[];
-      setCommitments(commitmentRows);
-      const { data: occurrenceData } = await supabase.rpc(
-        "materialize_fixed_commitment_occurrences",
-        { p_workspace_id: ws.id, p_month: monthStart() },
+
+      if (requestId !== requestSequence.current) return;
+      applyBootstrapPayload(boot, today);
+      if (!isTestEnv) {
+        memoryBootstrapCache = {
+          workspaceId: ws.id,
+          data: boot,
+          timestamp: Date.now(),
+        };
+      }
+      setMessage("");
+      setLoading(false);
+      hasLoaded.current = true;
+      return;
+    } catch (error) {
+      if (requestId !== requestSequence.current) return;
+      const detail = error instanceof Error ? error.message : "";
+      setMessage(
+        detail
+          ? `Não foi possível carregar seus dados. ${detail}`
+          : "Não foi possível carregar seus dados. Tente novamente.",
       );
-      setOccurrences(occurrenceData || []);
+      setLoading(false);
+      hasLoaded.current = true;
+      return;
     }
 
-    if (!isTestEnv) {
-      memoryBootstrapCache = {
-        workspaceId: ws.id,
-        data: {
-          accounts: (accountRows as Account[]) || memoryBootstrapCache?.data?.accounts || [],
-          categories: (categoryRows as Category[]) || memoryBootstrapCache?.data?.categories || [],
-          cards: (cardRows as Card[]) || memoryBootstrapCache?.data?.cards || [],
-          workspace_preferences: (workspacePreferenceRows as WorkspacePreference) || memoryBootstrapCache?.data?.workspace_preferences,
-          alert_preferences: (preferenceRows as AlertPreference) || memoryBootstrapCache?.data?.alert_preferences,
-          goals: (dashboardGoalRows as Goal[]) || memoryBootstrapCache?.data?.goals || [],
-          budgets: (dashboardBudgetRows as Budget[]) || memoryBootstrapCache?.data?.budgets || [],
-          occurrences: occurrenceRows.length ? occurrenceRows : (memoryBootstrapCache?.data?.occurrences || []),
-          transactions: calculationTransactionRows.length ? calculationTransactionRows : (visibleTransactionRows.length ? visibleTransactionRows : (memoryBootstrapCache?.data?.transactions || [])),
-          debts: debtsRows || memoryBootstrapCache?.data?.debts || [],
-          investments: assetsRows || memoryBootstrapCache?.data?.investments || [],
-          workspace_users: wUsers || memoryBootstrapCache?.data?.workspace_users || [],
-          commitments: commitmentRows.length ? commitmentRows : (memoryBootstrapCache?.data?.commitments || []),
-        },
-        timestamp: Date.now(),
-      };
-    }
-
-    hasLoaded.current = true;
-    setLoading(false);
   }, [
-    supabase,
     route,
-    cardId,
     historyQuery,
     historyType,
     historyFrom,
@@ -757,6 +424,7 @@ export function useFinance(
     debts,
     investmentAssets,
     investmentOperations,
+    investmentQuotes,
     workspaceUsers,
     workspaceInvites,
     categoryRules,

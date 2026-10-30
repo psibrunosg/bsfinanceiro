@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
-import { appPath, appUrl, LOGO_URL } from "@/lib/app-path";
-import { createClient } from "@/lib/supabase/client";
-import { authErrorMessage, authLoginErrorMessage, authSchema } from "@/lib/validation/auth";
+import { appPath, LOGO_URL } from "@/lib/app-path";
+import { authSchema } from "@/lib/validation/auth";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [state, setState] = useState<{ error?: string; success?: string }>(() => {
@@ -19,6 +18,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const enter = mode === "login";
 
   async function submit(data: FormData) {
+    if (pending) return;
     setPending(true);
     setState({});
     const parsed = authSchema.safeParse(Object.fromEntries(data));
@@ -40,12 +40,18 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       if (res.ok) {
         const resData = await res.json();
         if (resData.success) {
+          if (!resData.token || !resData.user?.id || !resData.workspace?.id) {
+            setState({ error: "A resposta do serviço de acesso está incompleta. Tente novamente." });
+            setPending(false);
+            return;
+          }
           if (typeof window !== "undefined") {
             localStorage.setItem("bsfinanceiro_user", JSON.stringify(resData.user));
             localStorage.setItem("bsfinanceiro_workspace", JSON.stringify(resData.workspace));
             if (resData.token) localStorage.setItem("bsfinanceiro_token", resData.token);
           }
-          window.location.replace(appPath("/"));
+          const invite = sessionStorage.getItem("pending_invite_token");
+          window.location.replace(appPath(invite ? `/convite?token=${encodeURIComponent(invite)}` : (!enter || resData.onboarding_required) ? "/onboarding" : "/"));
           return;
         }
       } else {
@@ -57,34 +63,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         }
       }
     } catch {
-      // API não respondeu ou ambiente sem backend — tenta Supabase
-    }
-
-    // 2. Fallback Supabase
-    let supabase;
-    try {
-      supabase = createClient();
-    } catch {
-      setState({ error: "O servico de acesso esta indisponivel. Tente novamente em alguns instantes." });
+      setState({ error: "O serviço de acesso está indisponível. Tente novamente em alguns instantes." });
       setPending(false);
       return;
     }
 
-    if (enter) {
-      const { error } = await supabase.auth.signInWithPassword(parsed.data);
-      if (error) setState({ error: authLoginErrorMessage(error) });
-      else window.location.replace(appPath("/"));
-    } else {
-      const { error } = await supabase.auth.signUp({
-        ...parsed.data,
-        options: { emailRedirectTo: appUrl("/auth/callback") },
-      });
-      setState(
-        error
-          ? { error: authErrorMessage(error) }
-          : { success: "Conta criada com sucesso! Você já pode entrar." },
-      );
-    }
+    setState({ error: "Não foi possível concluir o acesso. Tente novamente." });
     setPending(false);
   }
 

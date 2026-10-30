@@ -3,7 +3,14 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { CardsPage } from "./CardsPage";
+import { apiFetch } from "@/lib/api-client";
 
+vi.mock("@/lib/api-client", () => ({ apiFetch: vi.fn() }));
+
+beforeEach(() => {
+  mockSearchParams = new URLSearchParams("cardId=card-1");
+  vi.mocked(apiFetch).mockResolvedValue({ ok: true, json: async () => [] } as unknown as Response);
+});
 
 let mockSearchParams = new URLSearchParams("cardId=card-1");
 vi.mock("next/navigation", () => ({
@@ -25,7 +32,6 @@ vi.mock("./components/PageHeader", () => ({
   PageHeader: ({ action }: { action?: { label: string; onClick: () => void } }) => action ? <button onClick={action.onClick}>{action.label}</button> : null 
 }));
 vi.mock("./components/List", () => ({ List: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
-vi.mock("@/lib/supabase/client", () => ({ createClient: vi.fn(() => ({})) }));
 
 describe("CardsPage statement upload", () => {
   it("references feedback only after the upload form renders feedback", async () => {
@@ -50,10 +56,10 @@ describe("CardsPage card form", () => {
   it("allows opening the form and saving a new card", async () => {
     mockSearchParams = new URLSearchParams();
     
-    global.fetch = vi.fn().mockResolvedValue({
+    vi.mocked(apiFetch).mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ success: true })
-    });
+      json: () => Promise.resolve({ success: true }),
+    } as Response);
     
     render(<CardsPage />);
     
@@ -72,7 +78,7 @@ describe("CardsPage card form", () => {
     fireEvent.submit(limitInput.closest("form")!);
     
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith("/api/cards", expect.any(Object));
+      expect(apiFetch).toHaveBeenCalledWith("/api/cards", expect.any(Object));
     });
   });
 });

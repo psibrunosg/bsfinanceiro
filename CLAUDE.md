@@ -1,6 +1,51 @@
-# CLAUDE.md
+# ORQUESTRAÇÃO, ECONOMIA DE TOKENS & SUB-AGENTES
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Vale para todos os projetos. O usuário otimiza **limite de uso e tokens**, não geração: o maior gargalo medido é **contexto relido**.
+
+## 1. COMUNICAÇÃO & HIGIENE DE RESPOSTA
+- Seja direto, conciso e técnico. Omita saudações, preâmbulos e resumos prolixos.
+- Responda diretamente com código, diffs cirúrgicos ou respostas concretas.
+- Edições cirúrgicas sempre: nunca reescreva arquivos inteiros para alterações localizadas.
+
+## 2. MATRIZ DE ESCALONAMENTO DE MODELOS & AGENTES (POR DEMANDA)
+Mapeamento funcional dinâmico (resolve para a versão ativa mais recente de cada família):
+- **Fast Tier (Haiku-class / agentes `investigador` e `verificador`)**:
+  - Leitura, busca de arquivos, mapeamento de símbolos, varredura de logs/traces e validação de sintaxe.
+  - Regra de Ouro: **Sempre delegue leituras pesadas ao Fast Tier**, independente do tamanho da tarefa. As dezenas de leituras nunca entram na sessão principal (evita inflar o contexto relido a cada turno).
+- **Standard Tier (Sonnet-class / agente `construtor` / Sessão Principal)**:
+  - Raciocínio central, arquitetura da tarefa, implementação de código e refatorações padrão.
+- **Deep Reasoning Tier (Opus-class / Extended Thinking)**:
+  - Acionamento estritamente sob demanda para impasses sistêmicos após >2 iterações falhas ou decisões arquiteturais críticas.
+- *Nota de chamada*: Definidos em `~/.claude/agents/`. Não passe `model:` na chamada se o agente já possuir modelo definido no frontmatter.
+
+## 3. QUANDO DELEGAR VS QUANDO FAZER DIRETO
+Sub-agente também consome tokens (inicia do zero e relê arquivos).
+- **Fazer Direto**: Correção de 1 linha, ajuste de texto, rename mecânico ou quando o código já estiver inteiro no contexto da sessão. Resposta correta: *"Fiz direto, era menor que o custo de delegar."*
+- **Delegar para Sub-Agente**: Tarefa toca 2+ arquivos, passa de ~40 linhas, ou mexe em dinheiro/segurança/migration.
+- **Não rodar pipeline sobre o que já está pronto**: Se o objetivo já estiver majoritariamente cumprido, execute apenas o que resta.
+
+## 4. QUARENTENA DE CONTEXTO & PROTOCOLO DE VALIDAÇÃO (LANGFLOW PATTERN)
+- **Payloads Isolados**: Prompts de subagente devem ser autocontidos; nunca repasse histórico conversacional desnecessário.
+- **Retornos Filtrados**: Subagentes nunca despejam saídas brutas de ferramentas na sessão principal. Limite de retorno a 5–10 linhas sintetizadas ou diff cirúrgico.
+- **Respostas Estritas em Validação**: Agentes verificadores respondem estritamente:
+  `{"status":"PASS"}` ou `{"status":"FAIL","reason":"<até 10 palavras>"}`
+- **Conferência Crítica**: Conferir PASS por conta própria antes de consolidar (PASS de subagente é sinal, não prova definitiva).
+- **Loop Autônomo de Correção**: Subagentes devem depurar erros de build/lint/teste internamente no seu contexto antes de reportar.
+- **Reaproveitamento de Agente**: Reutilizar um subagente já finalizado com `SendMessage` + `agentId` reaproveita o contexto e sai bem mais barato do que abrir um novo.
+
+## 5. LAZY LOADING & DISCIPLINA DE FERRAMENTAS (PLANDEX PATTERN)
+- **Outline First**: Proibido ler arquivos inteiros >100 linhas na sessão principal. Use grep, busca de símbolos ou leitura fatiada (`start_line`/`end_line`).
+- **Silenciamento de Shell**: Redirecione comandos verbosos para arquivo temporário (`cmd > /tmp/run.log 2>&1 || tail -n 25 /tmp/run.log`). Avalie exit codes primeiro; inspecione logs apenas em falhas.
+- **Escada do Ponytail**: Parar no primeiro degrau que resolve. Marcar atalho deliberado com comentário `ponytail:` e deixar verificação executável para lógica não trivial.
+- **Imutabilidade de Cache**: Mantenha este cabeçalho estático para preservar o cache hit de prompt (>90%).
+
+## 6. PARALELISMO POR ONDAS & SESSÕES LONGAS
+- **Onda 0 (Direto)**: Fundação compartilhada (imports, tokens, types, helpers base). É pequena e serializa o restante se delegada.
+- **Onda 1 (Paralelo)**: Subagentes em paralelo numa única mensagem, cada um com conjunto de arquivos **disjunto** e lista explícita de "DO NOT EDIT" para evitar conflito. Fatiar por arquivo, nunca por camada abstrata.
+- **Corte de Sessões Longas via Issues**: Tarefa que sobrevive a uma sessão vira **Issue no GitHub** (`gh issue`). A issue preserva o estado entre sessões; encerre sessões longas para evitar estourar o limite de contexto relido.
+
+---
+
 
 # BS Financeiro
 

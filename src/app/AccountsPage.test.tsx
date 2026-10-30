@@ -4,19 +4,6 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AccountsPage } from "./AccountsPage";
 
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      insert: vi.fn().mockResolvedValue({ error: null }),
-    }),
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }),
-    },
-  }),
-}));
-
 vi.mock("./components/Nav", () => ({ Nav: () => null }));
 vi.mock("./components/Dialog", () => ({
   Dialog: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
