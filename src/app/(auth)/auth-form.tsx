@@ -18,6 +18,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const enter = mode === "login";
 
   async function submit(data: FormData) {
+    if (pending) return;
     setPending(true);
     setState({});
     const parsed = authSchema.safeParse(Object.fromEntries(data));
@@ -39,12 +40,18 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       if (res.ok) {
         const resData = await res.json();
         if (resData.success) {
+          if (!resData.token || !resData.user?.id || !resData.workspace?.id) {
+            setState({ error: "A resposta do serviço de acesso está incompleta. Tente novamente." });
+            setPending(false);
+            return;
+          }
           if (typeof window !== "undefined") {
             localStorage.setItem("bsfinanceiro_user", JSON.stringify(resData.user));
             localStorage.setItem("bsfinanceiro_workspace", JSON.stringify(resData.workspace));
             if (resData.token) localStorage.setItem("bsfinanceiro_token", resData.token);
           }
-          window.location.replace(appPath("/"));
+          const invite = sessionStorage.getItem("pending_invite_token");
+          window.location.replace(appPath(invite ? `/convite?token=${encodeURIComponent(invite)}` : (!enter || resData.onboarding_required) ? "/onboarding" : "/"));
           return;
         }
       } else {

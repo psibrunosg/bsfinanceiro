@@ -4,18 +4,6 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import DividasPage from "./page";
 
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      insert: vi.fn().mockResolvedValue({ error: null }),
-    }),
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }),
-    },
-  }),
-}));
-
 vi.mock("@/app/components/Nav", () => ({
   Nav: () => <nav data-testid="app-nav">Mock Nav</nav>,
 }));

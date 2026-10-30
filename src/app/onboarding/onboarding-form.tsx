@@ -3,7 +3,7 @@
 import { ArrowRight, LoaderCircle } from "lucide-react";
 import React, { useState } from "react";
 import { appPath, LOGO_URL } from "../../lib/app-path";
-import { createClient } from "../../lib/supabase/client";
+import { apiFetch } from "@/lib/api-client";
 
 type FieldName = "display_name" | "monthly_income" | "current_balance" | "card_name" | "closing_day" | "due_day";
 type FieldErrors = Partial<Record<FieldName, string>>;
@@ -79,28 +79,24 @@ export function OnboardingForm({ suggestedName }: { suggestedName: string }) {
     setErrors({});
     setFormError("");
     setPending(true);
-    const supabase = createClient();
-    const { data: userData } = await supabase.auth.getUser();
-
-    if (!userData.user) {
-      setFormError("Sua sessão expirou. Entre novamente.");
-      setPending(false);
-      return;
+    let rpcError: { message: string } | null = null;
+    try {
+      const response = await apiFetch("/api/onboarding", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ display_name: data.get("display_name"), monthly_income: monthlyIncome,
+          current_balance: currentBalance, card_name: data.get("card_name"), closing_day: closingDay, due_day: dueDay }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) rpcError = { message: result.error || "Não foi possível concluir agora. Tente novamente." };
+      else if (result.workspace) localStorage.setItem("bsfinanceiro_workspace", JSON.stringify(result.workspace));
+    } catch {
+      rpcError = { message: "O serviço está indisponível. Tente novamente." };
     }
-
-    const { error: rpcError } = await supabase.rpc("complete_compact_onboarding", {
-      p_display_name: data.get("display_name"),
-      p_monthly_income: monthlyIncome,
-      p_current_balance: currentBalance,
-      p_card_name: data.get("card_name"),
-      p_card_closing_day: closingDay,
-      p_card_due_day: dueDay,
-    });
 
     if (rpcError) {
       const rpcErrors = rpcFieldError(rpcError.message);
       setErrors(rpcErrors);
-      setFormError(Object.keys(rpcErrors).length ? "" : "Não foi possível concluir agora. Tente novamente.");
+      setFormError(Object.keys(rpcErrors).length ? "" : rpcError.message);
       setPending(false);
       focusFirstError(rpcErrors);
       return;

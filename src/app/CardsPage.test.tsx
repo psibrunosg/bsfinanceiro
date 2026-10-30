@@ -7,6 +7,11 @@ import { apiFetch } from "@/lib/api-client";
 
 vi.mock("@/lib/api-client", () => ({ apiFetch: vi.fn() }));
 
+beforeEach(() => {
+  mockSearchParams = new URLSearchParams("cardId=card-1");
+  vi.mocked(apiFetch).mockResolvedValue({ ok: true, json: async () => [] } as unknown as Response);
+});
+
 let mockSearchParams = new URLSearchParams("cardId=card-1");
 vi.mock("next/navigation", () => ({
   useSearchParams: () => mockSearchParams,
@@ -27,7 +32,6 @@ vi.mock("./components/PageHeader", () => ({
   PageHeader: ({ action }: { action?: { label: string; onClick: () => void } }) => action ? <button onClick={action.onClick}>{action.label}</button> : null 
 }));
 vi.mock("./components/List", () => ({ List: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
-vi.mock("@/lib/supabase/client", () => ({ createClient: vi.fn(() => ({})) }));
 
 describe("CardsPage statement upload", () => {
   it("references feedback only after the upload form renders feedback", async () => {

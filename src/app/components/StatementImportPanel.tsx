@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
+import { apiFetch } from "@/lib/api-client";
 import {
   parseStatementCsv,
   statementTransactionFingerprint,
@@ -43,7 +43,6 @@ export function StatementImportPanel({
   onReload,
   onMessage,
 }: StatementImportPanelProps) {
-  const supabase = useMemo(() => createClient(), []);
   const [accountId, setAccountId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [csvText, setCsvText] = useState<string | null>(null);
@@ -80,22 +79,28 @@ export function StatementImportPanel({
           return;
         }
       }
-      const existingTransactions = await loadExistingTransactions();
-      const classified = classifyPreview(parsed, existingTransactions, historyTransactions, categoryRules);
-      const { data: batch, error: batchError } = await supabase
-        .from("transaction_import_batches")
-        .insert({ workspace_id: workspaceId, owner_id: ownerId, account_id: accountId, file_name: file.name })
-        .select("id")
-        .single();
-      if (batchError || !batch) throw batchError ?? new Error("batch_creation_failed");
-      batchId = batch.id;
+      const classified = classifyPreview(parsed, historyTransactions.filter(
+        (transaction): transaction is Transaction & { type: "income" | "expense" } =>
+          transaction.type === "income" || transaction.type === "expense",
+      ), historyTransactions, categoryRules);
+      const response = await apiFetch("/api/imports/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspaceId,
+          account_id: accountId,
+          file_name: file.name,
+          items: classified.items.map(toImportItem),
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.batch?.id) {
+        throw new Error(payload?.error || "batch_creation_failed");
+      }
+      const createdBatchId: string = payload.batch.id;
+      batchId = createdBatchId;
 
-      const { error: itemError } = await supabase.from("transaction_import_items").insert(
-        classified.items.map((item) => toImportItem(item, batch.id, workspaceId, ownerId)),
-      );
-      if (itemError) throw itemError;
-
-      setPreview({ id: batch.id, fileName: file.name, status: "pending", items: classified.items });
+      setPreview({ id: createdBatchId, fileName: file.name, status: "pending", items: classified.items });
       setSelectedBatchId(null);
       await reloadAfterSuccess("Prévia criada. A confirmação ainda será revalidada pelo banco.");
     } catch {
@@ -111,10 +116,15 @@ export function StatementImportPanel({
   async function actOnBatch(batch: { id: string; fileName: string }, action: "apply" | "discard") {
     if (pendingAction) return;
     setPendingAction(`${action}:${batch.id}`);
-    const rpc = action === "apply" ? "apply_transaction_import_batch" : "discard_transaction_import_batch";
+    const endpoint = action === "apply"
+      ? `/api/imports/${batch.id}/apply`
+      : `/api/imports/${batch.id}/discard`;
     try {
-      const { error } = await supabase.rpc(rpc, { p_batch_id: batch.id });
-      if (error) throw error;
+      const response = await apiFetch(endpoint, { method: "POST" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.success === false) {
+        throw new Error(payload?.error || "import_action_failed");
+      }
       setPreview(null);
       setSelectedBatchId(null);
       await reloadAfterSuccess(action === "apply" ? `Importação ${batch.fileName} confirmada.` : `Importação ${batch.fileName} descartada.`);
@@ -127,21 +137,14 @@ export function StatementImportPanel({
 
   async function discardFailedBatch(batchId: string) {
     try {
-      const { error } = await supabase.rpc("discard_transaction_import_batch", { p_batch_id: batchId });
-      return !error;
+      const response = await apiFetch(`/api/imports/${batchId}/discard`, {
+        method: "POST",
+      });
+      const payload = await response.json().catch(() => ({}));
+      return response.ok && payload?.success !== false;
     } catch {
       return false;
     }
-  }
-
-  async function loadExistingTransactions() {
-    const { data, error } = await supabase
-      .from("transactions")
-      .select("competence_date,description,amount,type")
-      .eq("workspace_id", workspaceId)
-      .eq("account_id", accountId);
-    if (error) throw error;
-    return data ?? [];
   }
 
   async function reloadAfterSuccess(successMessage: string) {
@@ -308,12 +311,32 @@ function classifyPreview(
   }) };
 }
 
-function toImportItem(item: PreviewItem, batchId: string, workspaceId: string, ownerId: string) {
+function toImportItem(item: PreviewItem) {
   if ("fingerprint" in item) {
     const existingDuplicate = item.duplicateSource === "existing";
-    return { batch_id: batchId, workspace_id: workspaceId, owner_id: ownerId, row_number: item.rowNumber, competence_date: item.competenceDate, description: item.description, amount_cents: item.amountCents, type: item.type, status: existingDuplicate ? "duplicate" : "ready", reason: existingDuplicate ? "duplicate_existing" : null, fingerprint: item.fingerprint, category_id: item.categoryId ?? null };
+    return {
+      row_number: item.rowNumber,
+      competence_date: item.competenceDate,
+      description: item.description,
+      amount_cents: item.amountCents,
+      type: item.type,
+      status: existingDuplicate ? "duplicate" : "ready",
+      reason: existingDuplicate ? "duplicate_existing" : null,
+      fingerprint: item.fingerprint,
+      category_id: item.categoryId ?? null,
+    };
   }
-  return { batch_id: batchId, workspace_id: workspaceId, owner_id: ownerId, row_number: item.rowNumber, competence_date: null, description: null, amount_cents: null, type: null, status: "invalid", reason: item.reason, fingerprint: null, category_id: null };
+  return {
+    row_number: item.rowNumber,
+    competence_date: null,
+    description: null,
+    amount_cents: null,
+    type: null,
+    status: "invalid",
+    reason: item.reason,
+    fingerprint: null,
+    category_id: null,
+  };
 }
 
 function summarize(items: Array<PreviewItem | TransactionImportItem>) {

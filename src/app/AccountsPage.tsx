@@ -9,7 +9,6 @@ import { List } from "./components/List";
 import { SimpleForm } from "./components/SimpleForm";
 import { money, parseMoney } from "./components/Money";
 import { ACCOUNT_TYPE_LABEL } from "./components/types";
-import { createClient } from "@/lib/supabase/client";
 import { useMemo, useState } from "react";
 import { Landmark, Wallet, Percent, CreditCard, ChevronRight } from "lucide-react";
 import { Dialog } from "./components/Dialog";
@@ -19,7 +18,6 @@ import { calculateCardLimitUsage } from "@/lib/finance/card";
 
 export function AccountsPage() {
   const {
-    ownerId,
     workspace,
     accounts,
     cards = [],
@@ -30,7 +28,6 @@ export function AccountsPage() {
     setMessage,
     reload,
   } = useFinance("accounts");
-  const supabase = useMemo(() => createClient(), []);
   const [openDialog, setOpenDialog] = useState(false);
 
   // Saldo atual conta só o que já foi liquidado — igual ao "disponível" do painel.
@@ -137,62 +134,31 @@ export function AccountsPage() {
     const is_shared = form.get("is_shared") === "on";
 
     try {
-      // 1. Tenta salvar na API local da VPS
-      try {
-        const res = await apiFetch("/api/accounts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            workspace_id: workspace.id,
-            owner_id: ownerId,
-            name,
-            type,
-            initial_balance,
-            is_shared,
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.success) {
-          setMessage("Conta adicionada.");
-          setOpenDialog(false);
-          await reload();
-          return;
-        }
-      } catch {}
-
-      const { data: userData } = await supabase.auth.getUser();
-      const owner_id = userData?.user?.id ?? ownerId;
-      if (!owner_id) throw new Error("Usuário não autenticado");
-
-      let { error } = await supabase.from("accounts").insert({
-        workspace_id: workspace.id,
-        owner_id,
-        name,
-        type,
-        initial_balance,
-        is_shared,
-      });
-
-      if (error && (error.message?.includes("is_shared") || error.code === "PGRST204" || error.code === "42703")) {
-        const fallback = await supabase.from("accounts").insert({
+      const res = await apiFetch("/api/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           workspace_id: workspace.id,
-          owner_id,
           name,
           type,
           initial_balance,
-        });
-        error = fallback.error;
+          is_shared,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Não foi possível adicionar a conta.");
       }
 
-      if (error) {
-        setMessage(`Não foi possível adicionar a conta: ${error.message}`);
-      } else {
-        setMessage("Conta adicionada.");
-        setOpenDialog(false);
-        reload();
-      }
+      setMessage("Conta adicionada.");
+      setOpenDialog(false);
+      await reload();
     } catch (err: unknown) {
-      setMessage("Erro ao adicionar conta: " + (err as Error).message);
+      setMessage(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível adicionar a conta.",
+      );
     }
   }
 

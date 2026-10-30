@@ -5,15 +5,13 @@ import { apiFetch } from "@/lib/api-client";
 import { useFinance } from "./components/useFinance";
 import { Nav } from "./components/Nav";
 import { PageHeader } from "./components/PageHeader";
-import { createClient } from "@/lib/supabase/client";
 import { appPath } from "@/lib/app-path";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { WorkspacePreference } from "./components/types";
 import { ShortcutDeviceSettings } from "./components/ShortcutDeviceSettings";
 
 export function SettingsPage() {
   const { workspace, workspaceUsers, workspaceInvites, alertPrefs, workspacePrefs, contexts = [], accounts, categories, defaultCashAccountId, loading, message, setMessage, reload } = useFinance("settings");
-  const supabase = useMemo(() => createClient(), []);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("Aparência");
 
@@ -23,133 +21,130 @@ export function SettingsPage() {
 
   async function savePreferences(form: FormData) {
     setSaving(true);
-    const { data: userData } = await supabase.auth.getUser();
-    
-    if (activeTab === "Família") {
-      const action = (form.get("action") as string) || (form.get("invite_role") ? "create_invite" : "");
-      if (action === "create_invite") {
-        const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        const role = String(form.get("invite_role") || "editor");
-
-        try {
+    try {
+      if (activeTab === "Família") {
+        const action =
+          (form.get("action") as string) ||
+          (form.get("invite_role") ? "create_invite" : "");
+        if (action === "create_invite") {
+          const role = String(form.get("invite_role") || "editor");
           const res = await apiFetch("/api/invites", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               workspace_id: workspace.id,
               role,
-              token,
             }),
           });
-          const data = await res.json();
-          if (res.ok && data.success) {
-            setMessage("Convite gerado com sucesso!");
-            setSaving(false);
-            await reload();
-            return;
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) {
+            throw new Error(data.error || "Erro ao gerar convite.");
           }
-        } catch {
-          // fallback to supabase
+          setMessage("Convite gerado com sucesso!");
+          await reload();
         }
+        return;
+      }
 
-        const { error } = await supabase.from("workspace_invites").insert({
+      if (activeTab === "Alertas") {
+        const preferences = {
+          budget_alerts: form.get("budget_alerts") === "on",
+          goal_alerts: form.get("goal_alerts") === "on",
+          fixed_commitment_alerts:
+            form.get("fixed_commitment_alerts") === "on",
+          credit_card_alerts: form.get("credit_card_alerts") === "on",
+          low_balance_alerts: form.get("low_balance_alerts") === "on",
+          weekly_digest: form.get("weekly_digest") === "on",
+          budget_warning_percent: Number(
+            form.get("budget_warning_percent") || 80,
+          ),
+          low_balance_amount: Number(form.get("low_balance_amount") || 0),
+          weekly_digest_day: Number(form.get("weekly_digest_day") || 1),
+        };
+
+        const res = await apiFetch("/api/preferences", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workspace_id: workspace.id,
+            alert_preferences: preferences,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Não foi possível salvar alertas.");
+        }
+        setMessage("Preferências de alerta salvas.");
+        await reload();
+        return;
+      }
+
+      const preferences: Partial<WorkspacePreference> = {};
+      if (form.has("compact_mode")) {
+        preferences.compact_mode = form.get("compact_mode") === "true";
+      }
+      if (form.has("personal_color")) {
+        preferences.personal_color =
+          (form.get("personal_color") as string) || null;
+      }
+      if (form.has("default_period")) {
+        preferences.default_period = String(form.get("default_period"));
+      }
+      if (form.has("hide_values")) {
+        preferences.hide_values = form.get("hide_values") === "true";
+      }
+      if (form.has("default_context_id")) {
+        preferences.default_context_id =
+          (form.get("default_context_id") as string) || null;
+      }
+      if (form.has("default_appointment_value")) {
+        preferences.default_appointment_value =
+          parseFloat(
+            String(form.get("default_appointment_value"))
+              .replace(/\./g, "")
+              .replace(",", "."),
+          ) || 0;
+      }
+      if (form.has("default_billing_deadline_days")) {
+        preferences.default_billing_deadline_days =
+          Number(form.get("default_billing_deadline_days")) || 30;
+      }
+      if (form.has("default_category_id")) {
+        preferences.default_category_id =
+          (form.get("default_category_id") as string) || null;
+      }
+
+      const res = await apiFetch("/api/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           workspace_id: workspace.id,
-          token,
-          role,
-        });
-        setMessage(error ? "Erro ao gerar convite." : "Convite gerado com sucesso!");
-        if (!error) await reload();
+          workspace_preferences: {
+            ...preferences,
+            ...(preferences.personal_color
+              ? { primary_color: preferences.personal_color }
+              : {}),
+          },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Não foi possível salvar preferências.");
       }
+      setMessage("Preferências salvas.");
+      await reload();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar as preferências.",
+      );
+    } finally {
       setSaving(false);
-      return;
     }
-
-    if (activeTab === "Alertas") {
-      const p = {
-        workspace_id: workspace.id,
-        owner_id: userData.user?.id,
-        budget_alerts: form.get("budget_alerts") === "on",
-        goal_alerts: form.get("goal_alerts") === "on",
-        fixed_commitment_alerts: form.get("fixed_commitment_alerts") === "on",
-        credit_card_alerts: form.get("credit_card_alerts") === "on",
-        low_balance_alerts: form.get("low_balance_alerts") === "on",
-        weekly_digest: form.get("weekly_digest") === "on",
-        budget_warning_percent: Number(form.get("budget_warning_percent") || 80),
-        low_balance_amount: Number(form.get("low_balance_amount") || 0),
-        weekly_digest_day: Number(form.get("weekly_digest_day") || 1),
-      };
-
-      try {
-        const res = await apiFetch("/api/preferences", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            workspace_id: workspace.id,
-            alert_preferences: p,
-          }),
-        });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          setMessage("Preferências de alerta salvas.");
-          setSaving(false);
-          await reload();
-          return;
-        }
-      } catch {
-        // fallback to supabase
-      }
-
-      const { error } = await supabase.from("alert_preferences").upsert(p, { onConflict: "workspace_id,owner_id" });
-      setMessage(error ? "Não foi possível salvar alertas." : "Preferências de alerta salvas.");
-    } else {
-      const p: Partial<WorkspacePreference> & { workspace_id: string; owner_id?: string } = {
-        workspace_id: workspace.id,
-        owner_id: userData.user?.id,
-      };
-      if (form.has("compact_mode")) p.compact_mode = form.get("compact_mode") === "true";
-      if (form.has("personal_color")) p.personal_color = form.get("personal_color") as string | null;
-      if (form.has("default_period")) p.default_period = form.get("default_period") as string;
-      if (form.has("hide_values")) p.hide_values = form.get("hide_values") === "true";
-      if (form.has("default_context_id")) p.default_context_id = (form.get("default_context_id") as string) || null;
-      if (form.has("default_appointment_value")) p.default_appointment_value = parseFloat(String(form.get("default_appointment_value")).replace(/\./g, "").replace(",", ".")) || 0;
-      if (form.has("default_billing_deadline_days")) p.default_billing_deadline_days = Number(form.get("default_billing_deadline_days")) || 30;
-      if (form.has("default_category_id")) p.default_category_id = (form.get("default_category_id") as string) || null;
-      
-      try {
-        const res = await apiFetch("/api/preferences", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            workspace_id: workspace.id,
-            workspace_preferences: {
-              ...p,
-              primary_color: p.personal_color,
-            },
-          }),
-        });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          setMessage("Preferências salvas.");
-          setSaving(false);
-          await reload();
-          return;
-        }
-      } catch {
-        // fallback to supabase
-      }
-
-      const { error } = await supabase.from("workspace_preferences").upsert(p, { onConflict: "workspace_id,owner_id" });
-      setMessage(error ? "Não foi possível salvar preferências." : "Preferências salvas.");
-    }
-    
-    setSaving(false);
-    await reload();
   }
 
-  async function signOut() {
-    try {
-      await supabase.auth.signOut();
-    } catch {}
+  function signOut() {
     if (typeof window !== "undefined") {
       localStorage.removeItem("bsfinanceiro_user");
       localStorage.removeItem("bsfinanceiro_workspace");

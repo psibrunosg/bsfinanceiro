@@ -3,8 +3,7 @@
 import { apiFetch } from "@/lib/api-client";
 
 import { useMemo, useRef, useState, type FormEvent } from "react";
-import { addMonthsToDate, todayInSaoPaulo } from "@/lib/finance/local-date";
-import { createClient } from "@/lib/supabase/client";
+import { todayInSaoPaulo } from "@/lib/finance/local-date";
 import { money, parseMoney } from "./Money";
 import { predictCategory } from "@/lib/finance/category-predictor";
 import { parseBankNotification } from "@/lib/finance/bank-notification-parser";
@@ -24,14 +23,12 @@ type QuickTransactionFormProps = {
 
 export function QuickTransactionForm({
   workspaceId,
-  ownerId,
   defaultCashAccountId,
   accounts,
   categories,
   onSubmitStart,
   onSaved,
 }: QuickTransactionFormProps) {
-  const supabase = useMemo(() => createClient(), []);
   const today = useMemo(todayInSaoPaulo, []);
   const initialAccountId =
     accounts.find((account) => account.id === defaultCashAccountId)?.id ?? "";
@@ -97,110 +94,41 @@ export function QuickTransactionForm({
     setPending(true);
 
     try {
-      let saved = false;
       const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
       const isCreditCard = selectedAccount?.type === "credit_card";
-
-      if (typeof window !== "undefined" && !process.env.VITEST) {
-        try {
-          if (isCreditCard) {
-            const res = await apiFetch("/api/cards/purchase", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                workspace_id: workspaceId,
-                owner_id: ownerId,
-                credit_card_id: selectedAccountId,
-                category_id: categoryId,
-                description: trimmedDescription,
-                total_amount: parsedAmount,
-                purchased_on: selectedDate,
-                installment_count: installments,
-              }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (res.ok && data.success) {
-              saved = true;
-            }
-          } else {
-            const res = await apiFetch("/api/transactions", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                workspace_id: workspaceId,
-                owner_id: ownerId,
-                account_id: selectedAccountId,
-                category_id: categoryId,
-                destination_account_id: null,
-                type,
-                amount: parsedAmount,
-                description: trimmedDescription,
-                competence_date: selectedDate,
-                status: "paid",
-                installments: installments > 1 ? installments : undefined,
-              }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (res.ok && data.success) {
-              saved = true;
-            }
+      const endpoint = isCreditCard ? "/api/cards/purchase" : "/api/transactions";
+      const payload = isCreditCard
+        ? {
+            workspace_id: workspaceId,
+            credit_card_id: selectedAccountId,
+            category_id: categoryId,
+            description: trimmedDescription,
+            total_amount: parsedAmount,
+            purchased_on: selectedDate,
+            installment_count: installments,
           }
-        } catch {}
-      }
+        : {
+            workspace_id: workspaceId,
+            account_id: selectedAccountId,
+            category_id: categoryId,
+            destination_account_id: null,
+            type,
+            amount: parsedAmount,
+            description: trimmedDescription,
+            competence_date: selectedDate,
+            status: "paid",
+            installments: installments > 1 ? installments : undefined,
+          };
 
-      if (!saved) {
-        if (installments > 1) {
-          const rows = [];
-          const installmentAmount = Math.round((parsedAmount / installments) * 100) / 100;
-          const centsDiff = Math.round((parsedAmount - installmentAmount * installments) * 100) / 100;
-
-          for (let i = 1; i <= installments; i++) {
-            const currentAmount = i === 1 ? installmentAmount + centsDiff : installmentAmount;
-            const currentDesc = `${trimmedDescription} (${i}/${installments})`;
-            const currentDate = i === 1 ? selectedDate : addMonthsToDate(selectedDate, i - 1);
-            rows.push({
-              workspace_id: workspaceId,
-              owner_id: ownerId,
-              account_id: selectedAccountId,
-              category_id: categoryId,
-              destination_account_id: null,
-              type,
-              amount: currentAmount,
-              description: currentDesc,
-              competence_date: currentDate,
-              paid_at: currentDate,
-              status: "paid",
-              idempotency_key: crypto.randomUUID(),
-            });
-          }
-          const { error: insertError } = await supabase.from("transactions").insert(rows);
-          if (insertError) {
-            setError("Não foi possível registrar. Tente novamente.");
-            return;
-          }
-        } else {
-          const { error: insertError } = await supabase
-            .from("transactions")
-            .insert({
-              workspace_id: workspaceId,
-              owner_id: ownerId,
-              account_id: selectedAccountId,
-              category_id: categoryId,
-              destination_account_id: null,
-              type,
-              amount: parsedAmount,
-              description: trimmedDescription,
-              competence_date: selectedDate,
-              paid_at: selectedDate,
-              status: "paid",
-              idempotency_key: crypto.randomUUID(),
-            });
-
-          if (insertError) {
-            setError("Não foi possível registrar. Tente novamente.");
-            return;
-          }
-        }
+      const response = await apiFetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success === false) {
+        setError("Não foi possível registrar. Tente novamente.");
+        return;
       }
 
       setAmount("");

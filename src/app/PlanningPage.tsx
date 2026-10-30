@@ -9,9 +9,8 @@ import { List } from "./components/List";
 import { SimpleForm } from "./components/SimpleForm";
 import { money, parseMoney, cents, dateFmt, monthStart } from "./components/Money";
 import { calculateBudgetConsumption, calculateGoalProgress } from "@/lib/finance/budget";
-import { Suspense, useEffect, useMemo } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { Flag, PieChart, Target } from "lucide-react";
 import { GoalPlannerWidget } from "./components/GoalPlannerWidget";
 import { ScenarioSimulatorWidget } from "./components/ScenarioSimulatorWidget";
@@ -22,7 +21,6 @@ function PlanningPageInner() {
   const focus = searchParams.get("focus");
   const goalId = searchParams.get("goalId");
   const { workspace, categories, budgets, goals, monthSpent, loading, message, setMessage, reload } = useFinance("planning");
-  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     if (!loading && focus === "choose-goal" && goals.length > 1) document.getElementById("goals-list")?.focus();
@@ -36,32 +34,19 @@ function PlanningPageInner() {
   async function submitBudget(form: FormData) {
     const category_id = form.get("category_id");
     const amount = parseMoney(form.get("amount"));
-
     try {
       const res = await apiFetch("/api/budgets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workspace_id: workspace.id,
-          category_id,
-          month: monthStart(),
-          amount,
-        }),
+        body: JSON.stringify({ workspace_id: workspace.id, category_id, month: monthStart(), amount }),
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setMessage("Orçamento salvo.");
-      } else {
-        const { data: userData } = await supabase.auth.getUser();
-        const { error } = await supabase.from("monthly_budgets").upsert({ workspace_id: workspace.id, owner_id: userData?.user?.id, category_id, category_kind: "expense", month: monthStart(), amount }, { onConflict: "workspace_id,owner_id,category_id,month" });
-        setMessage(error ? "Não foi possível salvar o orçamento." : "Orçamento salvo.");
-      }
-    } catch {
-      const { data: userData } = await supabase.auth.getUser();
-      const { error } = await supabase.from("monthly_budgets").upsert({ workspace_id: workspace.id, owner_id: userData?.user?.id, category_id, category_kind: "expense", month: monthStart(), amount }, { onConflict: "workspace_id,owner_id,category_id,month" });
-      setMessage(error ? "Não foi possível salvar o orçamento." : "Orçamento salvo.");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível salvar o orçamento.");
+      setMessage("Orçamento salvo.");
+      await reload();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível salvar o orçamento.");
     }
-    await reload();
   }
 
   async function submitGoal(form: FormData) {
@@ -69,81 +54,38 @@ function PlanningPageInner() {
     const target_amount = parseMoney(form.get("target_amount"));
     const current_amount = parseMoney(form.get("current_amount"));
     const deadline = form.get("deadline") || null;
-
     try {
       const res = await apiFetch("/api/goals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workspace_id: workspace.id,
-          name,
-          target_amount,
-          current_amount,
-          deadline,
-        }),
+        body: JSON.stringify({ workspace_id: workspace.id, name, target_amount, current_amount, deadline }),
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setMessage("Meta criada.");
-      } else {
-        const { data: userData } = await supabase.auth.getUser();
-        const { data: goal, error } = await supabase.from("financial_goals").insert({ workspace_id: workspace.id, owner_id: userData?.user?.id, name, target_amount, current_amount: 0, deadline, status: "active" }).select("id").single();
-        if (error || !goal) { setMessage("Não foi possível criar a meta."); return; }
-        if (current_amount > 0) {
-          await supabase.from("goal_contributions").insert({ workspace_id: workspace.id, owner_id: userData?.user?.id, financial_goal_id: goal.id, amount: current_amount, note: "Saldo inicial", idempotency_key: crypto.randomUUID() });
-        }
-        setMessage("Meta criada.");
-      }
-    } catch {
-      const { data: userData } = await supabase.auth.getUser();
-      const { data: goal, error } = await supabase.from("financial_goals").insert({ workspace_id: workspace.id, owner_id: userData?.user?.id, name, target_amount, current_amount: 0, deadline, status: "active" }).select("id").single();
-      if (error || !goal) { setMessage("Não foi possível criar a meta."); return; }
-      if (current_amount > 0) {
-        await supabase.from("goal_contributions").insert({ workspace_id: workspace.id, owner_id: userData?.user?.id, financial_goal_id: goal.id, amount: current_amount, note: "Saldo inicial", idempotency_key: crypto.randomUUID() });
-      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível criar a meta.");
       setMessage("Meta criada.");
+      await reload();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível criar a meta.");
     }
-    await reload();
   }
 
   async function submitContribution(goalId: string, form: FormData) {
     const amount = parseMoney(form.get("amount"));
     const note = form.get("note") ? String(form.get("note")) : "Aporte";
-
     try {
       const res = await apiFetch("/api/goals/contributions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workspace_id: workspace.id,
-          financial_goal_id: goalId,
-          amount,
-          note,
-        }),
+        body: JSON.stringify({ workspace_id: workspace.id, financial_goal_id: goalId, amount, note }),
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setMessage("Aporte registrado.");
-        await reload();
-        return;
-      }
-    } catch {
-      // fallback to supabase
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível registrar o aporte.");
+      setMessage("Aporte registrado.");
+      await reload();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível registrar o aporte.");
     }
-
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("goal_contributions").insert({
-      workspace_id: workspace.id,
-      owner_id: userData?.user?.id,
-      financial_goal_id: goalId,
-      amount,
-      note,
-      idempotency_key: crypto.randomUUID(),
-    });
-    setMessage(error ? "Não foi possível registrar o aporte." : "Aporte registrado.");
-    await reload();
   }
-
   return (
     <main className="dashboard-shell">
       <PageHeader title="Planejamento" subtitle="Orçamento do mês e metas financeiras." workspaceName={workspace.name} />

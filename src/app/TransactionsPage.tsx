@@ -14,8 +14,7 @@ import { Dialog } from "./components/Dialog";
 import { StatementImportPanel } from "./components/StatementImportPanel";
 import { BankNotificationAssistantWidget } from "./components/BankNotificationAssistantWidget";
 import { money, parseMoney } from "./components/Money";
-import { createClient } from "@/lib/supabase/client";
-import { todayInSaoPaulo, addMonthsToDate } from "@/lib/finance/local-date";
+import { todayInSaoPaulo } from "@/lib/finance/local-date";
 import { predictCategory } from "@/lib/finance/category-predictor";
 import { parseBankNotification } from "@/lib/finance/bank-notification-parser";
 
@@ -56,7 +55,6 @@ function TransactionsPageInner() {
     searchParams.get("novo") === "true"
   );
 
-  const supabase = useMemo(() => createClient(), []);
   const [query, setQuery] = useState("");
   const [type, setType] = useState("");
   const [from, setFrom] = useState("");
@@ -110,11 +108,18 @@ function TransactionsPageInner() {
     const type = String(form.get("type"));
     const amount = parseMoney(form.get("amount"));
     const account_id = form.get("account_id");
-    const destination_account_id = type === "transfer" ? form.get("destination_account_id") : null;
-    const category_id = type === "transfer" ? null : form.get("category_id");
-    const description = form.get("description") || (type === "transfer" ? "Transferência" : "Movimentação");
+    const destination_account_id =
+      type === "transfer" ? form.get("destination_account_id") : null;
+    const category_id =
+      type === "transfer" ? null : form.get("category_id");
+    const description =
+      form.get("description") ||
+      (type === "transfer" ? "Transferência" : "Movimentação");
     const competence_date = form.get("competence_date");
-    const installments = Math.max(1, parseInt(String(form.get("installments") || "1"), 10) || 1);
+    const installments = Math.max(
+      1,
+      parseInt(String(form.get("installments") || "1"), 10) || 1,
+    );
 
     try {
       const res = await apiFetch("/api/transactions", {
@@ -133,65 +138,22 @@ function TransactionsPageInner() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success) {
-        setMessage(installments > 1 ? `${installments} parcelas adicionadas com sucesso.` : "Movimentação adicionada com sucesso.");
-        await reload();
-        return;
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Não foi possível salvar.");
       }
-    } catch {
-      // fallback to Supabase
-    }
-
-    if (installments > 1 && type !== "transfer") {
-      const { data: userData } = await supabase.auth.getUser();
-      const instAmount = Math.round((amount / installments) * 100) / 100;
-      const centsDiff = Math.round((amount - instAmount * installments) * 100) / 100;
-      const rows = [];
-      for (let i = 1; i <= installments; i++) {
-        const curAmount = i === 1 ? instAmount + centsDiff : instAmount;
-        const curDate = i === 1 ? String(competence_date) : addMonthsToDate(String(competence_date), i - 1);
-        rows.push({
-          workspace_id: workspace.id,
-          owner_id: userData?.user?.id,
-          type,
-          amount: curAmount,
-          account_id,
-          category_id,
-          destination_account_id: null,
-          description: `${description} (${i}/${installments})`,
-          competence_date: curDate,
-          paid_at: curDate,
-          status: "paid",
-          installment_current: i,
-          installment_total: installments,
-          idempotency_key: crypto.randomUUID(),
-        });
-      }
-      const { error } = await supabase.from("transactions").insert(rows);
-      setMessage(error ? "Não foi possível salvar." : `${installments} parcelas adicionadas com sucesso.`);
+      setMessage(
+        installments > 1
+          ? installments + " parcelas adicionadas com sucesso."
+          : "Movimentação adicionada com sucesso.",
+      );
+      setOpenDialog(false);
       await reload();
-      return;
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Não foi possível salvar.",
+      );
     }
-
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("transactions").insert({
-      workspace_id: workspace.id,
-      owner_id: userData?.user?.id,
-      type,
-      amount,
-      account_id,
-      category_id,
-      destination_account_id,
-      description,
-      competence_date,
-      paid_at: competence_date,
-      status: "paid",
-      idempotency_key: crypto.randomUUID(),
-    });
-    setMessage(error ? "Não foi possível salvar." : "Movimentação adicionada com sucesso.");
-    await reload();
   }
-
   const messageIsError = message.startsWith("Não");
   const hasActiveFilters = Boolean(query.trim() || type || from || to);
   const pageSize = transactionPageSize || 25;
@@ -278,17 +240,23 @@ function TransactionsPageInner() {
     <div style={{ marginTop: '24px', marginBottom: '24px' }}>
       <BankNotificationAssistantWidget
         onAddTransaction={async (tx) => {
-          const { data: userData } = await supabase.auth.getUser();
-          await supabase.from("transactions").insert({
-            workspace_id: workspace.id,
-            owner_id: ownerId || userData.user?.id,
-            description: tx.description,
-            amount: tx.amount,
-            type: tx.type,
-            competence_date: todayInSaoPaulo(),
-            due_date: todayInSaoPaulo(),
-            status: "paid",
+          const res = await apiFetch("/api/transactions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              workspace_id: workspace.id,
+              description: tx.description,
+              amount: tx.amount,
+              type: tx.type,
+              competence_date: todayInSaoPaulo(),
+              status: "paid",
+            }),
           });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) {
+            setMessage(data.error || "Não foi possível registrar a movimentação.");
+            return;
+          }
           await reload();
         }}
       />

@@ -2,7 +2,7 @@
 
 import { apiFetch } from "@/lib/api-client";
 
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useFinance } from "../components/useFinance";
 import { Nav } from "../components/Nav";
 import { PageHeader } from "../components/PageHeader";
@@ -10,7 +10,6 @@ import { Dialog } from "../components/Dialog";
 import { SimpleForm } from "../components/SimpleForm";
 import { List } from "../components/List";
 import { money, parseMoney, dateFmt } from "../components/Money";
-import { createClient } from "@/lib/supabase/client";
 import {
   WalletCards,
   TrendingUp,
@@ -98,7 +97,6 @@ type DialogState =
 export default function InvestimentosPage() {
   const { workspace, accounts, defaultCashAccountId, loading } =
     useFinance("dashboard");
-  const supabase = useMemo(() => createClient(), []);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [operations, setOperations] = useState<Operation[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -106,7 +104,6 @@ export default function InvestimentosPage() {
   const [benchmarks, setBenchmarks] = useState<Benchmarks | null>(null);
   const [syncingQuotes, setSyncingQuotes] = useState(false);
   const [lastSyncedTime, setLastSyncedTime] = useState<string | null>(null);
-  const [defaultContextId, setDefaultContextId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
   const [message, setMessage] = useState("");
   const [hubLoading, setHubLoading] = useState(true);
@@ -121,113 +118,66 @@ export default function InvestimentosPage() {
   const loadHub = useCallback(async () => {
     if (!workspace) return;
     try {
-      try {
-        const res = await apiFetch(`/api/bootstrap?workspace_id=${encodeURIComponent(workspace.id)}`);
-        if (res.ok) {
-          const boot = await res.json();
-          if (boot.investments) {
-            setAssets(
-              boot.investments.map((a: {
-                id: string;
-                name: string;
-                type: string;
-                exchange?: string | null;
-                ticker?: string;
-                broker?: string;
-                is_shared?: boolean;
-              }) => ({
-                id: a.id,
-                name: a.name || a.ticker || "",
-                ticker: a.ticker || a.name || "",
-                type: a.type,
-                exchange: a.broker || a.exchange || null,
-                broker: a.broker || a.exchange || null,
-                is_shared: !!a.is_shared,
-              }))
-            );
-          }
-          if (boot.investment_operations) {
-            setOperations(
-              boot.investment_operations.map((o: {
-                id: string;
-                asset_id: string;
-                operation_type: "buy" | "sell";
-                quantity: number | string;
-                unit_price: number | string;
-                operation_date: string;
-                created_at: string;
-              }) => ({
-                ...o,
-                quantity: Number(o.quantity),
-                unit_price: Number(o.unit_price),
-              }))
-            );
-          }
-          if (boot.investment_quotes) {
-            setQuotes(
-              boot.investment_quotes.map((q: {
-                id: string;
-                asset_id: string;
-                quote_date: string;
-                unit_price: number | string;
-              }) => ({
-                ...q,
-                unit_price: Number(q.unit_price),
-              }))
-            );
-          }
-          setHubLoading(false);
-          return;
-        }
-      } catch {
-        // Fallback to direct supabase queries
+      const res = await apiFetch(`/api/bootstrap?workspace_id=${encodeURIComponent(workspace.id)}`);
+      const boot = await res.json();
+      if (!res.ok) throw new Error(boot.error || "Não foi possível carregar os investimentos.");
+      if (boot.investments) {
+        setAssets(
+          boot.investments.map((a: {
+            id: string;
+            name: string;
+            type: string;
+            exchange?: string | null;
+            ticker?: string;
+            broker?: string;
+            is_shared?: boolean;
+          }) => ({
+            id: a.id,
+            name: a.name || a.ticker || "",
+            ticker: a.ticker || a.name || "",
+            type: a.type,
+            exchange: a.broker || a.exchange || null,
+            broker: a.broker || a.exchange || null,
+            is_shared: !!a.is_shared,
+          }))
+        );
       }
-
-      const [{ data: contextRows }, { data: assetRows }, { data: operationRows }, { data: quoteRows }] =
-        await Promise.all([
-          supabase
-            .from("financial_contexts")
-            .select("id")
-            .eq("workspace_id", workspace.id)
-            .eq("kind", "pessoal")
-            .limit(1)
-            .maybeSingle(),
-          supabase
-            .from("investment_assets")
-            .select("id,name,ticker,type,is_shared,created_at")
-            .eq("workspace_id", workspace.id)
-            .eq("active", true)
-            .order("name"),
-          supabase
-            .from("investment_operations")
-            .select("id,asset_id,operation_type,quantity,unit_price,operation_date,transaction_id,created_at")
-            .eq("workspace_id", workspace.id)
-            .order("operation_date", { ascending: false })
-            .limit(200),
-          supabase
-            .from("investment_quotes")
-            .select("id,asset_id,quote_date,unit_price")
-            .eq("workspace_id", workspace.id)
-            .order("quote_date", { ascending: false })
-            .limit(500),
-        ]);
-      setDefaultContextId(contextRows?.id ?? null);
-      setAssets(
-        (assetRows ?? []).map((a: { id: string; name: string; ticker?: string; type: string; is_shared?: boolean }) => ({
-          id: a.id,
-          name: a.name || a.ticker || "",
-          ticker: a.ticker || a.name || "",
-          type: a.type,
-          exchange: null,
-          is_shared: !!a.is_shared,
-        }))
-      );
-      setOperations(operationRows ?? []);
-      setQuotes(quoteRows ?? []);
+      if (boot.investment_operations) {
+        setOperations(
+          boot.investment_operations.map((o: {
+            id: string;
+            asset_id: string;
+            operation_type: "buy" | "sell";
+            quantity: number | string;
+            unit_price: number | string;
+            operation_date: string;
+            created_at: string;
+          }) => ({
+            ...o,
+            quantity: Number(o.quantity),
+            unit_price: Number(o.unit_price),
+          }))
+        );
+      }
+      if (boot.investment_quotes) {
+        setQuotes(
+          boot.investment_quotes.map((q: {
+            id: string;
+            asset_id: string;
+            quote_date: string;
+            unit_price: number | string;
+          }) => ({
+            ...q,
+            unit_price: Number(q.unit_price),
+          }))
+        );
+      }
+    } catch (error) {
+      setMessage(`Erro: ${error instanceof Error ? error.message : "Não foi possível carregar os investimentos."}`);
     } finally {
       setHubLoading(false);
     }
-  }, [supabase, workspace]);
+  }, [workspace]);
 
   const loadBenchmarks = useCallback(async () => {
     try {
@@ -296,7 +246,7 @@ export default function InvestimentosPage() {
           if (data.quote) {
             const price = data.quote.price;
             const today = new Date().toISOString().slice(0, 10);
-            await apiFetch("/api/investments/quotes", {
+            const saved = await apiFetch("/api/investments/quotes", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -306,6 +256,8 @@ export default function InvestimentosPage() {
                 quote_date: today,
               }),
             });
+            const savedData = await saved.json();
+            if (!saved.ok || !savedData.success) throw new Error(savedData.error || "Não foi possível salvar a cotação.");
             setQuoteMeta((prev) => ({
               ...prev,
               [asset.id]: {
@@ -482,24 +434,10 @@ export default function InvestimentosPage() {
         void syncMarketQuotes(true);
         return;
       }
-    } catch {
-      // fallback to supabase
+      throw new Error(data.error || "Não foi possível cadastrar o ativo.");
+    } catch (error) {
+      setMessage(`Erro: ${error instanceof Error ? error.message : "Não foi possível cadastrar o ativo."}`);
     }
-
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("investment_assets").insert({
-      workspace_id: workspace.id,
-      owner_id: userData.user?.id,
-      context_id: defaultContextId,
-      ticker: ticker || name,
-      name: name || ticker,
-      type,
-      exchange: broker,
-      is_shared: isShared,
-    });
-    setMessage(error ? "Não foi possível cadastrar o ativo." : "Ativo cadastrado.");
-    if (!error) setDialog(null);
-    await loadHub();
   }
 
   async function submitOperation(assetId: string, kind: "buy" | "sell", form: FormData) {
@@ -510,7 +448,6 @@ export default function InvestimentosPage() {
     }
     const quantity = Number(String(form.get("quantity")).replace(",", "."));
     const price = parseMoney(form.get("unit_price"));
-    const amount = Math.round(quantity * price * 100) / 100;
     const operation_date = String(form.get("operation_date") || "");
 
     try {
@@ -535,26 +472,10 @@ export default function InvestimentosPage() {
         await loadHub();
         return;
       }
-    } catch {
-      // fallback to supabase
+      throw new Error(data.error || "Não foi possível registrar a operação.");
+    } catch (error) {
+      setMessage(`Erro: ${error instanceof Error ? error.message : "Não foi possível registrar a operação."}`);
     }
-
-    const { error } = await supabase.rpc("record_investment_operation", {
-      p_asset_id: assetId,
-      p_account_id: accountId,
-      p_type: kind,
-      p_quantity: quantity,
-      p_price: price,
-      p_amount: amount,
-      p_date: operation_date,
-    });
-    setMessage(
-      error
-        ? `Não foi possível registrar a ${kind === "buy" ? "compra" : "venda"}.`
-        : `${kind === "buy" ? "Compra" : "Venda"} registrada.`
-    );
-    if (!error) setDialog(null);
-    await loadHub();
   }
 
   async function submitQuote(assetId: string, form: FormData) {
@@ -579,22 +500,10 @@ export default function InvestimentosPage() {
         await loadHub();
         return;
       }
-    } catch {
-      // fallback to supabase
+      throw new Error(data.error || "Não foi possível atualizar a cotação.");
+    } catch (error) {
+      setMessage(`Erro: ${error instanceof Error ? error.message : "Não foi possível atualizar a cotação."}`);
     }
-
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("investment_quotes").insert({
-      workspace_id: workspace.id,
-      owner_id: userData.user?.id,
-      context_id: defaultContextId,
-      asset_id: assetId,
-      quote_date: quoteDate,
-      unit_price: unitPrice,
-    });
-    setMessage(error ? "Não foi possível atualizar a cotação." : "Cotação atualizada.");
-    if (!error) setDialog(null);
-    await loadHub();
   }
 
   const buyDialog = dialog?.kind === "buy" ? dialog : null;

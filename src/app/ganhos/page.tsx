@@ -2,7 +2,7 @@
 
 import { apiFetch } from "@/lib/api-client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useFinance } from "../components/useFinance";
 import { Nav } from "../components/Nav";
 import { PageHeader } from "../components/PageHeader";
@@ -13,7 +13,6 @@ import { money, parseMoney, dateFmt } from "../components/Money";
 import { DashboardChart } from "../components/DashboardChart";
 import { MonthPicker } from "../components/MonthPicker";
 import { useMonth } from "../components/MonthContext";
-import { createClient } from "@/lib/supabase/client";
 import { addMonths, todayInSaoPaulo } from "@/lib/finance/local-date";
 import { lastNMonths } from "@/lib/finance/aggregations";
 import { ArrowDownRight, ArrowUpRight, Briefcase, Check, Clock, HeartPulse, Wallet, X } from "lucide-react";
@@ -34,7 +33,7 @@ function Trend({ pct }: { pct: number | null }) {
   );
 }
 
-type Tab = "overview" | "payslips" | "patients" | "other";
+type Tab = "overview" | "payslips" | "patients" | "other" | "analysis";
 
 type Patient = { id: string; full_name: string; created_at: string };
 type PatientEarning = {
@@ -72,7 +71,6 @@ type DialogState =
 export default function GanhosPage() {
   const { workspace, accounts, transactions, categories, defaultCashAccountId, loading } =
     useFinance("dashboard");
-  const supabase = useMemo(() => createClient(), []);
   const { month, nextMonth, label: monthLabel } = useMonth();
   const [tab, setTab] = useState<Tab>("overview");
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -81,17 +79,17 @@ export default function GanhosPage() {
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [earnings, setEarnings] = useState<PatientEarning[]>([]);
   const [otherIncome, setOtherIncome] = useState<{ id: string; description: string; amount: number; competence_date: string; category_id: string | null }[]>([]);
-  const [defaultContextId, setDefaultContextId] = useState<string | null>(null);
   const [hubLoading, setHubLoading] = useState(true);
 
-  // Dados específicos do hub são carregados em consultas locais; o useFinance
+  // Dados específicos do hub são carregados pelo bootstrap VPS; o useFinance
   // fica responsável apenas por workspace, contas e categorias base.
   const loadHub = useCallback(async () => {
     if (!workspace) return;
     try {
       try {
         const res = await apiFetch(`/api/bootstrap?workspace_id=${encodeURIComponent(workspace.id)}`);
-        if (res.ok) {
+        if (!res.ok) throw new Error("bootstrap_failed");
+        {
           const boot = await res.json();
           if (boot.patients) {
             setPatients(boot.patients.map((p: { id: string; name?: string; full_name?: string; created_at: string }) => ({
@@ -157,64 +155,12 @@ export default function GanhosPage() {
           return;
         }
       } catch {
-        // Fallback to direct supabase queries
+        setMessage("Não foi possível carregar os ganhos. Tente novamente.");
       }
-
-      const [{ data: contextRows }, { data: patientRows }, { data: payslipRows }, { data: earningRows }, { data: incomeRows }] =
-        await Promise.all([
-          supabase
-            .from("financial_contexts")
-            .select("id")
-            .eq("workspace_id", workspace.id)
-            .eq("kind", "clinica")
-            .eq("active", true)
-            .limit(1)
-            .maybeSingle(),
-          supabase
-            .from("patients")
-            .select("id,full_name,created_at")
-            .eq("workspace_id", workspace.id)
-            .eq("active", true)
-            .order("full_name"),
-          supabase
-            .from("payslips")
-            .select("id,employer,competence,gross_amount,discounts_amount,net_amount,received_date,transaction_id,pdf_path,notes,created_at")
-            .eq("workspace_id", workspace.id)
-            .order("competence", { ascending: false })
-            .limit(50),
-          supabase
-            .from("patient_earnings")
-            .select("id,patient_id,amount,appointment_date,due_date,status,transaction_id,notes,created_at")
-            .eq("workspace_id", workspace.id)
-            .order("due_date", { ascending: false })
-            .limit(200),
-          supabase
-            .from("transactions")
-            .select("id,description,amount,competence_date,category_id")
-            .eq("workspace_id", workspace.id)
-            .eq("type", "income")
-            .not("description", "ilike", "Contracheque %")
-            .not("description", "ilike", "Recebimento de paciente%")
-            .not("description", "ilike", "Folha Mensal%")
-            .not("description", "ilike", "%Salário%")
-            .not("description", "ilike", "%Salario%")
-            .order("competence_date", { ascending: false })
-            .limit(100),
-        ]);
-      const payslipTxIds = new Set((payslipRows || []).map((p) => p.transaction_id).filter(Boolean));
-      const earningTxIds = new Set((earningRows || []).map((e) => e.transaction_id).filter(Boolean));
-      const filteredIncome = (incomeRows ?? []).filter(
-        (t) => !payslipTxIds.has(t.id) && !earningTxIds.has(t.id)
-      );
-      setDefaultContextId(contextRows?.id ?? null);
-      setPatients(patientRows ?? []);
-      setPayslips(payslipRows ?? []);
-      setEarnings(earningRows ?? []);
-      setOtherIncome(filteredIncome);
     } finally {
       setHubLoading(false);
     }
-  }, [supabase, workspace]);
+  }, [workspace]);
 
   useEffect(() => {
     void loadHub();
@@ -225,13 +171,15 @@ export default function GanhosPage() {
   }
 
   const action =
-    tab === "payslips"
-      ? { label: "Cadastrar contracheque", onClick: () => setDialog({ kind: "payslip" }) }
-      : tab === "patients"
-        ? { label: "Cadastrar paciente", onClick: () => setDialog({ kind: "patient" }) }
-        : tab === "other"
-          ? { label: "Registrar receita", onClick: () => setDialog({ kind: "other" }) }
-          : { label: "Registrar ganho", onClick: () => setDialog({ kind: "other" }) };
+    tab === "analysis"
+      ? undefined
+      : tab === "payslips"
+        ? { label: "Cadastrar contracheque", onClick: () => setDialog({ kind: "payslip" }) }
+        : tab === "patients"
+          ? { label: "Cadastrar paciente", onClick: () => setDialog({ kind: "patient" }) }
+          : tab === "other"
+            ? { label: "Registrar receita", onClick: () => setDialog({ kind: "other" }) }
+            : { label: "Registrar ganho", onClick: () => setDialog({ kind: "other" }) };
 
   const earningDialog = dialog?.kind === "earning" ? dialog : null;
   const receiveDialog = dialog?.kind === "receive" ? dialog : null;
@@ -294,7 +242,7 @@ export default function GanhosPage() {
     ...(earnings.length > 0
       ? [
           {
-            label: "Clínica",
+            label: "Atendimentos",
             color: SERIES_COLORS[employers.length % SERIES_COLORS.length],
             values: seriesMonths.map((m) => {
               const from = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-01`;
@@ -353,20 +301,10 @@ export default function GanhosPage() {
         await loadHub();
         return;
       }
-    } catch {
-      // fallback to supabase
+      throw new Error(data.error || "Não foi possível cadastrar o paciente.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível cadastrar o paciente.");
     }
-
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("patients").insert({
-      workspace_id: workspace.id,
-      owner_id: userData.user?.id,
-      full_name: fullName,
-      context_id: defaultContextId,
-    });
-    setMessage(error ? "Não foi possível cadastrar o paciente." : "Paciente cadastrado.");
-    if (!error) setDialog(null);
-    await loadHub();
   }
 
   async function submitEarning(form: FormData, patientId: string) {
@@ -395,24 +333,10 @@ export default function GanhosPage() {
         await loadHub();
         return;
       }
-    } catch {
-      // fallback to supabase
+      throw new Error(data.error || "Não foi possível registrar o atendimento.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível registrar o atendimento.");
     }
-
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("patient_earnings").insert({
-      workspace_id: workspace.id,
-      owner_id: userData.user?.id,
-      patient_id: patientId,
-      context_id: defaultContextId,
-      amount,
-      appointment_date,
-      due_date,
-      notes,
-    });
-    setMessage(error ? "Não foi possível registrar o atendimento." : "Atendimento registrado.");
-    if (!error) setDialog(null);
-    await loadHub();
   }
 
   async function submitReceive(earningId: string, form: FormData) {
@@ -436,23 +360,25 @@ export default function GanhosPage() {
         await loadHub();
         return;
       }
-    } catch {
-      // fallback to supabase
+      throw new Error(data.error || "Não foi possível registrar o recebimento.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível registrar o recebimento.");
     }
-
-    const { error } = await supabase.rpc("receive_patient_earning", {
-      p_earning_id: earningId,
-      p_account_id: accountId,
-      p_received_date: receivedDate,
-    });
-    setMessage(error ? "Não foi possível registrar o recebimento." : "Recebimento registrado.");
-    if (!error) setDialog(null);
-    await loadHub();
   }
 
-  async function openPayslipPdf(path: string) {
-    const { data } = await supabase.storage.from("payslips").createSignedUrl(path, 120);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener");
+  async function openPayslipPdf(id: string) {
+    try {
+      const response = await apiFetch(`/api/payslips/${encodeURIComponent(id)}/document`);
+      if (!response.ok || !response.headers.get("Content-Type")?.startsWith("application/pdf")) throw new Error("pdf_failed");
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "contracheque.pdf";
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      setMessage("Não foi possível abrir o PDF. Tente novamente.");
+    }
   }
 
   async function submitPayslip(form: FormData) {
@@ -470,22 +396,18 @@ export default function GanhosPage() {
       return;
     }
 
+    const file = form.get("pdf") as File | null;
+    if (file && file.size > 0 && (file.type !== "application/pdf" || file.size > 10 * 1024 * 1024)) {
+      setMessage(file.type !== "application/pdf" ? "O arquivo deve ser um PDF." : "O PDF deve ter no máximo 10 MB.");
+      return;
+    }
+    const payload = new FormData();
+    const fields = { workspace_id: workspace.id, employer, competence, gross_amount, discounts_amount, net_amount,
+      received_date: receivedDate, account_id: accountId, notes };
+    Object.entries(fields).forEach(([key, value]) => { if (value !== null) payload.set(key, String(value)); });
+    if (file && file.size > 0) payload.set("pdf", file);
     try {
-      const res = await apiFetch("/api/payslips", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workspace_id: workspace.id,
-          employer,
-          competence,
-          gross_amount,
-          discounts_amount,
-          net_amount,
-          received_date: receivedDate,
-          account_id: accountId,
-          notes,
-        }),
-      });
+      const res = await apiFetch("/api/payslips", { method: "POST", body: payload });
       const data = await res.json();
       if (res.ok && data.success) {
         setMessage("Contracheque cadastrado.");
@@ -493,60 +415,10 @@ export default function GanhosPage() {
         await loadHub();
         return;
       }
-    } catch {
-      // fallback to supabase
+      throw new Error(data.error || "Não foi possível cadastrar o contracheque.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível cadastrar o contracheque.");
     }
-
-    const { data: userData } = await supabase.auth.getUser();
-    const ownerId = userData.user?.id;
-    if (!ownerId) {
-      setMessage("Sessão expirada. Entre novamente.");
-      return;
-    }
-
-    const file = form.get("pdf") as File | null;
-    let pdfPath: string | null = null;
-    if (file && file.size > 0) {
-      if (file.type !== "application/pdf") {
-        setMessage("O arquivo deve ser um PDF.");
-        return;
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        setMessage("O PDF deve ter no máximo 10 MB.");
-        return;
-      }
-      pdfPath = `${ownerId}/${crypto.randomUUID()}.pdf`;
-      const { error: uploadError } = await supabase.storage
-        .from("payslips")
-        .upload(pdfPath, file, { contentType: "application/pdf" });
-      if (uploadError) {
-        setMessage("Não foi possível enviar o PDF.");
-        return;
-      }
-    }
-
-    const { error } = await supabase.rpc("register_payslip", {
-      p_workspace_id: workspace.id,
-      p_owner_id: ownerId,
-      p_context_id: defaultContextId,
-      p_employer: employer,
-      p_competence: competence,
-      p_gross_amount: gross_amount,
-      p_discounts_amount: discounts_amount,
-      p_net_amount: net_amount,
-      p_received_date: receivedDate,
-      p_account_id: accountId,
-      p_pdf_path: pdfPath,
-      p_notes: notes,
-    });
-    if (error) {
-      setMessage("Não foi possível cadastrar o contracheque.");
-      if (pdfPath) await supabase.storage.from("payslips").remove([pdfPath]);
-      return;
-    }
-    setMessage("Contracheque cadastrado.");
-    setDialog(null);
-    await loadHub();
   }
 
   async function submitOtherIncome(form: FormData) {
@@ -577,28 +449,12 @@ export default function GanhosPage() {
         await loadHub();
         return;
       }
-    } catch {
-      // fallback to supabase
+      throw new Error(data.error || "Não foi possível registrar a receita.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível registrar a receita.");
     }
-
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("transactions").insert({
-      workspace_id: workspace.id,
-      owner_id: userData.user?.id,
-      account_id,
-      category_id,
-      type: "income",
-      amount,
-      description,
-      competence_date,
-      paid_at: competence_date,
-      status: "paid",
-      idempotency_key: crypto.randomUUID(),
-    });
-    setMessage(error ? "Não foi possível registrar a receita." : "Receita registrada.");
-    if (!error) setDialog(null);
-    await loadHub();
   }
+
 
   return (
     <main className="dashboard-shell">
@@ -616,6 +472,7 @@ export default function GanhosPage() {
         <button type="button" aria-pressed={tab === "payslips"} onClick={() => setTab("payslips")} className={tab === "payslips" ? "active" : ""}>Contracheques</button>
         <button type="button" aria-pressed={tab === "patients"} onClick={() => setTab("patients")} className={tab === "patients" ? "active" : ""}>Pacientes</button>
         <button type="button" aria-pressed={tab === "other"} onClick={() => setTab("other")} className={tab === "other" ? "active" : ""}>Outras receitas</button>
+        <button type="button" aria-pressed={tab === "analysis"} onClick={() => setTab("analysis")} className={tab === "analysis" ? "active" : ""}>Análises</button>
       </nav>
 
       {tab === "overview" && (
@@ -661,8 +518,8 @@ export default function GanhosPage() {
                     <DashboardChart type="line" labels={seriesLabels} legend={false} compactY series={monthlySeries} />
                   </div>
                   <div className="chart-legend">
-                    {monthlySeries.map((s) => (
-                      <span className="chart-legend__item" key={s.label}><span className="chart-legend__dot" style={{ background: s.color }} />{s.label}</span>
+                    {monthlySeries.map((s, index) => (
+                      <span className="chart-legend__item" key={`${s.label}-${index}`}><span className="chart-legend__dot" style={{ background: s.color }} />{s.label}</span>
                     ))}
                   </div>
                 </>
@@ -672,18 +529,6 @@ export default function GanhosPage() {
                 </p>
               )}
             </article>
-          </div>
-
-          <div style={{ marginTop: '24px' }}>
-            <TaxRadarWidget transactions={transactions} currentMonth={month} />
-          </div>
-
-          <div style={{ marginTop: '24px' }}>
-            <ClinicBusinessWidget transactions={transactions} currentMonth={month} />
-          </div>
-
-          <div style={{ marginTop: '24px' }}>
-            <AcademicRoiWidget currentMonthlyIncome={totalIncome || 10000} currentMonth={month} />
           </div>
 
           <article className="dashboard-card" style={{ marginTop: '24px' }}>
@@ -749,6 +594,14 @@ export default function GanhosPage() {
         </section>
       )}
 
+      {tab === "analysis" && (
+        <section style={{ display: "grid", gap: "24px" }}>
+          <TaxRadarWidget transactions={transactions} currentMonth={month} />
+          <ClinicBusinessWidget transactions={transactions} currentMonth={month} />
+          <AcademicRoiWidget currentMonthlyIncome={totalIncome || 10000} currentMonth={month} />
+        </section>
+      )}
+
       {tab === "payslips" && (
         <article className="dashboard-card">
           <h3 style={{ marginBottom: '2px', fontSize: '1.2rem' }}>Contracheques</h3>
@@ -796,7 +649,7 @@ export default function GanhosPage() {
                       <td className="num amount-net">{money(p.net_amount)}</td>
                       <td className="num">
                         {p.pdf_path ? (
-                          <button type="button" onClick={() => void openPayslipPdf(p.pdf_path!)}>PDF</button>
+                          <button type="button" onClick={() => void openPayslipPdf(p.id)}>PDF</button>
                         ) : "—"}
                       </td>
                     </tr>

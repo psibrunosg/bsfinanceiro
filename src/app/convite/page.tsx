@@ -1,66 +1,32 @@
-﻿"use client";
-
+"use client";
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-
+import { useSearchParams } from "next/navigation";
+import { apiFetch } from "@/lib/api-client";
+import { appPath } from "@/lib/app-path";
 function InviteContent() {
-  const search = useSearchParams();
-  const token = search.get("token");
-  const router = useRouter();
-  const supabase = createClient();
-  
-    const [message, setMessage] = useState("Validando convite...");
-
+  const token = useSearchParams().get("token");
+  const [message, setMessage] = useState("Validando convite...");
   useEffect(() => {
-    async function checkInvite() {
-      if (!token) {
-        setMessage("Token de convite não encontrado.");
-                return;
-      }
-
-      // 1. Check if user is logged in
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        // Redirect to login but save token in sessionStorage so they can come back
-        sessionStorage.setItem("pending_invite_token", token);
-        setMessage("Redirecionando para login/cadastro...");
-        setTimeout(() => {
-          router.push("/entrar");
-        }, 1500);
-        return;
-      }
-
-      // 2. Call RPC to accept invite
-      const { data: success, error } = await supabase.rpc("accept_workspace_invite", { invite_token: token });
-      
-      if (error) {
-        setMessage("Erro ao aceitar convite: " + error.message);
-      } else if (success) {
-        setMessage("Convite aceito com sucesso! Redirecionando para seu novo painel...");
-        setTimeout(() => {
-          router.push("/");
-        }, 2000);
-      } else {
-        setMessage("Convite inválido ou expirado.");
-      }
-          }
-
-    checkInvite();
-  }, [token, router, supabase]);
-
-  return (
-    <div style={{ padding: "2rem", maxWidth: "600px", margin: "0 auto", textAlign: "center", marginTop: "10vh" }}>
-      <h2>Convite de Família</h2>
-      <p style={{ marginTop: "1rem", color: "#666" }}>{message}</p>
-    </div>
-  );
+    let cancelled = false;
+    async function accept() {
+      if (!token) { setMessage("Token de convite não encontrado."); return; }
+      try {
+        const response = await apiFetch("/api/invites/accept", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) });
+        if (cancelled) return;
+        if (response.status === 401) {
+          sessionStorage.setItem("pending_invite_token", token);
+          window.location.replace(appPath("/entrar")); return;
+        }
+        const result = await response.json();
+        if (!response.ok || !result.success) { setMessage(result.error || "Convite inválido ou expirado."); return; }
+        localStorage.setItem("bsfinanceiro_workspace", JSON.stringify(result.workspace));
+        sessionStorage.removeItem("pending_invite_token");
+        window.location.replace(appPath("/"));
+      } catch { if (!cancelled) setMessage("Não foi possível aceitar o convite. Tente novamente."); }
+    }
+    void accept();
+    return () => { cancelled = true; };
+  }, [token]);
+  return <main style={{ padding: "2rem", maxWidth: 600, margin: "10vh auto", textAlign: "center" }}><h1>Convite de Família</h1><p role="status">{message}</p></main>;
 }
-
-export default function InvitePage() {
-  return (
-    <Suspense fallback={<p>Carregando...</p>}>
-      <InviteContent />
-    </Suspense>
-  );
-}
+export default function InvitePage() { return <Suspense fallback={<p role="status">Carregando...</p>}><InviteContent /></Suspense>; }

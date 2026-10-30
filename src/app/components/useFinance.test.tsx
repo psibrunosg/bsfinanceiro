@@ -1,35 +1,16 @@
 // @vitest-environment jsdom
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useFinance } from "./useFinance";
 import { apiFetch } from "@/lib/api-client";
+import {
+  clearFinanceCache,
+  TRANSACTION_HISTORY_PAGE_SIZE,
+  useFinance,
+} from "./useFinance";
 
 vi.mock("@/lib/api-client", () => ({ apiFetch: vi.fn() }));
 
-type QueryState = {
-  table: string;
-  selectOptions?: { count?: string };
-  filters: Array<[string, string, string]>;
-  orders: Array<[string, boolean]>;
-  limitValue?: number;
-  rangeValue?: [number, number];
-};
-
-const mocks = vi.hoisted(() => ({
-  from: vi.fn(),
-  rpc: vi.fn(),
-  queries: [] as QueryState[],
-  rpcMonths: [] as string[],
-}));
-
-function filterValue(state: QueryState, operator: string, column: string) {
-  return state.filters.find(
-    ([entryOperator, entryColumn]) =>
-      entryOperator === operator && entryColumn === column,
-  )?.[2];
-}
-
-function transaction(
+function tx(
   id: string,
   overrides: Partial<{
     account_id: string;
@@ -39,6 +20,7 @@ function transaction(
     description: string;
     amount: number;
     competence_date: string;
+    category_id: string | null;
   }> = {},
 ) {
   return {
@@ -49,360 +31,302 @@ function transaction(
     status: "paid",
     description: id,
     amount: 1,
-    competence_date: "2026-01-01",
+    competence_date: "2026-09-01",
+    category_id: null,
+    invoice_id: null,
     ...overrides,
   };
 }
 
-function resolveQuery(state: QueryState, single = false) {
-  if (state.table === "workspaces") {
-    return { data: single ? { id: "workspace-1", name: "Pessoal" } : [] };
-  }
-  if (state.table === "accounts") {
-    return {
-      data: [
-        {
-          id: "cash",
-          name: "Principal",
-          type: "checking",
-          initial_balance: 100,
-        },
-      ],
-    };
-  }
-  if (state.table === "workspace_preferences") {
-    return { data: single ? { default_cash_account_id: "cash" } : [] };
-  }
-  if (state.table === "transaction_import_batches") {
-    return {
-      data: [
-        {
-          id: "batch-2",
-          account_id: "cash",
-          file_name: "julho.csv",
-          status: "pending",
-          created_at: "2026-07-29T12:00:00Z",
-          applied_at: null,
-          discarded_at: null,
-          transaction_import_items: [
-            {
-              id: "item-1",
-              batch_id: "batch-2",
-              row_number: 1,
-              competence_date: "2026-07-29",
-              description: "Mercado",
-              amount_cents: 1250,
-              type: "expense",
-              status: "ready",
-              reason: null,
-              fingerprint: "fingerprint-1",
-              transaction_id: null,
-              created_at: "2026-07-29T12:00:00Z",
-            },
-          ],
-        },
-      ],
-    };
-  }
-  if (state.table !== "transactions") return { data: single ? null : [] };
-
-  const status = filterValue(state, "eq", "status");
-  const type = filterValue(state, "eq", "type");
-  if (single && status === "planned" && type === "income") {
-    return {
-      data: transaction("next-income", {
-        type: "income",
-        status: "planned",
-        amount: 1000,
-        competence_date: "2026-10-03",
-      }),
-    };
-  }
-  const isFullAccountsLoad =
-    status === undefined && state.rangeValue && state.selectOptions?.count !== "exact";
-  if (status === "paid" || isFullAccountsLoad) {
-    const start = state.rangeValue?.[0] ?? 0;
-    return {
-      data:
-        start === 0
-          ? Array.from({ length: 500 }, (_, index) =>
-              transaction(`paid-${index}`),
-            )
-          : start === 500
-            ? [
-                transaction("paid-oldest", {
-                  competence_date: "2010-01-01",
-                }),
-              ]
-            : [],
-    };
-  }
-  if (status === "planned" && type === "expense") {
-    return {
-      data: [
-        transaction("planned-expense", {
-          status: "planned",
-          amount: 10,
-          competence_date: "2026-09-15",
-        }),
-      ],
-    };
-  }
+function response(body: unknown, status = 200) {
   return {
-    data: [
-      transaction("history-row", {
-        description: "Mercado",
-        competence_date: "2026-07-31",
+    ok: status >= 200 && status < 300,
+    status,
+    json: vi.fn().mockResolvedValue(body),
+  } as unknown as Response;
+}
+
+function bootstrap(overrides: Record<string, unknown> = {}) {
+  return {
+    accounts: [
+      {
+        id: "cash",
+        name: "Principal",
+        type: "checking",
+        initial_balance: 100,
+        is_shared: false,
+      },
+    ],
+    categories: [
+      { id: "food", name: "Alimentação", kind: "expense", color: "#f00" },
+    ],
+    cards: [],
+    invoices: [],
+    transactions: [
+      tx("income", {
+        type: "income",
+        description: "Receita",
+        amount: 1000,
+        competence_date: "2026-09-05",
+      }),
+      tx("market", {
+        description: "Mercado Central",
+        amount: 200,
+        competence_date: "2026-09-10",
+        category_id: "food",
       }),
     ],
-    count: 51,
+    budgets: [{ id: "budget-1", category_id: "food", amount: 500 }],
+    goals: [],
+    commitments: [],
+    occurrences: [],
+    debts: [],
+    investments: [],
+    investment_operations: [],
+    workspace_users: [],
+    workspace_invites: [
+      {
+        id: "invite-1",
+        workspace_id: "workspace-1",
+        token: "abc",
+        role: "viewer",
+        expires_at: "2026-10-01T00:00:00Z",
+        created_at: "2026-09-01T00:00:00Z",
+      },
+    ],
+    category_rules: [
+      { id: "rule-1", pattern: "mercado", category_id: "food" },
+    ],
+    contexts: [
+      {
+        id: "ctx-1",
+        workspace_id: "workspace-1",
+        owner_id: "user-1",
+        kind: "personal",
+        name: "Pessoal",
+        color: "#8b5cf6",
+        active: true,
+        created_at: "2026-09-01T00:00:00Z",
+      },
+    ],
+    payslips: [
+      {
+        id: "pay-1",
+        employer: "Clínica",
+        competence: "2026-09-01",
+        gross_amount: "7500",
+        discounts_amount: "300",
+        net_amount: "7200",
+        received_date: "2026-09-05",
+        transaction_id: null,
+      },
+    ],
+    workspace_preferences: { default_cash_account_id: "cash" },
+    alert_preferences: null,
+    ...overrides,
   };
 }
-
-function createQuery(table: string) {
-  const state: QueryState = {
-    table,
-    filters: [],
-    orders: [],
-  };
-  mocks.queries.push(state);
-  const query = {
-    select: vi.fn(
-      (_columns: string, options?: { count?: string }) => {
-        state.selectOptions = options;
-        return query;
-      },
-    ),
-    eq: vi.fn((column: string, value: string) => {
-      state.filters.push(["eq", column, value]);
-      return query;
-    }),
-    gte: vi.fn((column: string, value: string) => {
-      state.filters.push(["gte", column, value]);
-      return query;
-    }),
-    lte: vi.fn((column: string, value: string) => {
-      state.filters.push(["lte", column, value]);
-      return query;
-    }),
-    lt: vi.fn((column: string, value: string) => {
-      state.filters.push(["lt", column, value]);
-      return query;
-    }),
-    neq: vi.fn((column: string, value: string) => {
-      state.filters.push(["neq", column, value]);
-      return query;
-    }),
-    ilike: vi.fn((column: string, value: string) => {
-      state.filters.push(["ilike", column, value]);
-      return query;
-    }),
-    order: vi.fn(
-      (column: string, options?: { ascending?: boolean }) => {
-        state.orders.push([column, options?.ascending ?? true]);
-        return query;
-      },
-    ),
-    limit: vi.fn((value: number) => {
-      state.limitValue = value;
-      return query;
-    }),
-    range: vi.fn((from: number, to: number) => {
-      state.rangeValue = [from, to];
-      return query;
-    }),
-    maybeSingle: vi.fn(() => Promise.resolve(resolveQuery(state, true))),
-    then: (
-      resolve: (value: ReturnType<typeof resolveQuery>) => unknown,
-      reject: (reason: unknown) => unknown,
-    ) => Promise.resolve(resolveQuery(state)).then(resolve, reject),
-  };
-  return query;
-}
-
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    auth: {
-      getUser: vi.fn().mockResolvedValue({
-        data: { user: { id: "user-1" } },
-      }),
-    },
-    from: mocks.from,
-    rpc: mocks.rpc,
-  }),
-}));
 
 beforeEach(() => {
-  localStorage.setItem("bsfinanceiro_user", JSON.stringify({ id: "user-1", email: "qa@example.com" }));
-  localStorage.setItem("bsfinanceiro_workspace", JSON.stringify({ id: "workspace-1", name: "Pessoal", kind: "personal" }));
-  localStorage.setItem("bsfinanceiro_token", "test-token");
-  vi.mocked(apiFetch).mockRejectedValue(new Error("Forçar fallback legado neste conjunto de testes"));
-
-  mocks.queries.length = 0;
-  mocks.rpcMonths.length = 0;
-  mocks.from.mockReset().mockImplementation(createQuery);
-  mocks.rpc.mockReset().mockImplementation(
-    (_name: string, args: { p_month: string }) => {
-      mocks.rpcMonths.push(args.p_month);
-      return Promise.resolve({ data: [] });
-    },
+  clearFinanceCache();
+  localStorage.clear();
+  localStorage.setItem(
+    "bsfinanceiro_user",
+    JSON.stringify({ id: "user-1", email: "qa@example.com" }),
   );
-  vi.useFakeTimers({ shouldAdvanceTime: true });
-  vi.setSystemTime(new Date("2026-07-29T12:00:00Z"));
+  localStorage.setItem(
+    "bsfinanceiro_workspace",
+    JSON.stringify({ id: "workspace-1", name: "Pessoal", kind: "personal" }),
+  );
+  localStorage.setItem("bsfinanceiro_token", "test-token");
+  vi.mocked(apiFetch).mockReset();
+  vi.mocked(apiFetch).mockResolvedValue(response(bootstrap()));
 });
 
 afterEach(() => {
   cleanup();
-  vi.useRealTimers();
+  localStorage.clear();
 });
 
-describe("useFinance transaction loading", () => {
-  it("loads the ten newest import batches from the current workspace and reloads the inbox", async () => {
-    const { result } = renderHook(() => useFinance("transactions"));
+describe("useFinance via VPS bootstrap", () => {
+  it("loads the authenticated VPS bootstrap and exposes auxiliary workspace data", async () => {
+    const { result } = renderHook(() => useFinance("dashboard"));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    const importBatchQuery = () =>
-      mocks.queries.filter(
-        (query) => query.table === "transaction_import_batches",
-      );
-    expect(importBatchQuery()).toHaveLength(1);
-    expect(importBatchQuery()[0]).toMatchObject({
-      filters: [["eq", "workspace_id", "workspace-1"]],
-      orders: [["created_at", false]],
-      limitValue: 10,
-    });
-    expect(result.current.transactionImportBatches).toMatchObject([
-      {
-        id: "batch-2",
-        file_name: "julho.csv",
-        transaction_import_items: [
-          { id: "item-1", row_number: 1, amount_cents: 1250 },
-        ],
-      },
+    expect(apiFetch).toHaveBeenCalledWith(
+      "/api/bootstrap?workspace_id=workspace-1",
+    );
+    expect(result.current.accounts).toHaveLength(1);
+    expect(result.current.transactions).toHaveLength(2);
+    expect(result.current.categoryRules).toEqual([
+      { id: "rule-1", pattern: "mercado", category_id: "food" },
     ]);
-
-    await result.current.reload();
-
-    expect(importBatchQuery()).toHaveLength(2);
-    expect(importBatchQuery()[1]).toMatchObject({
-      filters: [["eq", "workspace_id", "workspace-1"]],
-      orders: [["created_at", false]],
-      limitValue: 10,
+    expect(result.current.contexts).toHaveLength(1);
+    expect(result.current.workspaceInvites).toHaveLength(1);
+    expect(result.current.defaultCashAccountId).toBe("cash");
+    expect(result.current.payslips[0]).toMatchObject({
+      gross_amount: 7500,
+      discounts_amount: 300,
+      net_amount: 7200,
     });
+    expect(result.current.message).toBe("");
   });
 
-  it("applies inclusive server filters and a stable second history page", async () => {
+  it("loads transaction import batches from the VPS bootstrap", async () => {
+    vi.mocked(apiFetch).mockResolvedValue(
+      response(
+        bootstrap({
+          transaction_import_batches: [
+            {
+              id: "batch-1",
+              account_id: "cash",
+              file_name: "extrato.csv",
+              status: "pending",
+              created_at: "2026-09-30T12:00:00Z",
+              applied_at: null,
+              discarded_at: null,
+              transaction_import_items: [
+                {
+                  id: "item-1",
+                  batch_id: "batch-1",
+                  row_number: 2,
+                  competence_date: "2026-09-29",
+                  description: "Mercado",
+                  amount_cents: 4590,
+                  type: "expense",
+                  status: "ready",
+                  reason: null,
+                  fingerprint: "2026-09-29|4590|expense|mercado",
+                  category_id: "food",
+                  transaction_id: null,
+                  created_at: "2026-09-30T12:00:00Z",
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    );
+
+    const { result } = renderHook(() => useFinance("dashboard"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.transactionImportBatches).toEqual([
+      expect.objectContaining({
+        id: "batch-1",
+        file_name: "extrato.csv",
+        status: "pending",
+        transaction_import_items: [
+          expect.objectContaining({
+            id: "item-1",
+            row_number: 2,
+            status: "ready",
+            category_id: "food",
+          }),
+        ],
+      }),
+    ]);
+  });
+
+  it("filters and paginates transaction history without falling back to Supabase", async () => {
+    const rows = Array.from({ length: 70 }, (_, index) =>
+      tx(`row-${index}`, {
+        description: index % 2 === 0 ? `Mercado ${index}` : `Outro ${index}`,
+        type: index % 3 === 0 ? "income" : "expense",
+        competence_date:
+          index < 60
+            ? `2026-09-${String((index % 28) + 1).padStart(2, "0")}`
+            : "2026-08-15",
+      }),
+    );
+    vi.mocked(apiFetch).mockResolvedValue(
+      response(bootstrap({ transactions: rows })),
+    );
+
     const { result } = renderHook(() =>
       useFinance("transactions", undefined, {
         transactionFilters: {
-          query: "Mercado",
+          query: "mercado",
           type: "expense",
-          from: "2026-07-01",
-          to: "2026-07-31",
+          from: "2026-09-01",
+          to: "2026-09-30",
         },
-        transactionPage: 1,
+        transactionPage: 0,
       }),
     );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    const historyQuery = mocks.queries.find(
-      (query) =>
-        query.table === "transactions" &&
-        query.selectOptions?.count === "exact",
+    const expected = rows.filter(
+      (row) =>
+        row.description.toLowerCase().includes("mercado") &&
+        row.type === "expense" &&
+        row.competence_date >= "2026-09-01" &&
+        row.competence_date <= "2026-09-30",
     );
-    expect(historyQuery).toMatchObject({
-      filters: expect.arrayContaining([
-        ["ilike", "description", "%Mercado%"],
-        ["eq", "type", "expense"],
-        ["gte", "competence_date", "2026-07-01"],
-        ["lte", "competence_date", "2026-07-31"],
-      ]),
-      orders: [
-        ["competence_date", false],
-        ["id", false],
-      ],
-      rangeValue: [25, 49],
-    });
-    expect(historyQuery?.limitValue).toBeUndefined();
-    expect(result.current.transactionTotal).toBe(51);
+
+    expect(result.current.transactionTotal).toBe(expected.length);
+    expect(result.current.transactions).toEqual(
+      expected.slice(0, TRANSACTION_HISTORY_PAGE_SIZE),
+    );
+    expect(apiFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("exposes the complete paid+planned dataset for client-side aggregation", async () => {
+  it("returns the requested second transaction page", async () => {
+    const rows = Array.from({ length: 60 }, (_, index) =>
+      tx(`row-${index}`, { description: "Mercado" }),
+    );
+    vi.mocked(apiFetch).mockResolvedValue(
+      response(bootstrap({ transactions: rows })),
+    );
+
+    const { result } = renderHook(() =>
+      useFinance("transactions", undefined, { transactionPage: 1 }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.transactionTotal).toBe(60);
+    expect(result.current.transactions).toHaveLength(
+      TRANSACTION_HISTORY_PAGE_SIZE,
+    );
+    expect(result.current.transactions[0].id).toBe(
+      `row-${TRANSACTION_HISTORY_PAGE_SIZE}`,
+    );
+  });
+
+  it("reload fetches a fresh bootstrap from the VPS", async () => {
+    const { result } = renderHook(() => useFinance("dashboard"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(apiFetch).toHaveBeenCalledTimes(1);
+
+    await result.current.reload();
+
+    expect(apiFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops loading and surfaces a VPS error instead of querying a legacy backend", async () => {
+    vi.mocked(apiFetch).mockRejectedValue(new Error("rede indisponível"));
+
     const { result } = renderHook(() => useFinance("dashboard"));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    const transactionQueries = mocks.queries.filter(
-      (query) => query.table === "transactions",
-    );
-    expect(
-      transactionQueries
-        .filter(
-          (query) => filterValue(query, "eq", "status") === "paid",
-        )
-        .map((query) => query.rangeValue),
-    ).toEqual([
-      [0, 499],
-      [500, 999],
-    ]);
-    expect(
-      transactionQueries.find(
-        (query) =>
-          filterValue(query, "eq", "status") === "planned" &&
-          filterValue(query, "eq", "type") === "expense",
-      )?.filters,
-    ).toEqual(
-      expect.arrayContaining([
-        ["gte", "competence_date", "2026-07-29"],
-        ["lte", "competence_date", "2026-10-03"],
-      ]),
-    );
-    // 500 paid rows + 1 older paid row + 1 planned expense + 1 planned income.
-    expect(result.current.transactions).toHaveLength(503);
-    expect(result.current.cashPosition.balanceCents).toBe(-401_00);
+    expect(result.current.message).toContain("Não foi possível carregar seus dados");
+    expect(result.current.message).toContain("rede indisponível");
+    expect(apiFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("materializes every commitment month through the actual cutoff", async () => {
+  it("rejects malformed bootstrap responses cleanly", async () => {
+    vi.mocked(apiFetch).mockResolvedValue(response({ transactions: [] }));
+
     const { result } = renderHook(() => useFinance("dashboard"));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(mocks.rpcMonths).toEqual([
-      "2026-07-01",
-      "2026-08-01",
-      "2026-09-01",
-      "2026-10-01",
-    ]);
-  });
-
-  it("keeps a small recent query on lightweight routes", async () => {
-    const { result } = renderHook(() => useFinance("planning"));
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    const transactionQuery = mocks.queries.find(
-      (query) => query.table === "transactions",
-    );
-    expect(transactionQuery?.limitValue).toBe(30);
-  });
-
-  it("loads the full transaction history for account balances", async () => {
-    const { result } = renderHook(() => useFinance("accounts"));
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    const transactionQueries = mocks.queries.filter(
-      (query) => query.table === "transactions",
-    );
-    expect(transactionQueries.map((query) => query.rangeValue)).toEqual([
-      [0, 499],
-      [500, 999],
-    ]);
-    expect(transactionQueries.some((query) => query.limitValue === 30)).toBe(
-      false,
-    );
-    expect(result.current.transactions).toHaveLength(501);
+    expect(result.current.message).toContain("bootstrap inválido");
   });
 });

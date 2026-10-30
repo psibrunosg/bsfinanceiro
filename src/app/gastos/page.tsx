@@ -2,7 +2,7 @@
 
 import { apiFetch } from "@/lib/api-client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useFinance } from "../components/useFinance";
 import { Nav } from "../components/Nav";
 import { PageHeader } from "../components/PageHeader";
@@ -12,7 +12,6 @@ import { money, parseMoney, dateFmt } from "../components/Money";
 import { DashboardChart } from "../components/DashboardChart";
 import { MonthPicker } from "../components/MonthPicker";
 import { useMonth } from "../components/MonthContext";
-import { createClient } from "@/lib/supabase/client";
 import { addMonths } from "@/lib/finance/local-date";
 import { predictCategory } from "@/lib/finance/category-predictor";
 import { ArrowDownRight, ArrowUpRight, Check, Clock, LayoutGrid, ReceiptText, Repeat } from "lucide-react";
@@ -66,126 +65,74 @@ type Occurrence = {
 type DialogState = { kind: "expense" } | { kind: "recurrent" } | null;
 
 export default function GastosPage() {
-  const { workspace, accounts, categories, defaultCashAccountId, loading, payslips = [], transactions = [] } =
-    useFinance("dashboard");
-  const supabase = useMemo(() => createClient(), []);
+  const {
+    workspace,
+    accounts,
+    categories,
+    defaultCashAccountId,
+    loading,
+    payslips = [],
+    transactions = [],
+    commitments: financeCommitments = [],
+    occurrences: financeOccurrences = [],
+    contexts = [],
+    reload,
+  } = useFinance("dashboard");
   const { month, nextMonth, label: monthLabel } = useMonth();
-  // Lido no cliente apenas para a aba inicial; evita useSearchParams para
-  // manter a página estática sem suspense boundary.
+
   const [tab, setTab] = useState<Tab>(() =>
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("tab") === "recorrentes"
       ? "recurrent"
-      : "overview"
+      : "overview",
   );
-  const [expenses, setExpenses] = useState<ExpenseTx[]>([]);
-  const [commitments, setCommitments] = useState<Commitment[]>([]);
-  const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
-  const [defaultContextId, setDefaultContextId] = useState<string | null>(null);
-  const [hasClinicContext, setHasClinicContext] = useState(false);
   const [contextFilter, setContextFilter] = useState<"all" | "pessoal" | "clinica">("all");
   const [dialog, setDialog] = useState<DialogState>(null);
   const [message, setMessage] = useState("");
-  const [hubLoading, setHubLoading] = useState(true);
 
-  const loadHub = useCallback(async () => {
-    if (!workspace) return;
-    try {
-      try {
-        const res = await apiFetch(`/api/bootstrap?workspace_id=${encodeURIComponent(workspace.id)}`);
-        if (res.ok) {
-          const boot = await res.json();
-          if (boot.commitments) {
-            setCommitments(
-              boot.commitments.map((c: { id: string; description: string; amount: number | string; due_day: number | string; category_id: string | null }) => ({
-                id: c.id,
-                description: c.description,
-                amount: Number(c.amount),
-                due_day: Number(c.due_day),
-                category_id: c.category_id,
-              }))
-            );
-          }
-          if (boot.occurrences) {
-            setOccurrences(
-              boot.occurrences.map((o: { id: string; fixed_commitment_id?: string; commitment_id?: string; due_date?: string; month_date?: string; due_day?: number; description?: string; amount?: number | string; status: string }) => ({
-                id: o.id,
-                fixed_commitment_id: o.fixed_commitment_id || o.commitment_id || "",
-                due_date: o.due_date || (o.month_date ? `${o.month_date.slice(0, 7)}-${String(o.due_day || 1).padStart(2, "0")}` : ""),
-                description: o.description || "",
-                amount: Number(o.amount || 0),
-                status: o.status === "pending" ? "planned" : o.status,
-              }))
-            );
-          }
-          if (boot.transactions) {
-            setExpenses(
-              boot.transactions
-                .filter((t: { type: string; description?: string }) => t.type === "expense")
-                .filter((t: { description?: string }) => !t.description?.startsWith("Pagamento de fatura") && !t.description?.startsWith("Fatura "))
-                .map((t: { id: string; description: string; amount: number | string; competence_date: string; category_id: string | null; context_id?: string | null; status: string }) => ({
-                  id: t.id,
-                  description: t.description,
-                  amount: Number(t.amount),
-                  competence_date: t.competence_date,
-                  category_id: t.category_id,
-                  context_id: t.context_id || null,
-                  status: t.status,
-                }))
-            );
-          }
-          setHubLoading(false);
-          return;
-        }
-      } catch {
-        // Fallback to Supabase queries (e.g. for unit tests)
-      }
+  const defaultContextId =
+    contexts.find((context) => context.kind === "pessoal")?.id ?? null;
+  const hasClinicContext = contexts.some(
+    (context) => context.kind === "clinica",
+  );
+  const expenses: ExpenseTx[] = transactions
+    .filter(
+      (transaction) =>
+        transaction.type === "expense" &&
+        !transaction.description?.startsWith("Pagamento de fatura") &&
+        !transaction.description?.startsWith("Fatura "),
+    )
+    .map((transaction) => ({
+      id: transaction.id,
+      description: transaction.description,
+      amount: Number(transaction.amount),
+      competence_date: transaction.competence_date,
+      category_id: transaction.category_id ?? null,
+      context_id: transaction.context_id ?? null,
+      status: transaction.status,
+    }));
+  const commitments: Commitment[] = financeCommitments.map((commitment) => ({
+    id: commitment.id,
+    description: commitment.description,
+    amount: Number(commitment.amount),
+    due_day: Number(commitment.due_day),
+    category_id: commitment.category_id,
+  }));
+  const occurrences: Occurrence[] = financeOccurrences.map((occurrence) => ({
+    id: occurrence.id,
+    fixed_commitment_id: occurrence.fixed_commitment_id,
+    due_date: occurrence.due_date,
+    description: occurrence.description,
+    amount: Number(occurrence.amount),
+    status: occurrence.status === "pending" ? "planned" : occurrence.status,
+  }));
 
-      const [{ data: contextRows }, { data: expenseRows }, { data: commitmentRows }, { data: occurrenceData }] =
-        await Promise.all([
-          supabase
-            .from("financial_contexts")
-            .select("id,kind")
-            .eq("workspace_id", workspace.id)
-            .eq("active", true),
-          supabase
-            .from("transactions")
-            .select("id,description,amount,competence_date,category_id,context_id,status")
-            .eq("workspace_id", workspace.id)
-            .eq("type", "expense")
-            // Pagamentos de fatura saem da composição por categoria para evitar
-            // dupla contagem com as parcelas do cartão.
-            .not("description", "ilike", "Pagamento de fatura%")
-            .not("description", "ilike", "Fatura %")
-            .order("competence_date", { ascending: false })
-            .limit(500),
-          supabase
-            .from("fixed_commitments")
-            .select("id,description,amount,due_day,category_id")
-            .eq("workspace_id", workspace.id)
-            .eq("active", true)
-            .order("due_day"),
-          supabase.rpc("materialize_fixed_commitment_occurrences", {
-            p_workspace_id: workspace.id,
-            p_month: month,
-          }),
-        ]);
-      setDefaultContextId((contextRows ?? []).find((c: { kind: string }) => c.kind === "pessoal")?.id ?? null);
-      setHasClinicContext((contextRows ?? []).some((c: { kind: string }) => c.kind === "clinica"));
-      setExpenses(expenseRows ?? []);
-      setCommitments(commitmentRows ?? []);
-      setOccurrences(occurrenceData ?? []);
-    } finally {
-      setHubLoading(false);
-    }
-  }, [supabase, workspace, month]);
-
-  useEffect(() => {
-    void loadHub();
-  }, [loadHub]);
-
-  if (loading || !workspace || hubLoading) {
-    return <main className="dashboard-shell"><p className="muted">Carregando...</p></main>;
+  if (loading || !workspace) {
+    return (
+      <main className="dashboard-shell">
+        <p className="muted">Carregando...</p>
+      </main>
+    );
   }
 
   const expenseCategories = categories.filter((c) => c.kind === "expense");
@@ -260,41 +207,27 @@ export default function GastosPage() {
           workspace_id: workspace.id,
           account_id,
           category_id,
+          context_id: defaultContextId,
           type: "expense",
           amount,
           description,
           competence_date,
         }),
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setMessage("Gasto registrado.");
-        setDialog(null);
-        await loadHub();
-        return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Não foi possível registrar o gasto.");
       }
-    } catch {
-      // fallback to supabase
+      setMessage("Gasto registrado.");
+      setDialog(null);
+      await reload();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível registrar o gasto.",
+      );
     }
-
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("transactions").insert({
-      workspace_id: workspace.id,
-      owner_id: userData.user?.id,
-      account_id,
-      category_id,
-      context_id: defaultContextId,
-      type: "expense",
-      amount,
-      description,
-      competence_date,
-      paid_at: competence_date,
-      status: "paid",
-      idempotency_key: crypto.randomUUID(),
-    });
-    setMessage(error ? "Não foi possível registrar o gasto." : "Gasto registrado.");
-    if (!error) setDialog(null);
-    await loadHub();
   }
 
   async function submitRecurrent(form: FormData) {
@@ -317,30 +250,20 @@ export default function GastosPage() {
           category_id,
         }),
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setMessage("Compromisso criado.");
-        setDialog(null);
-        await loadHub();
-        return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Não foi possível criar o compromisso.");
       }
-    } catch {
-      // fallback to supabase
+      setMessage("Compromisso criado.");
+      setDialog(null);
+      await reload();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível criar o compromisso.",
+      );
     }
-
-    const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("fixed_commitments").insert({
-      workspace_id: workspace.id,
-      owner_id: userData.user?.id,
-      description,
-      amount,
-      due_day,
-      account_id,
-      category_id,
-    });
-    setMessage(error ? "Não foi possível criar o compromisso." : "Compromisso criado.");
-    if (!error) setDialog(null);
-    await loadHub();
   }
 
   async function payOccurrence(occurrenceId: string, form: FormData) {
@@ -361,26 +284,20 @@ export default function GastosPage() {
           paid_on,
         }),
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setMessage("Compromisso pago.");
-        await loadHub();
-        return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Não foi possível pagar o compromisso.");
       }
-    } catch {
-      // fallback to supabase
+      setMessage("Compromisso pago.");
+      await reload();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível pagar o compromisso.",
+      );
     }
-
-    const { error } = await supabase.rpc("pay_fixed_commitment_occurrence", {
-      p_occurrence_id: occurrenceId,
-      p_account_id: accountId,
-      p_paid_on: paid_on,
-      p_idempotency_key: crypto.randomUUID(),
-    });
-    setMessage(error ? "Não foi possível pagar o compromisso." : "Compromisso pago.");
-    await loadHub();
   }
-
   const today = new Date().toISOString().slice(0, 10);
 
   return (

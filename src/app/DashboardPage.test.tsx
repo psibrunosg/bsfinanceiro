@@ -21,15 +21,6 @@ const mocks = vi.hoisted(() => ({
   resolveReload: undefined as (() => void) | undefined,
 }));
 
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    from: mocks.from,
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: { user_metadata: { name: "Bruno" } } } }),
-    },
-  }),
-}));
-
 vi.mock("./components/useFinance", () => ({
   useFinance: () => {
     const [loading, setLoading] = React.useState(false);

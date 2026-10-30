@@ -8,21 +8,16 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { apiFetch } from "@/lib/api-client";
 import { QuickTransactionForm } from "./QuickTransactionForm";
 
-const mocks = vi.hoisted(() => ({
-  from: vi.fn(),
-  insert: vi.fn(),
-  randomUUID: vi.fn(),
-}));
-
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({ from: mocks.from }),
+vi.mock("@/lib/api-client", () => ({
+  apiFetch: vi.fn(),
 }));
 
 const accounts = [
-  { id: "a", name: "Principal", type: "checking", initial_balance: 0 },
-  { id: "b", name: "Dinheiro", type: "cash", initial_balance: 0 },
+  { id: "a", name: "Principal", type: "checking", initial_balance: 0, is_shared: false },
+  { id: "b", name: "Dinheiro", type: "cash", initial_balance: 0, is_shared: false },
 ];
 
 const categories = [
@@ -61,18 +56,17 @@ function fillRequiredFields(amount = "12,50", description = "Café") {
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(new Date("2026-07-28T12:00:00Z"));
-  mocks.insert.mockReset().mockResolvedValue({ error: null });
-  mocks.from.mockReset().mockReturnValue({ insert: mocks.insert });
-  mocks.randomUUID
-    .mockReset()
-    .mockReturnValue("00000000-0000-4000-8000-000000000001");
-  vi.stubGlobal("crypto", { randomUUID: mocks.randomUUID });
+  vi.mocked(apiFetch).mockReset().mockResolvedValue(
+    new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }),
+  );
 });
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
-  vi.unstubAllGlobals();
 });
 
 describe("QuickTransactionForm", () => {
@@ -85,24 +79,21 @@ describe("QuickTransactionForm", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
 
-    await waitFor(() =>
-      expect(mocks.insert).toHaveBeenCalledWith({
-        workspace_id: "w",
-        owner_id: "u",
-        account_id: "a",
-        category_id: "food",
-        destination_account_id: null,
-        type: "expense",
-        amount: 12.5,
-        description: "Café",
-        competence_date: "2026-07-28",
-        paid_at: "2026-07-28",
-        status: "paid",
-        idempotency_key: "00000000-0000-4000-8000-000000000001",
-      }),
-    );
-    expect(mocks.from).toHaveBeenCalledWith("transactions");
-    expect(mocks.randomUUID).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
+    const [endpoint, options] = vi.mocked(apiFetch).mock.calls[0];
+    expect(endpoint).toBe("/api/transactions");
+    expect(options?.method).toBe("POST");
+    expect(JSON.parse(String(options?.body))).toEqual({
+      workspace_id: "w",
+      account_id: "a",
+      category_id: "food",
+      destination_account_id: null,
+      type: "expense",
+      amount: 12.5,
+      description: "Café",
+      competence_date: "2026-07-28",
+      status: "paid",
+    });
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 
@@ -129,7 +120,7 @@ describe("QuickTransactionForm", () => {
     expect(accountSelect.getAttribute("aria-describedby")).toBe(
       accountError.id,
     );
-    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(apiFetch).not.toHaveBeenCalled();
     expect(
       screen.getByRole("link", { name: "defina a conta principal" }).getAttribute(
         "href",
@@ -151,7 +142,7 @@ describe("QuickTransactionForm", () => {
       expect((await screen.findByRole("alert")).textContent).toContain(
         expectedMessage,
       );
-      expect(mocks.insert).not.toHaveBeenCalled();
+      expect(apiFetch).not.toHaveBeenCalled();
     },
   );
 
@@ -176,23 +167,27 @@ describe("QuickTransactionForm", () => {
     expect(screen.queryByText("Pago hoje")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
 
-    await waitFor(() =>
-      expect(mocks.insert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          account_id: "b",
-          category_id: "salary",
-          type: "income",
-          amount: 1234.56,
-          description: "Salário",
-          competence_date: "2026-07-27",
-          paid_at: "2026-07-27",
-        }),
-      ),
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
+    const [, options] = vi.mocked(apiFetch).mock.calls[0];
+    expect(JSON.parse(String(options?.body))).toEqual(
+      expect.objectContaining({
+        account_id: "b",
+        category_id: "salary",
+        type: "income",
+        amount: 1234.56,
+        description: "Salário",
+        competence_date: "2026-07-27",
+      }),
     );
   });
 
   it("announces a database error and does not reload", async () => {
-    mocks.insert.mockResolvedValueOnce({ error: { message: "offline" } });
+    vi.mocked(apiFetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "offline" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
     const { onSaved } = renderForm();
     fillRequiredFields();
 
@@ -219,10 +214,10 @@ describe("QuickTransactionForm", () => {
   });
 
   it("does not insert twice while the first submission is pending", async () => {
-    let resolveInsert: ((value: { error: null }) => void) | undefined;
-    mocks.insert.mockReturnValueOnce(
+    let resolveRequest: ((value: Response) => void) | undefined;
+    vi.mocked(apiFetch).mockReturnValueOnce(
       new Promise((resolve) => {
-        resolveInsert = resolve;
+        resolveRequest = resolve;
       }),
     );
     renderForm();
@@ -234,13 +229,18 @@ describe("QuickTransactionForm", () => {
     fireEvent.submit(form!);
     fireEvent.submit(form!);
 
-    expect(mocks.insert).toHaveBeenCalledTimes(1);
+    expect(apiFetch).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole<HTMLButtonElement>("button", {
         name: "Registrando...",
       }).disabled,
     ).toBe(true);
-    resolveInsert?.({ error: null });
+    resolveRequest?.(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
     await screen.findByText("Movimentação registrada.");
   });
 });

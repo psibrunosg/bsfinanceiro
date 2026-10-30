@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState, type FormEvent } from "react";
+import { apiFetch } from "@/lib/api-client";
 import type { Account } from "./types";
 
 const CASH_ACCOUNT_TYPES = new Set(["checking", "cash", "savings"]);
@@ -16,12 +16,10 @@ type DefaultCashAccountFormProps = {
 
 export function DefaultCashAccountForm({
   workspaceId,
-  ownerId,
   defaultCashAccountId,
   accounts,
   onSaved,
 }: DefaultCashAccountFormProps) {
-  const supabase = useMemo(() => createClient(), []);
   const cashAccounts = accounts.filter((account) =>
     CASH_ACCOUNT_TYPES.has(account.type),
   );
@@ -48,17 +46,17 @@ export function DefaultCashAccountForm({
 
     setPending(true);
     try {
-      const { error: upsertError } = await supabase
-        .from("workspace_preferences")
-        .upsert(
-          {
-            workspace_id: workspaceId,
-            owner_id: ownerId,
+      const response = await apiFetch("/api/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspaceId,
+          workspace_preferences: {
             default_cash_account_id: selectedAccountId,
           },
-          { onConflict: "workspace_id,owner_id" },
-        );
-      if (upsertError) {
+        }),
+      });
+      if (!response.ok) {
         setError("Não foi possível definir a conta principal.");
         return;
       }

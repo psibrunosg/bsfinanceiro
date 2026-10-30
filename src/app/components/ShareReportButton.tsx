@@ -1,32 +1,32 @@
 ﻿"use client";
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { apiFetch } from "@/lib/api-client";
+import { appUrl } from "@/lib/app-path";
 
 export function ShareReportButton({ workspaceId }: { workspaceId: string }) {
   const [link, setLink] = useState("");
   const [loading, setLoading] = useState(false);
-  const supabase = createClient();
 
   async function handleShare() {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Unauthorized");
+      const response = await apiFetch("/api/reports/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: workspaceId,
+          name: "Relatório Consolidado",
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
 
-      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      
-      const { data, error } = await supabase.from("shared_reports").insert({
-        workspace_id: workspaceId,
-        owner_id: user.id,
-        token: token,
-        name: "Relatório Consolidado",
-        config: {},
-      }).select("token").single();
+      if (!response.ok || !data?.token) {
+        throw new Error(data?.error || "share_report_failed");
+      }
 
-      if (error) throw error;
-      setLink(window.location.origin + "/s?token=" + data.token);
-    } catch (e) {
-      console.error(e);
+      setLink(appUrl("/s") + "?token=" + encodeURIComponent(data.token));
+    } catch (error) {
+      console.error(error);
       alert("Erro ao gerar link");
     } finally {
       setLoading(false);

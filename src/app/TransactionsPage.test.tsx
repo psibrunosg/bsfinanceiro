@@ -77,16 +77,6 @@ const transactions = [
   },
 ];
 
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    auth: {
-      getUser: vi.fn(),
-      signOut: vi.fn(),
-    },
-    from: vi.fn(),
-  }),
-}));
-
 beforeEach(() => {
   navigationMocks.pathname = "/movimentacoes";
   navigationMocks.searchParams = new URLSearchParams();

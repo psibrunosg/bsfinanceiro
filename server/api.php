@@ -127,7 +127,7 @@ function requireSessionUser(PDO $db): array {
 
 function requireWorkspaceAccess(PDO $db, string $userId, string $workspaceId): void {
     $stmt = $db->prepare(
-        'SELECT w.id
+        'SELECT w.id, w.owner_id, wu.role
          FROM workspaces w
          LEFT JOIN workspace_users wu
            ON wu.workspace_id = w.id AND wu.user_id = ?
@@ -135,9 +135,16 @@ function requireWorkspaceAccess(PDO $db, string $userId, string $workspaceId): v
          LIMIT 1'
     );
     $stmt->execute([$userId, $workspaceId, $userId]);
-    if (!$stmt->fetchColumn()) {
+    $access = $stmt->fetch();
+    if (!$access) {
         http_response_code(403);
         echo json_encode(['error' => 'Você não tem acesso a este espaço financeiro.']);
+        exit;
+    }
+    if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'HEAD', 'OPTIONS'], true)
+        && $access['owner_id'] !== $userId && !in_array($access['role'], ['admin', 'editor'], true)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Seu perfil permite apenas consultar este espaço financeiro.']);
         exit;
     }
 }
@@ -160,6 +167,7 @@ function requireResourceWorkspaceAccess(
         'patients',
         'patient_earnings',
         'financial_goals',
+        'financial_contexts',
         'investment_assets',
     ];
     if (!in_array($table, $allowedTables, true)) {
@@ -177,6 +185,14 @@ function requireResourceWorkspaceAccess(
 
     requireWorkspaceAccess($db, $userId, (string)$workspaceId);
     return (string)$workspaceId;
+}
+
+function canManageWorkspace(PDO $db, string $userId, string $workspaceId): bool {
+    $stmt = $db->prepare("SELECT w.id FROM workspaces w
+        LEFT JOIN workspace_users wu ON wu.workspace_id = w.id AND wu.user_id = ?
+        WHERE w.id = ? AND (w.owner_id = ? OR wu.role = 'admin')");
+    $stmt->execute([$userId, $workspaceId, $userId]);
+    return (bool)$stmt->fetchColumn();
 }
 
 function ensureShortcutSchema(PDO $db): void {
@@ -203,6 +219,43 @@ function ensureShortcutSchema(PDO $db): void {
     )");
 }
 
+function ensureCompatibilitySchema(PDO $db): void {
+    static $done = false;
+    if ($done) return;
+
+    // Compatibilidade idempotente para instalações VPS criadas antes da
+    // migração completa do Supabase. Mantém o deploy seguro sem exigir
+    // recriar o volume PostgreSQL existente.
+    $db->exec("ALTER TABLE transactions
+        ADD COLUMN IF NOT EXISTS context_id UUID REFERENCES financial_contexts(id) ON DELETE SET NULL");
+
+    $db->exec("ALTER TABLE workspace_preferences
+        ADD COLUMN IF NOT EXISTS default_context_id UUID REFERENCES financial_contexts(id) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS default_period VARCHAR(30) DEFAULT 'current_month',
+        ADD COLUMN IF NOT EXISTS hide_values BOOLEAN NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS compact_mode BOOLEAN NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS personal_color VARCHAR(20) DEFAULT '#087f5b',
+        ADD COLUMN IF NOT EXISTS clinic_color VARCHAR(20) DEFAULT '#b93636',
+        ADD COLUMN IF NOT EXISTS default_category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS default_appointment_value NUMERIC(14,2) DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS default_billing_deadline_days INTEGER DEFAULT 30,
+        ADD COLUMN IF NOT EXISTS alert_overdue_earnings BOOLEAN NOT NULL DEFAULT true,
+        ADD COLUMN IF NOT EXISTS alert_stale_quotes BOOLEAN NOT NULL DEFAULT true");
+
+    $db->exec("ALTER TABLE alert_preferences
+        ADD COLUMN IF NOT EXISTS budget_alerts BOOLEAN NOT NULL DEFAULT true,
+        ADD COLUMN IF NOT EXISTS goal_alerts BOOLEAN NOT NULL DEFAULT true,
+        ADD COLUMN IF NOT EXISTS fixed_commitment_alerts BOOLEAN NOT NULL DEFAULT true,
+        ADD COLUMN IF NOT EXISTS credit_card_alerts BOOLEAN NOT NULL DEFAULT true,
+        ADD COLUMN IF NOT EXISTS low_balance_alerts BOOLEAN NOT NULL DEFAULT true,
+        ADD COLUMN IF NOT EXISTS weekly_digest BOOLEAN NOT NULL DEFAULT true,
+        ADD COLUMN IF NOT EXISTS budget_warning_percent SMALLINT NOT NULL DEFAULT 80,
+        ADD COLUMN IF NOT EXISTS low_balance_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS weekly_digest_day SMALLINT NOT NULL DEFAULT 1");
+
+    $done = true;
+}
+
 function shortcutBearerToken(): ?string {
     $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
     if (preg_match('/Bearer\s+(.+)$/i', $header, $matches)) return trim($matches[1]);
@@ -223,6 +276,7 @@ if (!is_array($body) || empty($body)) {
 
 try {
     $db = getDb();
+    ensureCompatibilitySchema($db);
 
     // 1. Health Check
     if ($uri === '' || $uri === '/health') {
@@ -242,6 +296,8 @@ try {
         }
         exit;
     }
+
+    require __DIR__ . "/auth-routes.php";
 
     // 2. Auth: Register
     if ($uri === '/auth/register' && $method === 'POST') {
@@ -345,8 +401,13 @@ try {
         $stmt->execute([$user['id']]);
         $workspace = $stmt->fetch();
 
+        $onboardingStmt = $db->prepare('SELECT onboarding_completed_at FROM profiles WHERE id = ?');
+        $onboardingStmt->execute([$user['id']]);
+        $onboardingRequired = !$onboardingStmt->fetchColumn();
+
         echo json_encode([
             'success' => true,
+            'onboarding_required' => $onboardingRequired,
             'user' => [
                 'id' => $user['id'],
                 'email' => $user['email'],
@@ -356,6 +417,56 @@ try {
             'token' => issueAuthToken($user['id'], $user['email'])
         ]);
         exit;
+    }
+
+    // Relatório compartilhado é público somente por token opaco e com expiração.
+    if ($uri === '/reports/shared' && $method === 'GET') {
+        header('Cache-Control: no-store');
+        $token = trim((string)($_GET['token'] ?? ''));
+
+        if (!preg_match('/^[a-f0-9]{48}$/', $token)) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Relatório não encontrado ou link inválido.']);
+            exit;
+        }
+
+        try {
+            $stmt = $db->prepare("SELECT data, expires_at
+                FROM shared_reports
+                WHERE token = ? AND expires_at > NOW()
+                LIMIT 1");
+            $stmt->execute([$token]);
+            $shared = $stmt->fetch();
+
+            if (!$shared) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Relatório não encontrado ou link inválido.']);
+                exit;
+            }
+
+            $data = is_string($shared['data'])
+                ? json_decode($shared['data'], true)
+                : $shared['data'];
+
+            if (!is_array($data) || !isset($data['report'], $data['transactions'])) {
+                error_log('Shared report payload is malformed for token ' . substr($token, 0, 8));
+                http_response_code(500);
+                echo json_encode(['error' => 'Não foi possível carregar o relatório.']);
+                exit;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'data' => $data,
+                'expires_at' => $shared['expires_at'],
+            ]);
+            exit;
+        } catch (Throwable $e) {
+            error_log('Shared report read failed: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['error' => 'Não foi possível carregar o relatório.']);
+            exit;
+        }
     }
 
     // Todas as rotas abaixo são privadas, exceto o endpoint de captura rápida,
@@ -372,6 +483,11 @@ try {
             requireWorkspaceAccess($db, $sessionUser['id'], $requestedWorkspaceId);
         }
     }
+
+    require_once __DIR__ . "/idempotency.php";
+    require __DIR__ . "/earnings-routes.php";
+    require_once __DIR__ . "/card-import-routes.php";
+    if (handleCardImportRoutes($db, $uri, $method)) exit;
 
     // 3.1. Auth: Change Password
     if ($uri === '/auth/change-password' && $method === 'POST') {
@@ -467,7 +583,7 @@ try {
         $categories = $db->prepare("SELECT id, name, kind, color, budget_limit FROM categories WHERE workspace_id = ? ORDER BY name ASC");
         $categories->execute([$workspaceId]);
 
-        $transactions = $db->prepare("SELECT id, account_id, destination_account_id, invoice_id, type, status, description, amount, interest_amount, competence_date, due_date, installment_current, installment_total, category_id, paid_at FROM transactions WHERE workspace_id = ? ORDER BY competence_date DESC, created_at DESC LIMIT 10000");
+        $transactions = $db->prepare("SELECT id, account_id, destination_account_id, invoice_id, type, status, description, amount, interest_amount, competence_date, due_date, installment_current, installment_total, category_id, context_id, paid_at FROM transactions WHERE workspace_id = ? ORDER BY competence_date DESC, created_at DESC LIMIT 10000");
         $transactions->execute([$workspaceId]);
 
         $budgets = $db->prepare("SELECT id, category_id, amount, month FROM monthly_budgets WHERE workspace_id = ?");
@@ -526,6 +642,53 @@ try {
             $stmt->execute([$workspaceId]);
             $workspaceUsers = $stmt->fetchAll();
         } catch (Exception $e) {}
+
+        $workspaceInvites = [];
+        try {
+            if (canManageWorkspace($db, $sessionUser['id'], $workspaceId)) {
+                $stmt = $db->prepare("SELECT id, workspace_id, token, role, expires_at, created_at FROM workspace_invites WHERE workspace_id = ? AND expires_at > NOW() AND accepted_at IS NULL ORDER BY created_at DESC");
+                $stmt->execute([$workspaceId]);
+                $workspaceInvites = $stmt->fetchAll();
+            }
+        } catch (Exception $e) {}
+
+        $contexts = [];
+        try {
+            $stmt = $db->prepare("SELECT id, workspace_id, owner_id, kind, name, color, active, created_at FROM financial_contexts WHERE workspace_id = ? AND active = true ORDER BY name ASC");
+            $stmt->execute([$workspaceId]);
+            $contexts = $stmt->fetchAll();
+        } catch (Exception $e) {}
+
+        $categoryRules = [];
+        try {
+            $stmt = $db->prepare("SELECT id, pattern, category_id FROM transaction_category_rules WHERE workspace_id = ? ORDER BY created_at DESC");
+            $stmt->execute([$workspaceId]);
+            $categoryRules = $stmt->fetchAll();
+        } catch (Exception $e) {}
+
+        $transactionImportBatches = [];
+        try {
+            $stmt = $db->prepare("SELECT id, account_id, file_name, status, created_at, applied_at, discarded_at
+                FROM transaction_import_batches
+                WHERE workspace_id = ? AND owner_id = ?
+                ORDER BY created_at DESC
+                LIMIT 10");
+            $stmt->execute([$workspaceId, $sessionUser['id']]);
+            $transactionImportBatches = $stmt->fetchAll();
+
+            $itemsStmt = $db->prepare("SELECT id, batch_id, row_number, competence_date, description, amount_cents, type, status, reason, fingerprint, category_id, transaction_id, created_at
+                FROM transaction_import_items
+                WHERE batch_id = ? AND owner_id = ?
+                ORDER BY row_number ASC");
+
+            foreach ($transactionImportBatches as &$batch) {
+                $itemsStmt->execute([$batch['id'], $sessionUser['id']]);
+                $batch['transaction_import_items'] = $itemsStmt->fetchAll();
+            }
+            unset($batch);
+        } catch (Exception $e) {
+            $transactionImportBatches = [];
+        }
 
         $alertPrefs = null;
         try {
@@ -644,10 +807,409 @@ try {
             'payslips' => $payslips,
             'goal_contributions' => $goalContribs,
             'workspace_users' => $workspaceUsers,
+            'workspace_invites' => $workspaceInvites,
+            'contexts' => $contexts,
+            'category_rules' => $categoryRules,
+            'transaction_import_batches' => $transactionImportBatches,
             'alert_preferences' => $alertPrefs,
             'workspace_preferences' => $workspacePrefs,
         ]);
         exit;
+    }
+
+    // 4.0 Relatórios compartilhados: criar snapshot público com expiração
+    if ($uri === '/reports/share' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $name = trim((string)($body['name'] ?? 'Relatório Consolidado'));
+        $ownerId = $sessionUser['id'];
+
+        if (!$workspaceId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'workspace_id é obrigatório.']);
+            exit;
+        }
+
+        requireWorkspaceAccess($db, $ownerId, $workspaceId);
+
+        if ($name === '') $name = 'Relatório Consolidado';
+        if (strlen($name) > 120) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Nome do relatório é muito longo.']);
+            exit;
+        }
+
+        try {
+            $transactionsStmt = $db->prepare("SELECT id, type, amount, competence_date, description
+                FROM transactions
+                WHERE workspace_id = ?
+                  AND type IN ('income', 'expense')
+                ORDER BY competence_date DESC, created_at DESC
+                LIMIT 10000");
+            $transactionsStmt->execute([$workspaceId]);
+            $transactions = $transactionsStmt->fetchAll();
+
+            $token = bin2hex(random_bytes(24));
+            $payload = json_encode([
+                'report' => ['name' => $name],
+                'transactions' => $transactions,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            $stmt = $db->prepare("INSERT INTO shared_reports
+                (token, workspace_id, data, expires_at)
+                VALUES (?, ?, ?::jsonb, NOW() + INTERVAL '7 days')
+                RETURNING token, expires_at");
+            $stmt->execute([$token, $workspaceId, $payload]);
+            $shared = $stmt->fetch();
+
+            echo json_encode([
+                'success' => true,
+                'token' => $shared['token'],
+                'expires_at' => $shared['expires_at'],
+            ]);
+            exit;
+        } catch (Throwable $e) {
+            error_log('Shared report creation failed: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Não foi possível gerar o link compartilhável.']);
+            exit;
+        }
+    }
+
+    // 4.1 Importação de extrato: criar lote e itens de prévia
+    if ($uri === '/imports/preview' && $method === 'POST') {
+        $workspaceId = $body['workspace_id'] ?? null;
+        $accountId = $body['account_id'] ?? null;
+        $fileName = trim($body['file_name'] ?? '');
+        $items = $body['items'] ?? null;
+        $ownerId = $sessionUser['id'];
+
+        if (!$workspaceId || !$accountId || $fileName === '' || !is_array($items) || count($items) === 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'workspace_id, account_id, file_name e items são obrigatórios.']);
+            exit;
+        }
+
+        if (strlen($fileName) > 255 || count($items) > 5000) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Arquivo ou lote de importação excede o limite permitido.']);
+            exit;
+        }
+
+        if (requireResourceWorkspaceAccess($db, $sessionUser['id'], 'accounts', $accountId) !== $workspaceId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'A conta não pertence ao espaço financeiro informado.']);
+            exit;
+        }
+
+        $validatedItems = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Item de importação inválido.']);
+                exit;
+            }
+
+            $rowNumber = (int)($item['row_number'] ?? 0);
+            $status = $item['status'] ?? '';
+            $competenceDate = $item['competence_date'] ?? null;
+            $description = isset($item['description']) ? trim((string)$item['description']) : null;
+            $amountCents = isset($item['amount_cents']) ? (int)$item['amount_cents'] : null;
+            $type = $item['type'] ?? null;
+            $reason = isset($item['reason']) ? trim((string)$item['reason']) : null;
+            $fingerprint = isset($item['fingerprint']) ? trim((string)$item['fingerprint']) : null;
+            $categoryId = $item['category_id'] ?? null;
+
+            if ($rowNumber <= 0 || !in_array($status, ['ready', 'duplicate', 'invalid'], true)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Linha ou status de importação inválido.']);
+                exit;
+            }
+
+            if ($status === 'invalid') {
+                if (!$reason) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Itens inválidos precisam informar o motivo.']);
+                    exit;
+                }
+                $competenceDate = null;
+                $description = null;
+                $amountCents = null;
+                $type = null;
+                $fingerprint = null;
+                $categoryId = null;
+            } else {
+                if (!$competenceDate || !$description || strlen($description) > 160 || !$amountCents || $amountCents <= 0
+                    || !in_array($type, ['income', 'expense'], true) || !$fingerprint) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Item pronto/duplicado está incompleto.']);
+                    exit;
+                }
+
+                if ($categoryId && requireResourceWorkspaceAccess($db, $sessionUser['id'], 'categories', $categoryId) !== $workspaceId) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'A categoria não pertence ao mesmo espaço financeiro.']);
+                    exit;
+                }
+            }
+
+            $validatedItems[] = [
+                'row_number' => $rowNumber,
+                'competence_date' => $competenceDate,
+                'description' => $description,
+                'amount_cents' => $amountCents,
+                'type' => $type,
+                'status' => $status,
+                'reason' => $reason,
+                'fingerprint' => $fingerprint,
+                'category_id' => $categoryId,
+            ];
+        }
+
+        try {
+            $db->beginTransaction();
+
+            $stmt = $db->prepare("INSERT INTO transaction_import_batches
+                (workspace_id, owner_id, account_id, file_name, status)
+                VALUES (?, ?, ?, ?, 'pending')
+                RETURNING id, workspace_id, owner_id, account_id, file_name, status, created_at, applied_at, discarded_at");
+            $stmt->execute([$workspaceId, $ownerId, $accountId, $fileName]);
+            $batch = $stmt->fetch();
+
+            $itemStmt = $db->prepare("INSERT INTO transaction_import_items
+                (batch_id, workspace_id, owner_id, row_number, competence_date, description, amount_cents, type, status, reason, fingerprint, category_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                RETURNING id, row_number, competence_date, description, amount_cents, type, status, reason, fingerprint, category_id, transaction_id, created_at");
+
+            $savedItems = [];
+            foreach ($validatedItems as $item) {
+                $itemStmt->execute([
+                    $batch['id'],
+                    $workspaceId,
+                    $ownerId,
+                    $item['row_number'],
+                    $item['competence_date'],
+                    $item['description'],
+                    $item['amount_cents'],
+                    $item['type'],
+                    $item['status'],
+                    $item['reason'],
+                    $item['fingerprint'],
+                    $item['category_id'],
+                ]);
+                $savedItems[] = $itemStmt->fetch();
+            }
+
+            $db->commit();
+            $batch['transaction_import_items'] = $savedItems;
+
+            echo json_encode(['success' => true, 'batch' => $batch]);
+            exit;
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            error_log('Statement import preview failed: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Não foi possível criar a prévia da importação.']);
+            exit;
+        }
+    }
+
+    // 4.2 Importação de extrato: confirmar lote pendente
+    if ($method === 'POST' && preg_match('#^/imports/([0-9a-fA-F-]{36})/apply$#', $uri, $matches)) {
+        $batchId = $matches[1];
+        $ownerId = $sessionUser['id'];
+
+        try {
+            $db->beginTransaction();
+
+            $stmt = $db->prepare("SELECT id, workspace_id, owner_id, account_id, file_name, status
+                FROM transaction_import_batches
+                WHERE id = ? AND owner_id = ?
+                FOR UPDATE");
+            $stmt->execute([$batchId, $ownerId]);
+            $batch = $stmt->fetch();
+
+            if (!$batch) {
+                $db->rollBack();
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Lote de importação não encontrado.']);
+                exit;
+            }
+
+            requireWorkspaceAccess($db, $ownerId, $batch['workspace_id']);
+
+            if ($batch['status'] === 'discarded') {
+                $db->rollBack();
+                http_response_code(409);
+                echo json_encode(['success' => false, 'error' => 'Lote de importação já foi descartado.']);
+                exit;
+            }
+
+            if ($batch['status'] === 'applied') {
+                $idsStmt = $db->prepare("SELECT transaction_id
+                    FROM transaction_import_items
+                    WHERE batch_id = ? AND transaction_id IS NOT NULL
+                    ORDER BY row_number");
+                $idsStmt->execute([$batchId]);
+                $transactionIds = array_values(array_filter(array_column($idsStmt->fetchAll(), 'transaction_id')));
+                $db->commit();
+                echo json_encode(['success' => true, 'already_applied' => true, 'transaction_ids' => $transactionIds]);
+                exit;
+            }
+
+            $itemsStmt = $db->prepare("SELECT id, row_number, competence_date, description, amount_cents, type, status, reason, fingerprint, category_id, transaction_id
+                FROM transaction_import_items
+                WHERE batch_id = ? AND owner_id = ?
+                ORDER BY row_number
+                FOR UPDATE");
+            $itemsStmt->execute([$batchId, $ownerId]);
+            $items = $itemsStmt->fetchAll();
+
+            $seenFingerprints = [];
+            $transactionIds = [];
+
+            $findExisting = $db->prepare("SELECT id
+                FROM transactions
+                WHERE workspace_id = ?
+                  AND owner_id = ?
+                  AND account_id = ?
+                  AND type = ?
+                  AND status = 'paid'
+                  AND competence_date = ?
+                  AND amount = ?
+                  AND LOWER(TRIM(description)) = LOWER(TRIM(?))
+                ORDER BY created_at ASC
+                LIMIT 1");
+
+            $insertTransaction = $db->prepare("INSERT INTO transactions
+                (workspace_id, owner_id, account_id, category_id, type, status, description, amount, competence_date, paid_at, notes)
+                VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, ?)
+                RETURNING id");
+
+            $markDuplicate = $db->prepare("UPDATE transaction_import_items
+                SET status = 'duplicate', reason = ?, transaction_id = NULL
+                WHERE id = ? AND batch_id = ?");
+
+            $markAppliedItem = $db->prepare("UPDATE transaction_import_items
+                SET transaction_id = ?
+                WHERE id = ? AND batch_id = ? AND status = 'ready'");
+
+            foreach ($items as $item) {
+                if ($item['status'] !== 'ready') continue;
+
+                $fingerprint = trim((string)($item['fingerprint'] ?? ''));
+                if ($fingerprint !== '' && isset($seenFingerprints[$fingerprint])) {
+                    $markDuplicate->execute(['duplicate_file', $item['id'], $batchId]);
+                    continue;
+                }
+                if ($fingerprint !== '') $seenFingerprints[$fingerprint] = true;
+
+                $amount = ((int)$item['amount_cents']) / 100;
+                $findExisting->execute([
+                    $batch['workspace_id'],
+                    $ownerId,
+                    $batch['account_id'],
+                    $item['type'],
+                    $item['competence_date'],
+                    $amount,
+                    $item['description'],
+                ]);
+                $existingId = $findExisting->fetchColumn();
+
+                if ($existingId) {
+                    $markDuplicate->execute(['duplicate_existing', $item['id'], $batchId]);
+                    continue;
+                }
+
+                $insertTransaction->execute([
+                    $batch['workspace_id'],
+                    $ownerId,
+                    $batch['account_id'],
+                    $item['category_id'],
+                    $item['type'],
+                    trim((string)$item['description']),
+                    $amount,
+                    $item['competence_date'],
+                    $item['competence_date'],
+                    'Importado do lote de extrato ' . $batchId,
+                ]);
+                $transactionId = $insertTransaction->fetchColumn();
+                $markAppliedItem->execute([$transactionId, $item['id'], $batchId]);
+                $transactionIds[] = $transactionId;
+            }
+
+            $finish = $db->prepare("UPDATE transaction_import_batches
+                SET status = 'applied', applied_at = NOW(), discarded_at = NULL
+                WHERE id = ? AND owner_id = ? AND status = 'pending'");
+            $finish->execute([$batchId, $ownerId]);
+
+            $db->commit();
+            echo json_encode(['success' => true, 'transaction_ids' => $transactionIds]);
+            exit;
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            error_log('Statement import apply failed: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Não foi possível confirmar a importação.']);
+            exit;
+        }
+    }
+
+    // 4.3 Importação de extrato: descartar lote pendente
+    if ($method === 'POST' && preg_match('#^/imports/([0-9a-fA-F-]{36})/discard$#', $uri, $matches)) {
+        $batchId = $matches[1];
+        $ownerId = $sessionUser['id'];
+
+        try {
+            $db->beginTransaction();
+
+            $stmt = $db->prepare("SELECT id, workspace_id, owner_id, status
+                FROM transaction_import_batches
+                WHERE id = ? AND owner_id = ?
+                FOR UPDATE");
+            $stmt->execute([$batchId, $ownerId]);
+            $batch = $stmt->fetch();
+
+            if (!$batch) {
+                $db->rollBack();
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Lote de importação não encontrado.']);
+                exit;
+            }
+
+            requireWorkspaceAccess($db, $ownerId, $batch['workspace_id']);
+
+            if ($batch['status'] === 'discarded') {
+                $db->commit();
+                echo json_encode(['success' => true, 'already_discarded' => true]);
+                exit;
+            }
+
+            if ($batch['status'] !== 'pending') {
+                $db->rollBack();
+                http_response_code(409);
+                echo json_encode(['success' => false, 'error' => 'Somente lotes pendentes podem ser descartados.']);
+                exit;
+            }
+
+            $deleteItems = $db->prepare("DELETE FROM transaction_import_items
+                WHERE batch_id = ? AND workspace_id = ? AND owner_id = ?");
+            $deleteItems->execute([$batchId, $batch['workspace_id'], $ownerId]);
+
+            $discard = $db->prepare("UPDATE transaction_import_batches
+                SET status = 'discarded', discarded_at = NOW(), applied_at = NULL
+                WHERE id = ? AND workspace_id = ? AND owner_id = ? AND status = 'pending'");
+            $discard->execute([$batchId, $batch['workspace_id'], $ownerId]);
+
+            $db->commit();
+            echo json_encode(['success' => true]);
+            exit;
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            error_log('Statement import discard failed: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Não foi possível descartar a importação.']);
+            exit;
+        }
     }
 
     // 5. Data: Create Transaction
@@ -661,6 +1223,7 @@ try {
         $accountId = $body['account_id'] ?? null;
         $destinationAccountId = $body['destination_account_id'] ?? null;
         $categoryId = $body['category_id'] ?? null;
+        $contextId = $body['context_id'] ?? null;
         $interestAmount = (float)($body['interest_amount'] ?? 0);
         $status = $body['status'] ?? 'paid';
 
@@ -698,6 +1261,11 @@ try {
             echo json_encode(['error' => 'A categoria não pertence ao mesmo espaço financeiro.']);
             exit;
         }
+        if ($contextId && requireResourceWorkspaceAccess($db, $sessionUser['id'], 'financial_contexts', $contextId) !== $workspaceId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'O contexto financeiro não pertence ao mesmo espaço financeiro.']);
+            exit;
+        }
 
         $installments = max(1, (int)($body['installments'] ?? 1));
 
@@ -717,9 +1285,9 @@ try {
                 $curDesc = $description . " ($i/$installments)";
 
                 $stmt = $db->prepare("INSERT INTO transactions 
-                    (workspace_id, owner_id, account_id, destination_account_id, category_id, type, description, amount, interest_amount, competence_date, paid_at, status, installment_current, installment_total)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *");
-                $stmt->execute([$workspaceId, $ownerId, $accountId, $destinationAccountId, $categoryId, $type, $curDesc, $curAmount, $interestAmount, $compDateStr, $compDateStr, $status, $i, $installments]);
+                    (workspace_id, owner_id, account_id, destination_account_id, category_id, context_id, type, description, amount, interest_amount, competence_date, paid_at, status, installment_current, installment_total)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *");
+                $stmt->execute([$workspaceId, $ownerId, $accountId, $destinationAccountId, $categoryId, $contextId, $type, $curDesc, $curAmount, $interestAmount, $compDateStr, $compDateStr, $status, $i, $installments]);
                 $inserted[] = $stmt->fetch();
             }
 
@@ -728,9 +1296,9 @@ try {
         }
 
         $stmt = $db->prepare("INSERT INTO transactions 
-            (workspace_id, owner_id, account_id, destination_account_id, category_id, type, description, amount, interest_amount, competence_date, paid_at, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *");
-        $stmt->execute([$workspaceId, $ownerId, $accountId, $destinationAccountId, $categoryId, $type, $description, $amount, $interestAmount, $competenceDate, $competenceDate, $status]);
+            (workspace_id, owner_id, account_id, destination_account_id, category_id, context_id, type, description, amount, interest_amount, competence_date, paid_at, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $accountId, $destinationAccountId, $categoryId, $contextId, $type, $description, $amount, $interestAmount, $competenceDate, $competenceDate, $status]);
         $tx = $stmt->fetch();
 
         echo json_encode(['success' => true, 'transaction' => $tx]);
@@ -1429,135 +1997,6 @@ try {
         exit;
     }
 
-    // 15. Data: Patient Earnings & Receive
-    if ($uri === '/patient-earnings' && $method === 'POST') {
-        $workspaceId = $body['workspace_id'] ?? null;
-        $ownerId = $body['owner_id'] ?? null;
-        $patientId = $body['patient_id'] ?? null;
-        $amount = (float)($body['amount'] ?? 0);
-        $appointmentDate = $body['appointment_date'] ?? date('Y-m-d');
-        $dueDate = $body['due_date'] ?? $appointmentDate;
-        $notes = $body['notes'] ?? null;
-
-        if (!$workspaceId || !$patientId || $amount <= 0) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Paciente e valor válido são obrigatórios']);
-            exit;
-        }
-
-        if (!$ownerId) {
-            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
-            $stmt->execute([$workspaceId]);
-            $ownerId = $stmt->fetchColumn();
-        }
-
-        $stmt = $db->prepare("INSERT INTO patient_earnings (workspace_id, owner_id, patient_id, amount, appointment_date, due_date, status, notes) 
-            VALUES (?, ?, ?, ?, ?, ?, 'pending', ?) RETURNING *");
-        $stmt->execute([$workspaceId, $ownerId, $patientId, $amount, $appointmentDate, $dueDate, $notes]);
-        $earning = $stmt->fetch();
-
-        echo json_encode(['success' => true, 'earning' => $earning]);
-        exit;
-    }
-
-    if ($uri === '/patient-earnings/receive' && $method === 'POST') {
-        $earningId = $body['earning_id'] ?? null;
-        $accountId = $body['account_id'] ?? null;
-        $receivedDate = $body['received_date'] ?? date('Y-m-d');
-
-        if (!$earningId || !$accountId) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Atendimento e conta são obrigatórios']);
-            exit;
-        }
-
-        $stmt = $db->prepare("SELECT e.*, p.name as patient_name FROM patient_earnings e JOIN patients p ON p.id = e.patient_id WHERE e.id = ?");
-        $stmt->execute([$earningId]);
-        $earning = $stmt->fetch();
-
-        if (!$earning) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Atendimento não encontrado']);
-            exit;
-        }
-        requireWorkspaceAccess($db, $sessionUser['id'], (string)$earning['workspace_id']);
-        $accountWorkspaceId = requireResourceWorkspaceAccess($db, $sessionUser['id'], 'accounts', $accountId);
-        if ($accountWorkspaceId !== (string)$earning['workspace_id']) {
-            http_response_code(400);
-            echo json_encode(['error' => 'A conta de recebimento não pertence ao mesmo espaço financeiro.']);
-            exit;
-        }
-
-        if ($earning['status'] === 'received') {
-            echo json_encode(['success' => true, 'already_received' => true, 'transaction_id' => $earning['transaction_id']]);
-            exit;
-        }
-
-        $stmtTx = $db->prepare("INSERT INTO transactions 
-            (workspace_id, owner_id, account_id, type, description, amount, interest_amount, competence_date, paid_at, status) 
-            VALUES (?, ?, ?, 'income', ?, ?, 0, ?, ?, 'paid') RETURNING id");
-        $stmtTx->execute([
-            $earning['workspace_id'],
-            $earning['owner_id'],
-            $accountId,
-            'Recebimento de paciente - ' . $earning['patient_name'],
-            $earning['amount'],
-            $receivedDate,
-            $receivedDate
-        ]);
-        $txId = $stmtTx->fetchColumn();
-
-        $stmtUp = $db->prepare("UPDATE patient_earnings SET status = 'received', transaction_id = ? WHERE id = ?");
-        $stmtUp->execute([$txId, $earningId]);
-
-        echo json_encode(['success' => true, 'transaction_id' => $txId]);
-        exit;
-    }
-
-    // 16. Data: Payslips (Holerites)
-    if ($uri === '/payslips' && $method === 'POST') {
-        $workspaceId = $body['workspace_id'] ?? null;
-        $ownerId = $body['owner_id'] ?? null;
-        $employer = trim($body['employer'] ?? '');
-        $competence = $body['competence'] ?? date('Y-m-01');
-        $grossAmount = (float)($body['gross_amount'] ?? 0);
-        $discountsAmount = (float)($body['discounts_amount'] ?? 0);
-        $netAmount = (float)($body['net_amount'] ?? ($grossAmount - $discountsAmount));
-        $receivedDate = $body['received_date'] ?? null;
-        $accountId = $body['account_id'] ?? null;
-        $notes = $body['notes'] ?? null;
-
-        if (!$workspaceId || empty($employer) || $netAmount < 0) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Empregador e valor líquido válido são obrigatórios']);
-            exit;
-        }
-
-        if (!$ownerId) {
-            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
-            $stmt->execute([$workspaceId]);
-            $ownerId = $stmt->fetchColumn();
-        }
-
-        $txId = null;
-        if ($accountId && $receivedDate && $netAmount > 0) {
-            $stmtTx = $db->prepare("INSERT INTO transactions 
-                (workspace_id, owner_id, account_id, type, description, amount, interest_amount, competence_date, paid_at, status) 
-                VALUES (?, ?, ?, 'income', ?, ?, 0, ?, ?, 'paid') RETURNING id");
-            $stmtTx->execute([$workspaceId, $ownerId, $accountId, 'Contracheque ' . $employer, $netAmount, $receivedDate, $receivedDate]);
-            $txId = $stmtTx->fetchColumn();
-        }
-
-        $stmt = $db->prepare("INSERT INTO payslips 
-            (workspace_id, owner_id, employer, competence, gross_amount, discounts_amount, net_amount, received_date, transaction_id, notes) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *");
-        $stmt->execute([$workspaceId, $ownerId, $employer, $competence, $grossAmount, $discountsAmount, $netAmount, $receivedDate, $txId, $notes]);
-        $payslip = $stmt->fetch();
-
-        echo json_encode(['success' => true, 'payslip' => $payslip, 'transaction_id' => $txId]);
-        exit;
-    }
-
     // Helper: Market Quotes (Yahoo Finance + BACEN)
     function fetchMarketQuote($ticker) {
         $symbol = strtoupper(trim($ticker));
@@ -1792,6 +2231,13 @@ try {
         $type = $body['type'] ?? 'stock';
         $isShared = !empty($body['is_shared']) ? true : false;
 
+        if (!in_array($type, ['stock','reit','fund','cdb','treasury','crypto','fixed_income','real_estate'], true)
+            || strlen($ticker) > 30 || strlen($broker) > 100 || strlen($name) > 100) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Dados do ativo inválidos.']);
+            exit;
+        }
+
         if (!$workspaceId || empty($name)) {
             http_response_code(400);
             echo json_encode(['error' => 'Nome do ativo é obrigatório']);
@@ -1829,11 +2275,27 @@ try {
         $assetId = $body['asset_id'] ?? null;
         $accountId = $body['account_id'] ?? null;
         $opType = $body['operation_type'] ?? $body['type'] ?? 'buy';
-        $quantity = (float)($body['quantity'] ?? 0);
-        $unitPrice = (float)($body['unit_price'] ?? 0);
-        $opDate = $body['operation_date'] ?? date('Y-m-d');
+        if (!is_numeric($body['quantity'] ?? null) || !is_numeric($body['unit_price'] ?? null)
+            || !is_finite((float)$body['quantity']) || !is_finite((float)$body['unit_price'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Quantidade e preço devem ser numéricos.']);
+            exit;
+        }
+        $quantity = (float)$body['quantity'];
+        $unitPrice = (float)$body['unit_price'];
+        if ($quantity > 99999999.999999 || $unitPrice > 9999999999.9999 || $quantity * $unitPrice > 999999999999.99) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Valor da operação excede o limite permitido.']);
+            exit;
+        }
+        $opDate = earningsDate($body['operation_date'] ?? date('Y-m-d'));
         $notes = $body['notes'] ?? null;
 
+        if (!in_array($opType, ['buy', 'sell', 'dividend', 'yield'], true)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Tipo de operação inválido.']);
+            exit;
+        }
         if (!$workspaceId || !$assetId || $quantity <= 0 || $unitPrice <= 0) {
             http_response_code(400);
             echo json_encode(['error' => 'Ativo, quantidade e preço válidos são obrigatórios']);
@@ -1860,9 +2322,10 @@ try {
             exit;
         }
 
-        $stmt = $db->prepare("INSERT INTO investment_operations (workspace_id, owner_id, asset_id, operation_type, quantity, unit_price, operation_date) 
-            VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *");
-        $stmt->execute([$workspaceId, $ownerId, $assetId, $opType, $quantity, $unitPrice, $opDate]);
+        $receipt = beginIdempotentMutation($db, $sessionUser['id'], $uri, $body);
+        $stmt = $db->prepare("INSERT INTO investment_operations (workspace_id, owner_id, asset_id, operation_type, quantity, unit_price, operation_date, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *");
+        $stmt->execute([$workspaceId, $ownerId, $assetId, $opType, $quantity, $unitPrice, $opDate, $notes]);
         $operation = $stmt->fetch();
 
         $txId = null;
@@ -1875,9 +2338,11 @@ try {
                 VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, 'paid') RETURNING id");
             $stmtTx->execute([$workspaceId, $ownerId, $accountId, $txType, $desc, $totalAmount, $opDate, $opDate]);
             $txId = $stmtTx->fetchColumn();
+            $db->prepare('UPDATE investment_operations SET transaction_id = ? WHERE id = ?')->execute([$txId, $operation['id']]);
+            $operation['transaction_id'] = $txId;
         }
 
-        echo json_encode(['success' => true, 'operation' => $operation, 'transaction_id' => $txId]);
+        commitIdempotentMutation($db, $receipt, ['success' => true, 'operation' => $operation, 'transaction_id' => $txId]);
         exit;
     }
 
@@ -1885,8 +2350,8 @@ try {
         $workspaceId = $body['workspace_id'] ?? null;
         $ownerId = $body['owner_id'] ?? null;
         $assetId = $body['asset_id'] ?? null;
-        $unitPrice = (float)($body['unit_price'] ?? 0);
-        $quoteDate = $body['quote_date'] ?? date('Y-m-d');
+        $unitPrice = earningsAmount($body['unit_price'] ?? null);
+        $quoteDate = earningsDate($body['quote_date'] ?? date('Y-m-d'));
 
         if (!$workspaceId || !$assetId || $unitPrice <= 0) {
             http_response_code(400);
@@ -1898,6 +2363,14 @@ try {
             $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
             $stmt->execute([$workspaceId]);
             $ownerId = $stmt->fetchColumn();
+        }
+
+        $assetCheck = $db->prepare('SELECT id FROM investment_assets WHERE id = ? AND workspace_id = ?');
+        $assetCheck->execute([$assetId, $workspaceId]);
+        if (!$assetCheck->fetchColumn()) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Ativo não encontrado neste espaço financeiro.']);
+            exit;
         }
 
         $stmt = $db->prepare("INSERT INTO investment_quotes (workspace_id, owner_id, asset_id, unit_price, quote_date) 
@@ -2107,7 +2580,7 @@ try {
     // 20. Data: Preferences & Invites
     if ($uri === '/preferences' && $method === 'POST') {
         $workspaceId = $body['workspace_id'] ?? null;
-        $ownerId = $body['owner_id'] ?? null;
+        $ownerId = $sessionUser['id'];
 
         if (!$workspaceId) {
             http_response_code(400);
@@ -2115,38 +2588,154 @@ try {
             exit;
         }
 
-        if (!$ownerId) {
-            $stmt = $db->prepare("SELECT owner_id FROM workspaces WHERE id = ?");
-            $stmt->execute([$workspaceId]);
-            $ownerId = $stmt->fetchColumn();
-        }
-
-        if (isset($body['alert_preferences'])) {
+        if (isset($body['alert_preferences']) && is_array($body['alert_preferences'])) {
             $ap = $body['alert_preferences'];
-            $interest = !empty($ap['interest_alerts']) ? 'true' : 'false';
-            $closing = !empty($ap['invoice_closing_alerts']) ? 'true' : 'false';
-            $subs = !empty($ap['subscription_alerts']) ? 'true' : 'false';
+            $db->prepare("INSERT INTO alert_preferences (workspace_id, owner_id)
+                VALUES (?, ?)
+                ON CONFLICT (workspace_id, owner_id) DO NOTHING")
+                ->execute([$workspaceId, $ownerId]);
 
-            $stmt = $db->prepare("INSERT INTO alert_preferences (workspace_id, owner_id, interest_alerts, invoice_closing_alerts, subscription_alerts) 
-                VALUES (?, ?, ?, ?, ?) 
-                ON CONFLICT (workspace_id, owner_id) DO UPDATE SET 
-                    interest_alerts = EXCLUDED.interest_alerts, 
-                    invoice_closing_alerts = EXCLUDED.invoice_closing_alerts, 
-                    subscription_alerts = EXCLUDED.subscription_alerts");
-            $stmt->execute([$workspaceId, $ownerId, $interest, $closing, $subs]);
+            $alertColumns = [
+                'budget_alerts',
+                'goal_alerts',
+                'fixed_commitment_alerts',
+                'credit_card_alerts',
+                'low_balance_alerts',
+                'weekly_digest',
+                'budget_warning_percent',
+                'low_balance_amount',
+                'weekly_digest_day',
+                'interest_alerts',
+                'invoice_closing_alerts',
+                'subscription_alerts',
+            ];
+            $sets = [];
+            $values = [];
+            foreach ($alertColumns as $column) {
+                if (!array_key_exists($column, $ap)) continue;
+                $value = $ap[$column];
+                if (in_array($column, [
+                    'budget_alerts',
+                    'goal_alerts',
+                    'fixed_commitment_alerts',
+                    'credit_card_alerts',
+                    'low_balance_alerts',
+                    'weekly_digest',
+                    'interest_alerts',
+                    'invoice_closing_alerts',
+                    'subscription_alerts',
+                ], true)) {
+                    $value = !empty($value);
+                }
+                if ($column === 'budget_warning_percent') {
+                    $value = max(1, min(100, (int)$value));
+                } elseif ($column === 'weekly_digest_day') {
+                    $value = max(0, min(6, (int)$value));
+                } elseif ($column === 'low_balance_amount') {
+                    $value = max(0, (float)$value);
+                }
+                $sets[] = "{$column} = ?";
+                $values[] = $value;
+            }
+            if ($sets) {
+                $values[] = $workspaceId;
+                $values[] = $ownerId;
+                $stmt = $db->prepare(
+                    "UPDATE alert_preferences SET " . implode(', ', $sets) .
+                    " WHERE workspace_id = ? AND owner_id = ?"
+                );
+                $stmt->execute($values);
+            }
         }
 
-        if (isset($body['workspace_preferences'])) {
+        if (isset($body['workspace_preferences']) && is_array($body['workspace_preferences'])) {
             $wp = $body['workspace_preferences'];
-            $cashAcc = !empty($wp['default_cash_account_id']) ? $wp['default_cash_account_id'] : null;
-            $color = !empty($wp['primary_color']) ? $wp['primary_color'] : null;
 
-            $stmt = $db->prepare("INSERT INTO workspace_preferences (workspace_id, owner_id, default_cash_account_id, primary_color) 
-                VALUES (?, ?, ?, ?) 
-                ON CONFLICT (workspace_id, owner_id) DO UPDATE SET 
-                    default_cash_account_id = COALESCE(EXCLUDED.default_cash_account_id, workspace_preferences.default_cash_account_id), 
-                    primary_color = COALESCE(EXCLUDED.primary_color, workspace_preferences.primary_color)");
-            $stmt->execute([$workspaceId, $ownerId, $cashAcc, $color]);
+            foreach ([
+                'default_cash_account_id' => 'accounts',
+                'default_context_id' => 'financial_contexts',
+                'default_category_id' => 'categories',
+            ] as $field => $table) {
+                $resourceId = $wp[$field] ?? null;
+                if ($resourceId && requireResourceWorkspaceAccess(
+                    $db,
+                    $sessionUser['id'],
+                    $table,
+                    (string)$resourceId
+                ) !== $workspaceId) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Preferência referencia recurso de outro espaço financeiro.']);
+                    exit;
+                }
+            }
+
+            if (isset($wp['default_period']) && !in_array(
+                $wp['default_period'],
+                ['current_month', 'last_month', 'current_year', 'all_time'],
+                true
+            )) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Período padrão inválido.']);
+                exit;
+            }
+
+            foreach (['personal_color', 'clinic_color', 'primary_color'] as $colorField) {
+                if (!empty($wp[$colorField]) && !preg_match('/^#[0-9a-fA-F]{6}$/', (string)$wp[$colorField])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Cor de preferência inválida.']);
+                    exit;
+                }
+            }
+
+            $db->prepare("INSERT INTO workspace_preferences (workspace_id, owner_id)
+                VALUES (?, ?)
+                ON CONFLICT (workspace_id, owner_id) DO NOTHING")
+                ->execute([$workspaceId, $ownerId]);
+
+            $preferenceColumns = [
+                'default_cash_account_id',
+                'primary_color',
+                'default_context_id',
+                'default_period',
+                'hide_values',
+                'compact_mode',
+                'personal_color',
+                'clinic_color',
+                'default_category_id',
+                'default_appointment_value',
+                'default_billing_deadline_days',
+                'alert_overdue_earnings',
+                'alert_stale_quotes',
+            ];
+            $sets = [];
+            $values = [];
+            foreach ($preferenceColumns as $column) {
+                if (!array_key_exists($column, $wp)) continue;
+                $value = $wp[$column];
+                if (in_array($column, [
+                    'hide_values',
+                    'compact_mode',
+                    'alert_overdue_earnings',
+                    'alert_stale_quotes',
+                ], true)) {
+                    $value = !empty($value);
+                } elseif ($column === 'default_appointment_value') {
+                    $value = max(0, (float)$value);
+                } elseif ($column === 'default_billing_deadline_days') {
+                    $value = max(1, min(365, (int)$value));
+                }
+                $sets[] = "{$column} = ?";
+                $values[] = $value === '' ? null : $value;
+            }
+            if ($sets) {
+                $values[] = $workspaceId;
+                $values[] = $ownerId;
+                $stmt = $db->prepare(
+                    "UPDATE workspace_preferences SET " . implode(', ', $sets) .
+                    " WHERE workspace_id = ? AND owner_id = ?"
+                );
+                $stmt->execute($values);
+            }
         }
 
         echo json_encode(['success' => true]);
@@ -2156,11 +2745,21 @@ try {
     if ($uri === '/invites' && $method === 'POST') {
         $workspaceId = $body['workspace_id'] ?? null;
         $role = $body['role'] ?? 'editor';
-        $token = $body['token'] ?? bin2hex(random_bytes(16));
+        $token = bin2hex(random_bytes(24));
 
         if (!$workspaceId) {
             http_response_code(400);
             echo json_encode(['error' => 'workspace_id é obrigatório']);
+            exit;
+        }
+        if (!canManageWorkspace($db, $sessionUser['id'], $workspaceId)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Somente gestores podem administrar convites.']);
+            exit;
+        }
+        if (!in_array($role, ['admin', 'editor', 'viewer'], true)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Perfil do convite inválido.']);
             exit;
         }
 
@@ -2176,6 +2775,7 @@ try {
     echo json_encode(['error' => 'Rota não encontrada']);
 
 } catch (Throwable $e) {
+    if (isset($db) && $db->inTransaction()) $db->rollBack();
     error_log('BS Financeiro API error: ' . $e->getMessage());
     http_response_code(500);
     echo json_encode(['error' => 'Ocorreu um erro interno. Tente novamente.']);
